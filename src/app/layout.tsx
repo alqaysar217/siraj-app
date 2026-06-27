@@ -4,11 +4,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseProvider } from "@/firebase/provider";
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://siraj-app.vercel.app'),
   title: 'سراج | منصة سراج التعليمية',
   description: 'منصة تعليمية يمنية متقدمة لتعلم مهارات المستقبل برؤية عصرية وبسيطة.',
   manifest: '/manifest.json',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
+    ],
     shortcut: '/favicon-96x96.png',
     apple: '/apple-touch-icon.png',
   },
@@ -20,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'منصة سراج التعليمية',
     description: 'اكتسب مهارات الغد مع خبراء الصناعة في بيئة تعليمية فاخرة وحديثة.',
-    url: 'https://sira.vercel.app',
+    url: 'https://siraj-app.vercel.app',
     siteName: 'سراج',
     images: [
       {
