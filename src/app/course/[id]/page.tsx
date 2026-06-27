@@ -22,6 +22,7 @@ import {
   XCircle,
   RotateCcw,
   ChevronLeft,
+  ChevronRight,
   Users,
   Star,
   Award,
@@ -38,7 +39,9 @@ import {
   Building2,
   Check,
   X,
-  Share2
+  Share2,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { doc, collection, query, orderBy, updateDoc, arrayUnion, addDoc, serverTimestamp, where } from "firebase/firestore";
@@ -539,10 +542,23 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 )}
                 <div className="space-y-4">
                   <div className="flex gap-4 w-full">
-                    <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
-                      {!isEnrolled && currentLessonIndex === 0 ? "اشترك لفتح البقية" : "الدرس التالي"}
+                    <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
+                      {!isEnrolled && currentLessonIndex === 0 ? (
+                        <>
+                          <Lock className="w-5 h-5" />
+                          <span>اشترك لفتح البقية</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>الدرس التالي</span>
+                          <ArrowLeft className="w-5 h-5" />
+                        </>
+                      )}
                     </Button>
-                    <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg">السابق</Button>
+                    <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg gap-2">
+                       <ArrowRight className="w-5 h-5" />
+                       <span>السابق</span>
+                    </Button>
                   </div>
                   <Sheet open={isCurriculumOpen} onOpenChange={setIsCurriculumOpen}>
                     <SheetTrigger asChild><Button variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> المنهج الدراسي</Button></SheetTrigger>
