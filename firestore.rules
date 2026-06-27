@@ -17,10 +17,7 @@ service cloud.firestore {
     // --- قواعد مجموعات المستخدمين ---
 
     match /users/{userId} {
-      // 1. السماح بالقراءة فقط للمسجلين
-      // - صاحب الحساب يقرأ ملفه كاملاً
-      // - المدير يقرأ كافة الملفات
-      // - الطالب المسجل يقرأ فقط الملفات التي وافق أصحابها على الظهور في اللوحة
+      // السماح بالقراءة فقط للمسجلين أو المدير
       allow read: if isLoggedIn() && (
         request.auth.uid == userId || 
         isAdmin() || 
@@ -31,11 +28,11 @@ service cloud.firestore {
       allow create: if isLoggedIn() && request.auth.uid == userId 
                     && request.resource.data.get('role', 'student') == 'student';
       
-      // التحديث: منع الطلاب من تعديل الحقول الحساسة
+      // التحديث: السماح للطالب بتحديث نقاطه وتقدمه وإعدادات الظهور، ومنع تعديل الحقول الإدارية
       allow update: if isAdmin() 
                   || (isLoggedIn() && request.auth.uid == userId 
                       && !(request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status', 'email'])));
+                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'status', 'email'])));
       
       // الحذف: للمدير فقط
       allow delete: if isAdmin();

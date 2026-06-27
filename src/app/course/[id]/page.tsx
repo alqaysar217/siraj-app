@@ -21,8 +21,6 @@ import {
   CheckCircle2,
   XCircle,
   RotateCcw,
-  ChevronLeft,
-  ChevronRight,
   Users,
   Star,
   Award,
@@ -41,7 +39,8 @@ import {
   X,
   Share2,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  ChevronLeft
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { doc, collection, query, orderBy, updateDoc, arrayUnion, addDoc, serverTimestamp, where } from "firebase/firestore";
@@ -274,8 +273,8 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         onClick={next} 
         className="w-full h-14 md:h-16 bg-primary text-white rounded-2xl text-lg md:text-xl font-black shadow-xl shadow-primary/10 transition-transform active:scale-95"
       >
+        <ChevronLeft className="ml-3 w-5 h-5 md:w-6 md:h-6" />
         {currentStep === quizData.length - 1 ? "إنهاء واستعراض النتيجة" : "تأكيد الإجابة والانتقال"}
-        <ChevronLeft className="mr-3 w-5 h-5 md:w-6 md:h-6" />
       </Button>
     </div>
   );
@@ -399,15 +398,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     const updates: any = {};
     if (!userProgress.completedLessons?.includes(currentLesson.id)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(currentLesson.id);
+      updates[`points`] = (profile?.points || 0) + 10;
       updates[`progress.${id}.points`] = (userProgress.points || 0) + 10;
     }
     if (score !== undefined && !userProgress.quizScores?.[currentLesson.id]) {
       updates[`progress.${id}.quizScores.${currentLesson.id}`] = score;
+      updates[`points`] = (profile?.points || 0) + (score * 5);
       updates[`progress.${id}.points`] = (userProgress.points || 0) + (score * 5);
     }
     if (Object.keys(updates).length > 0) await updateDoc(userRef, updates);
     if (currentLesson.type === "video") setTimeout(goToNext, 1000);
-  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext]);
+  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile]);
 
   const handleReviewSubmit = async () => {
     if (!db || !user || rating === 0) {
@@ -547,18 +548,18 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
                       {!isEnrolled && currentLessonIndex === 0 ? (
                         <>
-                          <Lock className="w-5 h-5" />
+                          <Lock className="w-5 h-5 ml-1" />
                           <span>اشترك لفتح البقية</span>
                         </>
                       ) : (
                         <>
-                          <ArrowRight className="w-5 h-5" />
+                          <ArrowLeft className="w-5 h-5 ml-1" />
                           <span>الدرس التالي</span>
                         </>
                       )}
                     </Button>
                     <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg gap-2">
-                       <ArrowLeft className="w-5 h-5" />
+                       <ArrowRight className="w-5 h-5 ml-1" />
                        <span>السابق</span>
                     </Button>
                   </div>
