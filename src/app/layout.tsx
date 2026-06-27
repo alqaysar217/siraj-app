@@ -3,10 +3,14 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseProvider } from "@/firebase/provider";
 
+/**
+ * إعدادات الهوية البصرية والرقمية للمنصة (Open Graph / SEO)
+ * هذه الإعدادات هي المسؤولة عن ظهور اللوجو والنص عند مشاركة الرابط في واتساب
+ */
 export const metadata: Metadata = {
   metadataBase: new URL('https://siraj-app.vercel.app'),
-  title: 'سراج | منصة سراج التعليمية',
-  description: 'منصة تعليمية يمنية متقدمة لتعلم مهارات المستقبل برؤية عصرية وبسيطة.',
+  title: 'منصة سراج التعليمية',
+  description: 'تعلم بأسلوب عملي ومبسط واكتسب المهارات التي تحتاج لها في سوق العمل.',
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -23,14 +27,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'منصة سراج التعليمية',
-    description: 'اكتسب مهارات الغد مع خبراء الصناعة في بيئة تعليمية فاخرة وحديثة.',
+    description: 'تعلم بأسلوب عملي ومبسط واكتسب المهارات التي تحتاج لها في سوق العمل.',
     url: 'https://siraj-app.vercel.app',
-    siteName: 'سراج',
+    siteName: 'منصة سراج التعليمية',
     images: [
       {
-        url: '/logo.png',
-        width: 1200,
-        height: 630,
+        url: '/logo.png', // سيتم سحب اللوجو من مجلد public
+        width: 800,
+        height: 800,
         alt: 'شعار منصة سراج التعليمية',
       },
     ],
@@ -40,7 +44,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'منصة سراج التعليمية',
-    description: 'منصة تعليمية يمنية لتعلم مهارات المستقبل.',
+    description: 'تعلم بأسلوب عملي ومبسط واكتسب المهارات التي تحتاج لها في سوق العمل.',
     images: ['/logo.png'],
   },
 };
