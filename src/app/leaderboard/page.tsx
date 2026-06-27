@@ -33,16 +33,16 @@ export default function PublicLeaderboardPage() {
   }, []);
   
   /**
-   * استعلام متوافق تماماً مع قواعد الحماية الجديدة.
-   * الفلتر 'showInLeaderboard == true' يضمن أن السيرفر سيسمح بالطلب حتى للزوار.
+   * استعلام متوافق تماماً مع قواعد الحماية.
+   * الفلتر 'showInLeaderboard == true' هو المفتاح للسماح للزوار بالقراءة.
    */
   const usersQuery = useMemoFirebase(() => 
     db ? query(
       collection(db, "users"), 
       where("showInLeaderboard", "==", true),
-      limit(50) 
+      limit( visibleCount > 50 ? 100 : 50 ) 
     ) : null
-  , [db]);
+  , [db, visibleCount]);
   
   const { data: users, loading, error } = useCollection(usersQuery);
 
@@ -84,14 +84,14 @@ export default function PublicLeaderboardPage() {
              <div className="pt-4 animate-bounce">
                 <Button asChild className="bg-primary text-white rounded-2xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20">
                    <Link href="/auth/register">
-                      <UserPlus className="w-5 h-5" /> كن واحداً منهم وسجل الآن
+                      <UserPlus className="w-5 h-5" /> سجل الآن وكن واحداً منهم
                    </Link>
                 </Button>
              </div>
            )}
         </header>
 
-        {loading ? (
+        {loading && visibleLeaderboard.length === 0 ? (
           <div className="py-32 text-center">
             <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4 opacity-50" />
             <p className="text-muted-foreground font-bold">جاري تحديث لوحة الشرف...</p>
@@ -99,8 +99,8 @@ export default function PublicLeaderboardPage() {
         ) : error ? (
            <div className="py-20 text-center bg-red-50 rounded-3xl border border-red-100 p-8">
               <Award className="w-12 h-12 text-red-200 mx-auto mb-4" />
-              <p className="text-red-600 font-bold">عذراً، فشل الاتصال بسجل المتصدرين. يرجى المحاولة لاحقاً.</p>
-              <p className="text-red-400 text-xs mt-2">تأكد من أنك قمت بتفعيل "قواعد الحماية" المحدثة.</p>
+              <p className="text-red-600 font-bold">عذراً، فشل الاتصال بقاعدة البيانات حالياً.</p>
+              <p className="text-red-400 text-xs mt-2">يرجى إعادة المحاولة بعد قليل.</p>
            </div>
         ) : leaderboard.length > 0 ? (
           <div className="space-y-8">
