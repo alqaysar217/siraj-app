@@ -237,12 +237,9 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 pb-10">
-            <div className="text-muted-foreground font-bold text-sm">
+            <div className="text-muted-foreground font-bold text-sm text-center w-full">
               مستخدم جديد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">أنشئ حسابك الآن</Link>
             </div>
-            <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-[10px] font-black text-primary/40 flex items-center gap-1 hover:text-primary transition-colors">
-              الدعم الفني المباشر <ArrowRight className="w-3 h-3 rotate-180" />
-            </Link>
           </CardFooter>
         </Card>
       </div>
