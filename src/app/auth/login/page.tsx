@@ -12,7 +12,7 @@ import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -30,14 +30,21 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // جلب سجل المحاولات عند تحميل الصفحة
   useEffect(() => {
-    const storedAttempts = parseInt(localStorage.getItem('login_attempts') || '0');
-    const lockUntil = parseInt(localStorage.getItem('login_lock_until') || '0');
-    const now = Date.now();
-    setFailedAttempts(storedAttempts);
-    if (lockUntil > now) setLockRemaining(Math.ceil((lockUntil - now) / 1000));
+    if (typeof window !== 'undefined') {
+      const storedAttempts = parseInt(localStorage.getItem('login_attempts') || '0');
+      const lockUntil = parseInt(localStorage.getItem('login_lock_until') || '0');
+      const now = Date.now();
+      
+      setFailedAttempts(storedAttempts);
+      if (lockUntil > now) {
+        setLockRemaining(Math.ceil((lockUntil - now) / 1000));
+      }
+    }
   }, []);
 
+  // عداد الحظر الحي
   useEffect(() => {
     if (lockRemaining > 0) {
       const timer = setInterval(() => {
@@ -61,6 +68,7 @@ export default function LoginPage() {
     if (/android/i.test(ua)) deviceName = "Android";
     else if (/iPad|iPhone|iPod/.test(ua)) deviceName = "iOS";
     else if (/Windows/i.test(ua)) deviceName = "Windows";
+    
     let storedId = localStorage.getItem('siraj_device_token');
     if (!storedId) {
       storedId = `${deviceName}-${Math.random().toString(36).substring(2, 7)}`;
@@ -71,7 +79,17 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     if (!auth || !db) return;
-    if (lockRemaining > 0) return;
+    
+    // منع المحاولة إذا كان الحظر نشطاً
+    if (lockRemaining > 0) {
+      toast({ 
+        variant: "destructive", 
+        title: "الجهاز محظور", 
+        description: `يرجى الانتظار ${Math.floor(lockRemaining / 60)}:${String(lockRemaining % 60).padStart(2, '0')} دقيقة.` 
+      });
+      return;
+    }
+
     if (!email || !password) {
       toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى إدخال البريد وكلمة المرور." });
       return;
@@ -80,11 +98,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. محاولة تسجيل الدخول
+      // 1. محاولة تسجيل الدخول عبر Firebase Auth
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. مسح أي جلسة قديمة فوراً لمنع تعارض useUser
+      // مسح معرف الجلسة القديم فوراً لمنع التداخل
       localStorage.removeItem('siraj_session_id');
 
       const userDocRef = doc(db, "users", user.uid);
@@ -92,7 +110,6 @@ export default function LoginPage() {
       
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-
       const isDefaultPass = password === 'student123';
 
       if (userSnap.exists()) {
@@ -105,15 +122,19 @@ export default function LoginPage() {
           return;
         }
 
-        // تحديث قاعدة البيانات أولاً بالسيرفر
+        // تحديث قاعدة البيانات بالسيرفر أولاً
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId),
           forcePasswordChange: userData.forcePasswordChange || isDefaultPass
         });
 
-        // ثم حفظها محلياً لضمان التزامن
+        // ثم حفظ الجلسة محلياً لضمان التطابق مع useUser
         localStorage.setItem('siraj_session_id', newSessionId);
+
+        // تصفير عداد المحاولات بعد النجاح
+        localStorage.removeItem('login_attempts');
+        localStorage.removeItem('login_lock_until');
 
         if (userData.forcePasswordChange || isDefaultPass) {
           router.push("/auth/change-password");
@@ -121,7 +142,7 @@ export default function LoginPage() {
           return;
         }
       } else {
-        // دعم الحسابات القديمة: إنشاء ملف الشخصي إذا لم يكن موجوداً
+        // إنشاء ملف الطالب إذا لم يكن موجوداً (للحسابات القديمة)
         const initialData = {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
@@ -136,6 +157,9 @@ export default function LoginPage() {
 
         await setDoc(userDocRef, initialData);
         localStorage.setItem('siraj_session_id', newSessionId);
+        
+        localStorage.removeItem('login_attempts');
+        localStorage.removeItem('login_lock_until');
 
         if (isDefaultPass) {
           router.push("/auth/change-password");
@@ -144,21 +168,34 @@ export default function LoginPage() {
         }
       }
 
-      localStorage.removeItem('login_attempts');
-      localStorage.removeItem('login_lock_until');
       router.push("/dashboard");
     } catch (error: any) {
       console.error("Login Error:", error);
+      
+      // منطق الحظر التصاعدي
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());
+      
       if (newAttempts >= 5) {
-        const lockMinutes = 5;
+        // العقوبة: المحاولة 5 = 1 دقيقة، المحاولة 6 = 2 دقيقة، وهكذا
+        const lockMinutes = newAttempts - 4; 
         const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
         localStorage.setItem('login_lock_until', lockUntil.toString());
         setLockRemaining(lockMinutes * 60);
+        
+        toast({ 
+          variant: "destructive", 
+          title: "تم تقييد الدخول", 
+          description: `لقد تجاوزت المحاولات المسموحة. تم حظرك لمدة ${lockMinutes} دقيقة.` 
+        });
+      } else {
+        toast({ 
+          variant: "destructive", 
+          title: "خطأ في البيانات", 
+          description: `كلمة السر غير صحيحة. متبقي لك ${5 - newAttempts} محاولات قبل الحظر.` 
+        });
       }
-      toast({ variant: "destructive", title: "فشل الدخول", description: "البريد أو كلمة المرور غير صحيحة." });
       setLoading(false);
     }
   };
@@ -176,36 +213,67 @@ export default function LoginPage() {
             <CardDescription className="font-bold">مرحباً بك في بيئة التعلم الآمنة</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8">
+            
             {lockRemaining > 0 && (
               <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-pulse">
-                <Clock className="w-5 h-5 shrink-0" />
+                <Clock className="w-6 h-6 shrink-0" />
                 <div className="text-right">
                   <p className="text-[10px] font-black uppercase">الجهاز محظور مؤقتاً</p>
-                  <p className="text-xs font-bold">يرجى الانتظار: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}</p>
+                  <p className="text-sm font-black">
+                    يرجى الانتظار: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
+                  </p>
                 </div>
               </div>
             )}
+
             <div className="space-y-2 text-right">
               <Label htmlFor="email" className="font-bold flex items-center gap-2 mr-1">
                 <Mail className="w-4 h-4 text-secondary" /> البريد الإلكتروني
               </Label>
-              <Input id="email" type="email" placeholder="example@gmail.com" className="h-12 rounded-2xl bg-muted/30 border-primary/5" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading || lockRemaining > 0} />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="example@gmail.com" 
+                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                disabled={loading || lockRemaining > 0} 
+              />
             </div>
+            
             <div className="space-y-2 text-right">
               <Label htmlFor="password" className="font-bold flex items-center gap-2 mr-1">
                 <Lock className="w-4 h-4 text-secondary" /> كلمة المرور
               </Label>
-              <Input id="password" type="password" placeholder="••••••••" className="h-12 rounded-2xl bg-muted/30 border-primary/5" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading || lockRemaining > 0} />
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="••••••••" 
+                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                disabled={loading || lockRemaining > 0} 
+              />
             </div>
-            <Button disabled={loading || !auth || lockRemaining > 0} onClick={handleLogin} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2">
+
+            <Button 
+              disabled={loading || !auth || lockRemaining > 0} 
+              onClick={handleLogin} 
+              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 hover:scale-[1.02] transition-transform active:scale-95"
+            >
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "دخول المنصة"}
             </Button>
+
             <div className="text-center pt-2">
-              <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-xs text-muted-foreground font-bold hover:text-secondary">نسيت كلمة المرور؟ تواصل معنا</Link>
+              <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-xs text-muted-foreground font-bold hover:text-secondary transition-colors">
+                نسيت كلمة المرور؟ تواصل معنا للمساعدة
+              </Link>
             </div>
           </CardContent>
           <CardFooter className="justify-center pb-10">
-            <div className="text-muted-foreground font-bold text-sm">ليس لديك حساب بعد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">إنشاء حساب جديد</Link></div>
+            <div className="text-muted-foreground font-bold text-sm">
+              ليس لديك حساب بعد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">إنشاء حساب جديد</Link>
+            </div>
           </CardFooter>
         </Card>
       </div>
