@@ -19,7 +19,7 @@ export function FirebaseErrorListener() {
       toast({
         variant: 'destructive',
         title: 'تنبيه أمني من الخادم',
-        description: `تم رفض عملية (${operation}) على المسار (${path}). يرجى التأكد من صلاحيات المستخدم وقواعد Firestore.`,
+        description: `أهلاً محمود، الخادم يرفض العملية لـ (${operation}) على المسار (${path}). يرجى التأكد من القواعد السحابية.`,
       });
     };
 

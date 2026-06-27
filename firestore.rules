@@ -17,7 +17,7 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // فحص صحة بيانات المستخدم الجديد عند التسجيل (منع ترقية الرتبة ذاتياً)
+    // فحص صحة بيانات المستخدم الجديد عند التسجيل
     function isValidNewUser() {
       let data = request.resource.data;
       return data.role == 'student' 
@@ -27,7 +27,7 @@ service cloud.firestore {
         && data.uid == request.auth.uid;
     }
 
-    // منع الطالب من تعديل الحقول الحساسة (الرتبة، النقاط، الأجهزة، الكورسات)
+    // منع الطالب من تعديل الحقول الحساسة
     function isNotModifyingSensitiveFields() {
       let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
       let sensitiveFields = [
@@ -37,10 +37,10 @@ service cloud.firestore {
       return !affectedKeys.hasAny(sensitiveFields);
     }
 
-    // فحص صحة المراجعة: يجب أن يكون مشتركاً ويكتب باسمه الحقيقي
+    // فحص صحة المراجعة: يجب أن يكون صاحب الحساب الحقيقي ومشتركاً
     function isValidReview() {
       let data = request.resource.data;
-      let user = getUserData();
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return data.userId == request.auth.uid
         && data.rating is number
         && data.rating >= 1 && data.rating <= 5
@@ -50,15 +50,15 @@ service cloud.firestore {
     // --- القواعد المخصصة للمجموعات ---
 
     match /users/{userId} {
-      // السماح بالقراءة (get/list) إذا كان الحساب عاماً للجميع (للتحفيز) 
+      // السماح للقراءة (get/list) إذا كان الحساب عاماً للجميع (للتحفيز) 
       // أو إذا كان الشخص مديراً أو صاحب الحساب
+      // تم تقديم شرط showInLeaderboard لضمان عمل الـ list للزوار
       allow read: if (resource.data.showInLeaderboard == true) 
                   || isAdmin() 
                   || (isAuthenticated() && request.auth.uid == userId);
       
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
       
-      // التعديل: المدير يعدل كل شيء، الطالب يعدل بياناته الشخصية فقط بشرط عدم لمس الحقول الحساسة
       allow update: if isAdmin() 
                   || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
       
@@ -97,7 +97,6 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // الطالب يضيف مراجعة فقط ولا يعدلها (للمصداقية)
       allow create: if isAuthenticated() && isValidReview();
       allow update: if isAdmin();
       allow delete: if isAdmin();
