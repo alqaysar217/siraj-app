@@ -4,22 +4,20 @@
 import { useEffect } from 'react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/firebase/provider';
 
 export function FirebaseErrorListener() {
   const { toast } = useToast();
-  const auth = useAuth();
 
   useEffect(() => {
     const handleError = (error: any) => {
-      // استعادة الرسالة التفصيلية لمساعدة محمود في اكتشاف المشاكل أثناء التطوير
+      // استعادة الرسالة التقنية للمساعدة في تشخيص مشاكل القواعد السحابية
       const operation = error.context?.operation || 'غير معروفة';
       const path = error.context?.path || 'مسار غير معروف';
       
       toast({
         variant: 'destructive',
-        title: 'تنبيه من الخادم السحابي',
-        description: `أهلاً محمود، الخادم يرفض العملية لـ (${operation}) على المسار (${path}). يرجى التأكد من قواعد الحماية في Firebase.`,
+        title: 'تنبيه أمني من الخادم',
+        description: `أهلاً محمود، الخادم يرفض عملية (${operation}) على المسار (${path}). يرجى مراجعة قواعد Firestore لضمان صلاحية الوصول.`,
       });
     };
 
@@ -27,7 +25,7 @@ export function FirebaseErrorListener() {
     return () => {
       errorEmitter.off('permission-error', handleError);
     };
-  }, [toast, auth]);
+  }, [toast]);
 
   return null;
 }

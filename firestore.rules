@@ -5,33 +5,37 @@ service cloud.firestore {
     
     // --- وظائف الحماية الأساسية ---
     
-    function isAuthenticated() {
+    function isLoggedIn() {
       return request.auth != null;
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
+      // التحقق من أن المستخدم مسجل أولاً لمنع أخطاء القواعد
+      return isLoggedIn() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // --- قواعد المجموعات ---
 
     match /users/{userId} {
-      // السماح بالقراءة (get/list) للجميع إذا كان الحساب عاماً (للوحة المتصدرين)
-      // أو إذا كان المستخدم هو المدير أو صاحب الحساب
-      allow read: if (resource.data.showInLeaderboard == true) 
-                  || (isAuthenticated() && (request.auth.uid == userId || isAdmin()));
+      // 1. القراءة العامة: للوحة المتصدرين (متاحة للجميع: زوار ومسجلين)
+      // ملاحظة: يجب أن يحتوي الاستعلام على فلتر (showInLeaderboard == true)
+      allow read: if resource.data.showInLeaderboard == true;
       
-      // تأمين إنشاء الحساب: يجب أن يسجل كطالب وبدون دورات مسبقة
-      allow create: if isAuthenticated() && request.auth.uid == userId 
+      // 2. القراءة الخاصة: صاحب الحساب أو المدير يقرأ الملف كاملاً
+      allow read: if isLoggedIn() && (request.auth.uid == userId || isAdmin());
+      
+      // 3. إنشاء الحساب: حماية ضد ثغرة المدير المتخفي
+      allow create: if isLoggedIn() && request.auth.uid == userId 
                     && request.resource.data.role == 'student'
+                    && request.resource.data.status == 'active'
                     && request.resource.data.enrolledCourses.size() == 0;
       
-      // تأمين التحديث: منع الطالب من تعديل رتبته أو أجهزته أو اشتراكاته
+      // 4. التحديث: منع الطالب من تعديل الحقول الحساسة (الأمان والمالية)
       allow update: if isAdmin() 
-                  || (isAuthenticated() && request.auth.uid == userId 
+                  || (isLoggedIn() && request.auth.uid == userId 
                       && !(request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status'])));
+                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status', 'email'])));
       
       allow delete: if isAdmin();
     }
@@ -68,10 +72,13 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // التحقق من أن المراجع هو صاحب الحساب الحقيقي ومشترك فعلي في الدورة
-      allow create: if isAuthenticated() 
+      // منع انتحال الهوية: يجب أن يطابق الـ userId معرف الشخص المسجل حالياً
+      // ويجب أن يكون الطالب مشتركاً فعلياً في الدورة ليسمح له بالتقييم
+      allow create: if isLoggedIn() 
                     && request.resource.data.userId == request.auth.uid
                     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.enrolledCourses.hasAny([request.resource.data.courseId]);
+      
+      // المراجعات لا تعدل لضمان المصداقية، تحذف فقط بواسطة المدير
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -82,7 +89,7 @@ service cloud.firestore {
     }
 
     match /subscriptions/{subId} {
-      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow read: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
       allow create: if isAdmin();
     }
 

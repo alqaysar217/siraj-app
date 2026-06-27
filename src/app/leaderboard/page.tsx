@@ -32,11 +32,11 @@ export default function PublicLeaderboardPage() {
     setMounted(true);
   }, []);
   
-  // جلب الطلاب الذين وافقوا على الظهور العام (متاح للجميع الآن)
+  // استعلام متوافق مع قواعد الحماية للظهور العام
   const usersQuery = useMemoFirebase(() => 
     db ? query(
       collection(db, "users"), 
-      where("showInLeaderboard", "==", true),
+      where("showInLeaderboard", "==", true), // هذا الفلتر أساسي ليوافق الخادم على الطلب
       limit(100) 
     ) : null
   , [db]);
@@ -118,7 +118,7 @@ export default function PublicLeaderboardPage() {
                     </TableHeader>
                     <TableBody>
                       {visibleLeaderboard.map((student: any, index) => (
-                        <TableRow key={student.uid} className={cn(
+                        <TableRow key={student.id} className={cn(
                           "hover:bg-primary/5 transition-colors border-b border-primary/5",
                           index === 0 && "bg-yellow-50/30",
                           index === 1 && "bg-slate-50/30",
