@@ -1,0 +1,117 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- وظائف الحماية المتقدمة ---
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    // التحقق من صحة هيكل بيانات المستخدم الجديد
+    function isValidNewUser() {
+      let data = request.resource.data;
+      return data.role == 'student' 
+        && data.status == 'active' 
+        && data.enrolledCourses is list
+        && data.enrolledCourses.size() == 0 
+        && data.uid == request.auth.uid;
+    }
+
+    // التحقق من عدم المساس بالحقول الحساسة (توسيع القائمة)
+    function isNotModifyingSensitiveFields() {
+      let sensitiveFields = [
+        'role', 'status', 'enrolledCourses', 'progress', 
+        'enrollmentDetails', 'uid', 'email', 'deviceIds', 'createdAt'
+      ];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
+    }
+
+    // التحقق من صحة بيانات المراجعة
+    function isValidReview() {
+      let data = request.resource.data;
+      return data.userId == request.auth.uid
+        && data.rating is number
+        && data.rating >= 1 && data.rating <= 5
+        && getUserData().enrolledCourses.hasAny([data.courseId]);
+    }
+
+    // --- القواعد المخصصة للمجموعات ---
+
+    match /users/{userId} {
+      // القراءة: المدير يرى الكل، المسجل يرى نفسه. 
+      // لوحة الشرف: تسمح للمسجلين فقط برؤية من وافق على الظهور (حماية من الغرباء)
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (isAuthenticated() && resource.data.showInLeaderboard == true);
+      
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
+      
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
+      
+      allow delete: if isAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /chapters/{chapterId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /certificates/{certId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /instructors/{instructorId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidReview();
+      allow update, delete: if isAdmin();
+    }
+
+    match /bankAccounts/{accountId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /subscriptions/{subId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin(); // تفعيل يدوي من المدير فقط
+    }
+
+    match /trash/{trashId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /socialLinks/{linkId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}
