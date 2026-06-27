@@ -1,3 +1,4 @@
+
 'use client';
 
 import Navbar from "@/components/navbar";
@@ -49,7 +50,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useMemo } from "react";
 
-const DEFAULT_WHATSAPP = "+967735952927";
+const DEFAULT_WHATSAPP = "+967775258830";
 
 const SOCIAL_ICONS: Record<string, any> = {
   instagram: { icon: Instagram, color: "bg-pink-600" },
@@ -191,7 +192,7 @@ export default function Home() {
                   <Link href="/courses" className="gap-2">تصفح الكورسات <ArrowLeft className="w-5 h-5 rotate-180" /></Link>
                 </Button>
                 <Button asChild variant="outline" size="lg" className="h-14 md:h-16 px-10 rounded-2xl text-lg font-black border-white/20 text-white bg-white/10 backdrop-blur-md hover:bg-white/20 transition-all">
-                  <a href={`https://wa.me/${whatsappLink.replace(/\D/g, '')}?text=أهلاً سراج، أرغب في الحصول على استشارة بخصوص الكورسات.`} target="_blank" className="gap-2">
+                  <a href={`https://wa.me/${whatsappLink.replace(/\D/g, '')}?text=أهلاً محمود، أرغب في الحصول على استشارة بخصوص الكورسات.`} target="_blank" className="gap-2">
                     <MessageCircle className="w-5 h-5" /> تواصل مع المستشار
                   </a>
                 </Button>

@@ -6,7 +6,7 @@ import { FirebaseProvider } from "@/firebase/provider";
 
 /**
  * إعدادات الهوية البصرية والرقمية للمنصة (Open Graph / SEO)
- * تم ضبطها لتظهر باحترافية عند مشاركة الرابط في واتساب
+ * هذه الإعدادات هي المسؤولة عن ظهور اللوجو والنص عند مشاركة الرابط في واتساب
  */
 export const metadata: Metadata = {
   metadataBase: new URL('https://siraj-app.vercel.app'),

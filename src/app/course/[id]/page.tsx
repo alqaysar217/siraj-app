@@ -59,7 +59,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const WHATSAPP_NUMBER = "+967735952927";
+const WHATSAPP_NUMBER = "+967775258830";
 
 // Helper Functions
 const getLevelName = (level: string) => {
@@ -416,7 +416,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       return;
     }
     setSubmittingReview(true);
-    // تم التأكد من إرسال userId: user.uid ليتطابق مع قيود الحماية الجديدة
     const reviewData = { 
       courseId: id, 
       courseTitle: course?.title || "دورة سراج", 

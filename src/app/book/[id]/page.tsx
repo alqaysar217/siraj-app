@@ -36,7 +36,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Image from "next/image";
 import Link from "next/link";
 
-const WHATSAPP_NUMBER = "+967735952927";
+const WHATSAPP_NUMBER = "+967775258830";
 
 export default function BookDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -110,7 +110,7 @@ export default function BookDetailsPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'})، أود طلب كتاب (${book.title})، يرجى تزويدي بطريقة الاستلام والتفعيل.`;
+  const whatsappMessage = `أهلاً محمود، أنا الطالب (${profile?.name || 'جديد'})، أود طلب كتاب (${book.title})، يرجى تزويدي بطريقة الاستلام والتفعيل.`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
