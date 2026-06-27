@@ -74,8 +74,12 @@ export default function AccountManagementPage() {
       } else {
         throw new Error(result.error);
       }
-    } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تصفير كلمة السر. قد يكون ذلك بسبب الصلاحيات." });
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "خطأ في التصفير", 
+        description: error.message || "فشل تصفير كلمة السر. تأكد من وجود صلاحيات الأدمن." 
+      });
     } finally {
       setProcessing(null);
       setUserToForceReset(null);
@@ -307,7 +311,7 @@ export default function AccountManagementPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* بقية الحوارات السابقة كما هي */}
+        {/* بقية الحوارات */}
         <AlertDialog open={!!userToStatusChange} onOpenChange={(open) => !open && setUserToStatusStatusChange(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">

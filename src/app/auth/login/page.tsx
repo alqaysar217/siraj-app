@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -81,14 +80,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      // 1. محاولة تسجيل الدخول
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+
+      // 2. مسح أي جلسة قديمة فوراً لمنع تعارض useUser
+      localStorage.removeItem('siraj_session_id');
 
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
       
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+      const isDefaultPass = password === 'student123';
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
@@ -100,17 +105,15 @@ export default function LoginPage() {
           return;
         }
 
-        // أمن: اكتشاف كلمة السر الافتراضية
-        const isDefaultPass = password === 'student123';
-
-        // حفظ معرف الجلسة محلياً قبل التحديث في فايربيز لتجنب الطرد التلقائي
-        localStorage.setItem('siraj_session_id', newSessionId);
-
+        // تحديث قاعدة البيانات أولاً بالسيرفر
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId),
           forcePasswordChange: userData.forcePasswordChange || isDefaultPass
         });
+
+        // ثم حفظها محلياً لضمان التزامن
+        localStorage.setItem('siraj_session_id', newSessionId);
 
         if (userData.forcePasswordChange || isDefaultPass) {
           router.push("/auth/change-password");
@@ -119,24 +122,33 @@ export default function LoginPage() {
         }
       } else {
         // دعم الحسابات القديمة: إنشاء ملف الشخصي إذا لم يكن موجوداً
-        localStorage.setItem('siraj_session_id', newSessionId);
-        await setDoc(userDocRef, {
+        const initialData = {
           uid: user.uid,
-          name: user.displayName || "طالب سابق",
+          name: user.displayName || "طالب سراج",
           email: user.email,
           role: "student",
           status: "active",
           lastSessionId: newSessionId,
           deviceIds: [deviceId],
           createdAt: new Date().toISOString(),
-          forcePasswordChange: password === 'student123'
-        });
+          forcePasswordChange: isDefaultPass
+        };
+
+        await setDoc(userDocRef, initialData);
+        localStorage.setItem('siraj_session_id', newSessionId);
+
+        if (isDefaultPass) {
+          router.push("/auth/change-password");
+          setLoading(false);
+          return;
+        }
       }
 
       localStorage.removeItem('login_attempts');
       localStorage.removeItem('login_lock_until');
       router.push("/dashboard");
     } catch (error: any) {
+      console.error("Login Error:", error);
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());

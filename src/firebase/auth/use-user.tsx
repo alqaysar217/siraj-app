@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -70,7 +69,8 @@ export function useUser() {
             // 2. فحص تعدد الأجهزة (الجلسات)
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
             
-            // انتظر حتى يتم حفظ الجلسة محلياً إذا كانت مفقودة (مثلاً عند أول دخول)
+            // طرد المستخدم فقط إذا كان هناك "جلسة نشطة" محلية تختلف عن السيرفر
+            // هذا يمنع الطرد عند أول دخول من جهاز جديد لأن localSessionId سيكون null وقتها
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId) {
               isKickingRef.current = true;
               signOut(auth).then(() => {
@@ -91,7 +91,10 @@ export function useUser() {
         }
         setLoading(false);
       },
-      (error) => setLoading(false)
+      (error) => {
+        console.error("Profile Subscription Error:", error);
+        setLoading(false);
+      }
     );
 
     return () => unsubscribeProfile();
