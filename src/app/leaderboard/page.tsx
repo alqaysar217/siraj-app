@@ -129,7 +129,7 @@ export default function PublicLeaderboardPage() {
                           <TableCell className="py-3 md:py-6 px-1 md:px-4">
                             <div className="flex items-center gap-2 md:gap-4 text-right">
                               <Avatar className={cn(
-                                "h-8 w-8 md:h-14 md:h-14 border-2 shadow-md shrink-0",
+                                "h-8 w-8 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
                                 index === 0 ? "border-yellow-400" : "border-white"
                               )}>
                                 <AvatarImage src={student.photoURL || undefined} className="object-cover" />
