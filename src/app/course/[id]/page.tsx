@@ -58,7 +58,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-const WHATSAPP_NUMBER = "+967775258830";
+const WHATSAPP_NUMBER = "+967735952927";
 
 const getLevelName = (level: string) => {
   const levels: Record<string, string> = {

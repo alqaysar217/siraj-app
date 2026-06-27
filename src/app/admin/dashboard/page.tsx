@@ -113,7 +113,7 @@ export default function AdminDashboard() {
         <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="text-right">
             <h1 className="text-3xl font-bold font-headline text-primary mb-2">لوحة التحكم الذكية</h1>
-            <p className="text-muted-foreground">مرحباً محمود، إليك نظرة حية ومباشرة على أداء منصة سراج.</p>
+            <p className="text-muted-foreground">مرحباً سراج، إليك نظرة حية ومباشرة على أداء منصة سراج.</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button asChild className="bg-secondary hover:bg-secondary/90 gap-2 rounded-xl h-12 shadow-lg">
