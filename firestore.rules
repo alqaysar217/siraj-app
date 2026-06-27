@@ -1,0 +1,79 @@
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'admin';
+    }
+
+    match /users/{userId} {
+      // السماح بالقراءة للمسجلين دائماً، وللزوار فقط إذا كان المستخدم قد وافق على الظهور في لوحة الشرف
+      allow read: if isAuthenticated() || (resource != null && resource.data.showInLeaderboard == true);
+      allow write: if request.auth.uid == userId || isAdmin();
+    }
+
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /books/{bookId} {
+      allow read: if true;
+      allow write: if isAdmin();
+
+      match /chapters/{chapterId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    match /certificates/{certId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /instructors/{instructorId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    match /bankAccounts/{accountId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /subscriptions/{subId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+    }
+
+    match /trash/{trashId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /socialLinks/{linkId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

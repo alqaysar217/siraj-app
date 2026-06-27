@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 42 33% 96%; /* #F8F5EF */
+    --foreground: 14 58% 10%; /* #2A120B */
+    --card: 0 0% 100%;
+    --card-foreground: 14 58% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 14 58% 10%;
+    --primary: 15 67% 17%; /* #4A1F0F Rich Cocoa */
+    --primary-foreground: 42 33% 96%;
+    --secondary: 35 76% 48%; /* #D98A1E Solar Gold */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 42 20% 90%;
+    --muted-foreground: 14 30% 35%;
+    --accent: 38 88% 69%; /* #F4C26B Light Gold */
+    --accent-foreground: 15 67% 17%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 14 58% 10% / 0.1;
+    --input: 14 58% 10% / 0.1;
+    --ring: 35 76% 48%;
+    --radius: 0.875rem;
+  }
+
+  .dark {
+    --background: 14 58% 5%;
+    --foreground: 42 33% 96%;
+    --card: 14 58% 8%;
+    --card-foreground: 42 33% 96%;
+    --popover: 14 58% 8%;
+    --popover-foreground: 42 33% 96%;
+    --primary: 38 88% 69%;
+    --primary-foreground: 14 58% 10%;
+    --secondary: 15 67% 25%;
+    --secondary-foreground: 38 88% 69%;
+    --muted: 14 58% 15%;
+    --muted-foreground: 42 33% 70%;
+    --accent: 15 67% 17%;
+    --accent-foreground: 38 88% 69%;
+    --border: 42 33% 96% / 0.1;
+    --input: 42 33% 96% / 0.1;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground selection:bg-secondary selection:text-white overflow-x-hidden;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    direction: rtl;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline font-bold;
+  }
+}
+
+@layer components {
+  .luxury-shadow {
+    box-shadow: 0 6px 20px rgba(42,18,11,0.05);
+  }
+
+  .gold-glow {
+    box-shadow: 0 0 20px rgba(217, 138, 30, 0.15);
+  }
+
+  .glass-nav {
+    @apply sticky top-0 z-50 backdrop-blur-md bg-background/80 border-b border-border/50;
+  }
+  
+  .glass-card {
+    @apply bg-card border border-border/50 shadow-sm transition-all duration-300 hover:shadow-lg hover:border-secondary/30;
+  }
+}
+
+/* YouTube Wrapper Style */
+.yt-wrapper {
+  position: relative;
+  width: 100%;
+  padding-bottom: 56.25%;
+  height: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+}
+
+.yt-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* QR Code Scanner Fixes */
+#qr-reader {
+  border: none !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+}
+
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1.5rem !important;
+}
+
+#qr-reader__scan_region {
+  background: transparent !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+
+/* التخلص من حدود المكتبة الافتراضية وجعل المربع في المنتصف */
+#qr-reader__scan_region canvas {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+}
+
+#qr-reader__dashboard_section_csr button {
+  @apply bg-primary text-white px-6 py-2 rounded-xl font-bold text-xs mt-4 transition-all active:scale-95;
+}
+
+#qr-reader img {
+  display: none !important;
+}

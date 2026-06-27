@@ -1,0 +1,229 @@
+
+{
+  "entities": {
+    "UserProfile": {
+      "title": "ملف المستخدم",
+      "description": "بيانات المستخدم الأساسية وصلاحياته وتقدمه الدراسي واشتراكاته وتقييد الأجهزة",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] },
+        "status": { "type": "string", "enum": ["active", "banned"], "default": "active" },
+        "plainPassword": { "type": "string", "description": "كلمة المرور المحفوظة للمراجعة الإدارية" },
+        "lastSessionId": { "type": "string", "description": "معرف آخر جلسة دخول لمنع التعدد" },
+        "deviceIds": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "قائمة معرفات الأجهزة المسموح لها بالدخول (بحد أقصى 2)"
+        },
+        "showInLeaderboard": { "type": "boolean", "default": true, "description": "التحكم في ظهور الطالب في لوحة المتصدرين العامة" },
+        "enrolledCourses": { "type": "array", "items": { "type": "string" } },
+        "enrollmentDetails": {
+          "type": "object",
+          "description": "تفاصيل دقيقة عن اشتراكات الدورات والمدد الزمنية",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "activatedAt": { "type": "string", "format": "date-time" },
+              "expiresAt": { "type": "string", "format": "date-time" },
+              "status": { "type": "string", "enum": ["active", "blocked"] }
+            }
+          }
+        },
+        "progress": {
+          "type": "object",
+          "description": "تتبع التقدم في كل دورة",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "lastLessonId": { "type": "string" },
+              "completedLessons": { "type": "array", "items": { "type": "string" } },
+              "points": { "type": "number" },
+              "quizScores": { "type": "object", "additionalProperties": { "type": "number" } }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Course": {
+      "title": "الدورة التدريبية",
+      "description": "بيانات الدورة الأساسية",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "instructor": { "type": "string" },
+        "instructorId": { "type": "string" },
+        "instructorPhoto": { "type": "string" },
+        "instructorAccreditation": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "oldPrice": { "type": "number" },
+        "category": { "type": "string" },
+        "level": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "isFree": { "type": "boolean" },
+        "videosCount": { "type": "number" },
+        "durationHours": { "type": "number" },
+        "hasCertificate": { "type": "boolean" },
+        "studentsCount": { "type": "number" },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description"]
+    },
+    "Book": {
+      "title": "الكتاب التعليمي",
+      "description": "بيانات الكتب المتوفرة في المتجر",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "rating": { "type": "number", "default": 4.9 },
+        "pages": { "type": "number" },
+        "price": { "type": "number" },
+        "oldPrice": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "format": { "type": "string", "enum": ["paper", "digital", "both"] },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "isAvailable": { "type": "boolean", "default": true },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "author", "price"]
+    },
+    "Certificate": {
+      "title": "شهادة إتمام",
+      "description": "توثيق رسمي لشهادات الطلاب في المنصة للتحقق",
+      "type": "object",
+      "properties": {
+        "certificateId": { "type": "string", "description": "رقم الشهادة المكتوب يدوياً" },
+        "studentNameAr": { "type": "string" },
+        "studentNameEn": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "issueDate": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["certificateId", "studentNameAr", "courseId", "issueDate"]
+    },
+    "Review": {
+      "title": "تقييم",
+      "description": "تعليقات وتقييمات الطلاب على الدورات أو الكتب",
+      "type": "object",
+      "properties": {
+        "targetId": { "type": "string" },
+        "targetTitle": { "type": "string" },
+        "type": { "type": "string", "enum": ["course", "book"] },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userPhoto": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["targetId", "userId", "rating"]
+    },
+    "BankAccount": {
+      "title": "حساب بنكي",
+      "description": "بيانات استقبال المدفوعات",
+      "type": "object",
+      "properties": {
+        "bankName": { "type": "string" },
+        "accountHolder": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Subscription": {
+      "title": "سجل اشتراك",
+      "description": "توثيق مالي لعمليات تفعيل الدورات",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "price": { "type": "number" },
+        "activatedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "durationDays": { "type": "string" }
+      }
+    },
+    "TrashItem": {
+      "title": "عنصر محذوف",
+      "description": "بيانات العناصر المؤرشفة في سلة المهملات",
+      "type": "object",
+      "properties": {
+        "originalId": { "type": "string" },
+        "originalPath": { "type": "string" },
+        "type": { "type": "string", "enum": ["course", "lesson", "instructor", "review", "user", "bankAccount", "book", "certificate"] },
+        "data": { "type": "object" },
+        "title": { "type": "string" },
+        "deletedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "SocialLink": {
+      "title": "رابط تواصل",
+      "description": "بيانات حسابات السوشل ميديا الخاصة بالمنصة",
+      "type": "object",
+      "properties": {
+        "platform": { "type": "string", "enum": ["instagram", "youtube", "tiktok", "whatsapp", "twitter", "email", "phone"] },
+        "url": { "type": "string" },
+        "label": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["platform", "url", "label"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "بيانات الطلاب والمديرين"
+    },
+    "/courses/{courseId}": {
+      "schema": "Course",
+      "description": "بيانات الدورات"
+    },
+    "/books/{bookId}": {
+      "schema": "Book",
+      "description": "بيانات الكتب"
+    },
+    "/certificates/{certId}": {
+      "schema": "Certificate",
+      "description": "قاعدة بيانات الشهادات للتحقق منها"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "تقييمات وآراء الطلاب"
+    },
+    "/bankAccounts/{accountId}": {
+      "schema": "BankAccount",
+      "description": "قائمة الحسابات البنكية للمنصة"
+    },
+    "/subscriptions/{subId}": {
+      "schema": "Subscription",
+      "description": "سجلات تفعيل الدورات والجانب المالي"
+    },
+    "/trash/{trashId}": {
+      "schema": "TrashItem",
+      "description": "سلة المهملات للعناصر المحذوفة"
+    },
+    "/socialLinks/{linkId}": {
+      "schema": "SocialLink",
+      "description": "روابط التواصل الاجتماعي للمنصة"
+    }
+  }
+}
