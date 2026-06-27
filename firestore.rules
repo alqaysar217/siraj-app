@@ -18,7 +18,7 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // التحقق من سلامة البيانات عند إنشاء حساب جديد (منع التلاعب بالرتبة)
+    // التحقق من سلامة البيانات عند إنشاء حساب جديد (منع التلاعب بالرتبة أو الدورات)
     function isValidNewUser() {
       let data = request.resource.data;
       return data.role == 'student' 
@@ -37,13 +37,13 @@ service cloud.firestore {
 
     match /users/{userId} {
       // القراءة: المدير يرى الكل، المسجل يرى نفسه. 
-      // لوحة الشرف: تسمح فقط للمسجلين برؤية من وافق على الظهور، مع حماية البيانات من الزوار الغرباء.
+      // لوحة الشرف: تسمح فقط للمسجلين برؤية من وافق على الظهور، مع حماية البيانات الحساسة.
       allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (isAuthenticated() && resource.data.showInLeaderboard == true);
       
-      // الإنشاء: يجب أن يكون المستخدم مسجلاً وأن يلتزم برتبة "طالب" وبدون دورات مسبقة
+      // الإنشاء: يجب أن يكون المستخدم مسجلاً وأن يلتزم بشروط "المستخدم الجديد الصالح"
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
       
-      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته غير الحساسة (الاسم، الهاتف، الصورة)
+      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته غير الحساسة
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
       
       allow delete: if isAdmin();
@@ -97,7 +97,7 @@ service cloud.firestore {
 
     match /subscriptions/{subId} {
       allow read: if isAdmin();
-      allow create: if isAdmin(); // تفعيل الاشتراك حصراً من جهة المدير لضمان الدفع
+      allow create: if isAdmin();
     }
 
     match /trash/{trashId} {

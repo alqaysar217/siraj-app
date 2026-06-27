@@ -13,7 +13,7 @@ import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, ArrowRight, MessageCircle } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -99,6 +99,7 @@ export default function LoginPage() {
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}`;
       
+      // حفظ محلي أولاً لمنع الطرد التلقائي
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
@@ -115,16 +116,23 @@ export default function LoginPage() {
           deviceIds: arrayUnion(deviceId)
         });
       } else {
-        await setDoc(userDocRef, {
+        // إنشاء ملف آمن في حال لم يكن موجوداً (للدخول الاجتماعي مستقبلاً)
+        const profileData = {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
           email: user.email,
+          phone: "",
+          photoURL: "",
           role: "student",
           status: "active",
+          enrolledCourses: [],
+          showInLeaderboard: true,
+          forcePasswordChange: false,
           lastSessionId: newSessionId,
           deviceIds: [deviceId],
           createdAt: new Date().toISOString()
-        });
+        };
+        await setDoc(userDocRef, profileData);
       }
 
       localStorage.removeItem('login_attempts');
@@ -167,7 +175,7 @@ export default function LoginPage() {
         <Card className="w-full max-w-md luxury-shadow border-primary/5 rounded-[2.5rem] overflow-hidden bg-white/95 backdrop-blur-xl">
           <CardHeader className="text-center pb-6 pt-10">
             <div className="mx-auto w-14 h-14 relative mb-4">
-              <Image src="/logo.png" alt="Logo" fill className="object-contain" />
+              <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
             </div>
             <CardTitle className="text-3xl font-black font-headline text-primary">تسجيل الدخول</CardTitle>
             <CardDescription className="font-bold">منصة سراج التعليمية</CardDescription>
