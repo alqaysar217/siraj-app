@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect } from 'react';
@@ -12,12 +11,10 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: any) => {
-      const uid = auth?.currentUser?.uid || 'غير معروف';
-      
       toast({
         variant: 'destructive',
-        title: 'فشل في الحفظ (صلاحيات)',
-        description: `أهلاً محمود، الخادم يرفض العملية لـ (ID: ${uid}). لقد قمت الآن بتحديث القواعد السحابية. يرجى الانتظار 30 ثانية لتحديث المزامنة ثم المحاولة مرة أخرى.`,
+        title: 'تنبيه النظام',
+        description: `لم يظهر شي`,
       });
     };
 
