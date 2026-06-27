@@ -1,4 +1,3 @@
-
 'use client';
 
 import Navbar from "@/components/navbar";
@@ -65,7 +64,7 @@ const SOCIAL_ICONS: Record<string, any> = {
 
 export default function Home() {
   const db = useFirestore();
-  const heroBg = PlaceHolderImages.find(img => img.id === 'hero-bg')?.imageUrl || "/hero.png";
+  const heroBg = "/hero.png";
 
   // استعلام لجلب كافة الدورات لاحتساب الأعداد في المجالات
   const allCoursesQuery = useMemoFirebase(() => db ? collection(db, "courses") : null, [db]);
