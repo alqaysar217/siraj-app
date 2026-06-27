@@ -444,7 +444,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
           <AccordionItem key={unitTitle} value={`unit-${uIdx}`} className="border rounded-2xl overflow-hidden bg-card border-primary/5">
             <AccordionTrigger className="hover:no-underline py-5 px-5 bg-muted/20 text-right [&[data-state=open]>svg]:rotate-180">
               <div className="flex items-center gap-4 text-right flex-row">
-                {/* الأيقونة أولاً على اليمين */}
                 <div className="p-2.5 bg-primary text-white rounded-xl shadow-md shrink-0"><BookOpen className="w-5 h-5" /></div>
                 <div className="text-right flex-1">
                   <h4 className="text-base font-black text-primary">{unitTitle}</h4>
@@ -461,7 +460,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <button key={lesson.id} disabled={isLocked} onClick={() => { selectLesson(lesson.id); setIsCurriculumOpen(false); }}
                     className={cn("w-full text-right p-4 rounded-xl flex items-center justify-between transition-all", isActive ? "bg-secondary text-white shadow-lg scale-[1.02]" : "hover:bg-primary/5", isLocked && "opacity-40")}>
                     <div className="flex items-center gap-4 text-right flex-row">
-                      {/* الرقم/الأيقونة على اليمين */}
                       <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0", isActive ? "bg-white/20" : "bg-muted text-primary")}>{lIdx + 1}</div>
                       <div className="text-right flex-1">
                         <div className="text-sm font-bold">{lesson.title}</div>
@@ -554,13 +552,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         </>
                       ) : (
                         <>
-                          <ArrowLeft className="w-5 h-5" />
+                          <ArrowRight className="w-5 h-5" />
                           <span>الدرس التالي</span>
                         </>
                       )}
                     </Button>
                     <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg gap-2">
-                       <ArrowRight className="w-5 h-5" />
+                       <ArrowLeft className="w-5 h-5" />
                        <span>السابق</span>
                     </Button>
                   </div>
@@ -632,7 +630,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                           <h4 className="font-black text-base md:text-lg text-primary leading-tight">{bank.bankName}</h4>
                           <p className="text-[10px] md:text-xs text-muted-foreground truncate font-bold">{bank.accountHolder}</p>
                           <div className="flex items-center justify-between bg-muted/40 p-2 md:p-3 rounded-xl mt-2 border border-primary/5">
-                            <code className="text-[10px] md:text-sm font-black font-mono text-secondary truncate ml-2" dir="ltr">{bank.accountNumber}</code>
+                            <code className="text-[10px] md:sm font-black font-mono text-secondary truncate ml-2" dir="ltr">{bank.accountNumber}</code>
                             <button 
                               onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }}
                               className="p-1.5 bg-white rounded-lg text-primary hover:text-secondary transition-colors shadow-sm shrink-0"
