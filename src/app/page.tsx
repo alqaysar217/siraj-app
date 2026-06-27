@@ -159,15 +159,14 @@ export default function Home() {
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
       <Navbar />
       
-      <section className="relative pt-16 md:pt-32 pb-24 px-4 overflow-hidden min-h-[85vh] flex items-center">
+      <section className="relative pt-16 md:pt-32 pb-24 px-4 overflow-hidden min-h-[60vh] md:min-h-[85vh] flex items-center">
         <div className="absolute inset-0 z-0">
           <Image 
             src={heroBg}
             alt="Hero Background" 
             fill 
-            className="object-cover"
+            className="object-cover object-center"
             priority
-            data-ai-hint="technology education"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-primary/95 via-primary/80 to-background" />
         </div>
