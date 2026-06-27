@@ -63,13 +63,12 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
-      toast({ variant: "destructive", title: "كلمة سر ضعيفة", description: "يجب أن تكون 6 أحرف على الأقل." });
+    if (password.length < 8) {
+      toast({ variant: "destructive", title: "كلمة سر ضعيفة", description: "يجب أن تكون 8 أحرف على الأقل للأمان." });
       return;
     }
 
     setLoading(true);
-    localStorage.removeItem('siraj_session_id');
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -78,9 +77,9 @@ export default function RegisterPage() {
       const deviceId = getDeviceFingerprint();
       const initialSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       
+      // حفظ الجلسة محلياً فوراً
       localStorage.setItem('siraj_session_id', initialSessionId);
 
-      // أمن: لا نقوم بتخزين plainPassword أبداً في قاعدة البيانات
       const profileData = {
         uid: user.uid,
         name,
@@ -88,6 +87,7 @@ export default function RegisterPage() {
         phone: "",
         photoURL: "",
         role: "student",
+        status: "active",
         enrolledCourses: [],
         showInLeaderboard: true,
         forcePasswordChange: false, 
@@ -151,13 +151,7 @@ export default function RegisterPage() {
                 <User className="w-4 h-4 text-secondary" />
                 الاسم الكامل
               </Label>
-              <Input 
-                id="name" 
-                placeholder="مثال: محمود الحساني" 
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" 
-                value={name} 
-                onChange={(e) => setName(e.target.value)} 
-              />
+              <Input id="name" placeholder="مثال: محمود الحساني" className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="space-y-2 text-right">
@@ -165,14 +159,7 @@ export default function RegisterPage() {
                 <Mail className="w-4 h-4 text-secondary" />
                 البريد الإلكتروني
               </Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="example@gmail.com" 
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" 
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-              />
+              <Input id="email" type="email" placeholder="example@gmail.com" className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
 
             <div className="space-y-2 text-right">
@@ -180,14 +167,7 @@ export default function RegisterPage() {
                 <Lock className="w-4 h-4 text-secondary" />
                 كلمة المرور
               </Label>
-              <Input 
-                id="password" 
-                type="password" 
-                placeholder="••••••••"
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-              />
+              <Input id="password" type="password" placeholder="••••••••" className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             
             <Button disabled={loading || !auth} onClick={handleRegister} className="w-full h-14 rounded-2xl bg-secondary text-white hover:bg-secondary/90 font-black text-xl shadow-xl shadow-secondary/10 mt-4">

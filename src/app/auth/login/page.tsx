@@ -11,9 +11,9 @@ import Image from "next/image";
 import Navbar from "@/components/navbar";
 import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, MessageCircle, Mail, Lock, AlertCircle, Clock } from "lucide-react";
+import { Loader2, Mail, Lock, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -79,7 +79,6 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    localStorage.removeItem('siraj_session_id');
 
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -88,6 +87,9 @@ export default function LoginPage() {
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
       
+      const deviceId = getDeviceFingerprint();
+      const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
       if (userSnap.exists()) {
         const userData = userSnap.data();
         
@@ -98,33 +100,37 @@ export default function LoginPage() {
           return;
         }
 
-        // أمن: اكتشاف كلمة السر الافتراضية وإجبار التغيير
-        if (password === 'student123') {
-           await updateDoc(userDocRef, { forcePasswordChange: true });
-        }
+        // أمن: اكتشاف كلمة السر الافتراضية
+        const isDefaultPass = password === 'student123';
 
-        if (userData.role === 'student') {
-          const deviceId = getDeviceFingerprint();
-          const registeredDevices = userData.deviceIds || [];
-          if (registeredDevices.length >= 2 && !registeredDevices.includes(deviceId)) {
-            await signOut(auth);
-            toast({ variant: "destructive", title: "تجاوز حد الأجهزة", description: "هذا الحساب مسجل على جهازين مسبقاً." });
-            setLoading(false);
-            return;
-          }
+        // حفظ معرف الجلسة محلياً قبل التحديث في فايربيز لتجنب الطرد التلقائي
+        localStorage.setItem('siraj_session_id', newSessionId);
 
-          const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-          localStorage.setItem('siraj_session_id', newSessionId);
-          await updateDoc(userDocRef, { lastSessionId: newSessionId, deviceIds: arrayUnion(deviceId) });
-        }
+        await updateDoc(userDocRef, { 
+          lastSessionId: newSessionId, 
+          deviceIds: arrayUnion(deviceId),
+          forcePasswordChange: userData.forcePasswordChange || isDefaultPass
+        });
 
-        // أمن: فحص حالة التغيير الإجباري
-        const freshUserSnap = await getDoc(userDocRef);
-        if (freshUserSnap.data()?.forcePasswordChange) {
-           router.push("/auth/change-password");
-           setLoading(false);
-           return;
+        if (userData.forcePasswordChange || isDefaultPass) {
+          router.push("/auth/change-password");
+          setLoading(false);
+          return;
         }
+      } else {
+        // دعم الحسابات القديمة: إنشاء ملف الشخصي إذا لم يكن موجوداً
+        localStorage.setItem('siraj_session_id', newSessionId);
+        await setDoc(userDocRef, {
+          uid: user.uid,
+          name: user.displayName || "طالب سابق",
+          email: user.email,
+          role: "student",
+          status: "active",
+          lastSessionId: newSessionId,
+          deviceIds: [deviceId],
+          createdAt: new Date().toISOString(),
+          forcePasswordChange: password === 'student123'
+        });
       }
 
       localStorage.removeItem('login_attempts');
@@ -135,7 +141,7 @@ export default function LoginPage() {
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());
       if (newAttempts >= 5) {
-        const lockMinutes = 2 + (newAttempts - 5);
+        const lockMinutes = 5;
         const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
         localStorage.setItem('login_lock_until', lockUntil.toString());
         setLockRemaining(lockMinutes * 60);
@@ -163,7 +169,7 @@ export default function LoginPage() {
                 <Clock className="w-5 h-5 shrink-0" />
                 <div className="text-right">
                   <p className="text-[10px] font-black uppercase">الجهاز محظور مؤقتاً</p>
-                  <p className="text-xs font-bold">يرجى المحاولة بعد: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}</p>
+                  <p className="text-xs font-bold">يرجى الانتظار: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}</p>
                 </div>
               </div>
             )}

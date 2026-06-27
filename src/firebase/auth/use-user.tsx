@@ -6,11 +6,7 @@ import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '../provider';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
-import { MessageCircle } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
-
-const WHATSAPP_NUMBER = "+967775258830";
 
 export function useUser() {
   const auth = useAuth();
@@ -54,18 +50,15 @@ export function useUser() {
           const data = docSnap.data();
           setProfile(data);
 
-          // أمن: فحص حالة التغيير الإجباري لكلمة السر
-          if (data.forcePasswordChange && !isKickingRef.current) {
-            const isChangePassPage = pathname === '/auth/change-password';
-            const isAuthFlow = pathname.includes('/auth/');
-            
-            if (!isChangePassPage && !isAuthFlow) {
-              router.replace('/auth/change-password');
-              return;
-            }
+          // لا تتخذ إجراءات أمنية إذا كان المستخدم في صفحات التوثيق أصلاً
+          const isAuthFlow = pathname.includes('/auth/');
+          if (isAuthFlow && pathname !== '/auth/change-password') {
+             setLoading(false);
+             return;
           }
 
           if (data.role === 'student' && !isKickingRef.current) {
+            // 1. فحص الحظر
             if (data.status === 'banned') {
               isKickingRef.current = true;
               signOut(auth).then(() => {
@@ -74,17 +67,23 @@ export function useUser() {
               return;
             }
 
-            if (docSnap.metadata.hasPendingWrites) return;
-            const isAuthPage = pathname.includes('/auth/');
-            if (isAuthPage) return;
-
+            // 2. فحص تعدد الأجهزة (الجلسات)
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
+            
+            // انتظر حتى يتم حفظ الجلسة محلياً إذا كانت مفقودة (مثلاً عند أول دخول)
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId) {
               isKickingRef.current = true;
               signOut(auth).then(() => {
                 if (typeof window !== 'undefined') localStorage.removeItem('siraj_session_id');
-                toast({ variant: "destructive", title: "جلسة أخرى نشطة", description: "تم تسجيل الدخول من جهاز آخر." });
+                toast({ variant: "destructive", title: "تنبيه أمني", description: "تم تسجيل الدخول من جهاز آخر، تم إنهاء هذه الجلسة." });
               });
+              return;
+            }
+
+            // 3. فحص التغيير الإجباري لكلمة السر
+            if (data.forcePasswordChange && pathname !== '/auth/change-password') {
+              router.replace('/auth/change-password');
+              return;
             }
           }
         } else {
