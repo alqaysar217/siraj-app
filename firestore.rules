@@ -18,7 +18,16 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // التحقق من أن المستخدم لم يغير الحقول الحساسة
+    // التحقق من سلامة البيانات عند إنشاء حساب جديد (منع التلاعب بالرتبة)
+    function isValidNewUser() {
+      let data = request.resource.data;
+      return data.role == 'student' 
+        && data.status == 'active' 
+        && data.enrolledCourses.size() == 0 
+        && data.uid == request.auth.uid;
+    }
+
+    // التحقق من أن المستخدم لم يغير الحقول الحساسة أثناء التحديث
     function isNotModifyingSensitiveFields() {
       let sensitiveFields = ['role', 'status', 'enrolledCourses', 'progress', 'enrollmentDetails', 'uid', 'email'];
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
@@ -27,13 +36,14 @@ service cloud.firestore {
     // --- القواعد المخصصة للمجموعات ---
 
     match /users/{userId} {
-      // القراءة: المدير يرى الكل، المسجل يرى نفسه، والزوار يرون فقط الاسم والنقاط (للوحة الشرف)
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (resource != null && resource.data.showInLeaderboard == true);
+      // القراءة: المدير يرى الكل، المسجل يرى نفسه. 
+      // لوحة الشرف: تسمح فقط للمسجلين برؤية من وافق على الظهور، مع حماية البيانات من الزوار الغرباء.
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (isAuthenticated() && resource.data.showInLeaderboard == true);
       
-      // الإنشاء: فقط عند التسجيل الأول
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // الإنشاء: يجب أن يكون المستخدم مسجلاً وأن يلتزم برتبة "طالب" وبدون دورات مسبقة
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
       
-      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته غير الحساسة
+      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته غير الحساسة (الاسم، الهاتف، الصورة)
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
       
       allow delete: if isAdmin();
@@ -71,8 +81,11 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // لا يسمح بكتابة مراجعة إلا للمشتركين فعلياً في الدورة (إجراء إضافي للأمان)
-      allow create: if isAuthenticated() && getUserData().enrolledCourses.hasAny([request.resource.data.courseId]);
+      // لا يسمح بكتابة مراجعة إلا للمشتركين فعلياً، ويجب أن يكتبها المستخدم بهويته الحقيقية فقط
+      allow create: if isAuthenticated() 
+        && getUserData().enrolledCourses.hasAny([request.resource.data.courseId])
+        && request.resource.data.userId == request.auth.uid;
+      
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }
@@ -84,7 +97,7 @@ service cloud.firestore {
 
     match /subscriptions/{subId} {
       allow read: if isAdmin();
-      allow create: if isAdmin(); // تفعيل الاشتراك حصراً من جهة المدير
+      allow create: if isAdmin(); // تفعيل الاشتراك حصراً من جهة المدير لضمان الدفع
     }
 
     match /trash/{trashId} {
