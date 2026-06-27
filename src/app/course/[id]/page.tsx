@@ -601,8 +601,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <h3 className="text-xl md:text-3xl font-black text-primary">خطوات التفعيل</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
-                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-4 md:gap-6 text-right">
-                        <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden border border-border/50 order-first">
+                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-4 md:gap-6 text-right" dir="rtl">
+                        <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden border border-border/50">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
                         <div className="flex-1 overflow-hidden space-y-1">
@@ -622,13 +622,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     ))}
                   </div>
                   <div className="bg-primary/5 p-6 md:p-10 rounded-[2rem] text-center space-y-6 border border-dashed border-primary/10">
-                    <p className="font-black text-lg md:text-2xl text-primary leading-tight">جاهز للبدء؟ أرسل صورة السند الآن</p>
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
+                    <p className="font-black text-lg md:text-2xl text-primary leading-tight px-2">جاهز للبدء؟ أرسل صورة السند الآن</p>
+                    <p className="text-xs md:text-sm text-muted-foreground font-bold px-4">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
                     <div className="flex justify-center w-full px-2">
-                      <Button asChild className="w-full max-w-md h-14 md:h-16 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-2xl font-black text-sm md:text-xl shadow-xl shadow-green-600/20 transition-all active:scale-95 px-4 overflow-hidden">
-                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أود تفعيل دورة ${course?.title}`} target="_blank" className="flex items-center justify-center gap-2">
-                          <MessageCircle className="w-5 h-5 md:w-7 md:h-7 shrink-0" />
-                          <span className="truncate">تواصل مع الإدارة عبر واتساب</span>
+                      <Button asChild className="w-full max-w-full md:max-w-md h-14 md:h-16 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-2xl font-black shadow-xl shadow-green-600/20 transition-all active:scale-95">
+                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أود تفعيل دورة ${course?.title}`} target="_blank" className="flex items-center justify-center gap-2 px-2">
+                          <MessageCircle className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
+                          <span className="text-sm md:text-lg truncate">تواصل عبر واتساب لإرسال السند</span>
                         </a>
                       </Button>
                     </div>
@@ -645,9 +645,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       <p className="text-center py-10 text-muted-foreground font-bold col-span-full">لا توجد تقييمات لهذه الدورة بعد.</p>
                     ) : (
                       reviews.map((r: any, i: number) => (
-                        <div key={i} className="bg-card p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow space-y-4 text-right">
-                          <div className="flex flex-row items-center gap-4">
-                            <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-sm shrink-0 order-first">
+                        <div key={i} className="bg-card p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow space-y-4 text-right flex flex-col">
+                          <div className="flex flex-row items-center gap-4" dir="rtl">
+                            <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-sm shrink-0">
                               <AvatarImage src={r.userPhoto} className="object-cover" />
                               <AvatarFallback className="bg-primary text-white font-black">{r.userName?.charAt(0)}</AvatarFallback>
                             </Avatar>
