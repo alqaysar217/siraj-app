@@ -218,7 +218,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
   return (
     <div className="bg-card p-5 md:p-12 rounded-[2rem] border border-border luxury-shadow space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center border-b border-border/50 pb-6">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 text-right" dir="rtl">
           <div className="p-3 bg-secondary/10 rounded-xl text-secondary">
             <ClipboardList className="w-6 h-6" />
           </div>
@@ -645,7 +645,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   </div>
                   <div className="bg-primary/5 p-6 md:p-10 rounded-[2rem] text-center space-y-6 border border-dashed border-primary/10">
                     <p className="font-black text-lg md:text-2xl text-primary leading-tight px-2">جاهز للبدء؟ أرسل صورة السند الآن</p>
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold px-4">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
+                    <p className="text-xs md:sm text-muted-foreground font-bold px-4">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
                     <div className="flex justify-center w-full px-2">
                       <Button asChild className="w-full max-w-full md:max-w-md h-14 md:h-16 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-2xl font-black shadow-xl shadow-green-600/20 transition-all active:scale-95">
                         <a 

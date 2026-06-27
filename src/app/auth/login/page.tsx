@@ -186,7 +186,7 @@ export default function LoginPage() {
                 <div className="text-right">
                   <p className="text-[10px] font-black uppercase">محظور مؤقتاً</p>
                   <p className="text-sm font-black" dir="ltr">
-                    {Math.floor(lockRemaining / 60)}:${String(lockRemaining % 60).padStart(2, '0')}
+                    {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
                   </p>
                 </div>
               </div>
