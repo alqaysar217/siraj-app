@@ -9,7 +9,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // جلب بيانات المستخدم من قاعدة البيانات للتحقق من دوره
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -18,7 +17,6 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // التحقق من سلامة البيانات عند إنشاء حساب جديد (منع التلاعب بالرتبة أو الدورات)
     function isValidNewUser() {
       let data = request.resource.data;
       return data.role == 'student' 
@@ -28,7 +26,6 @@ service cloud.firestore {
         && data.uid == request.auth.uid;
     }
 
-    // التحقق من عدم المساس بالحقول الحساسة أثناء التحديث
     function isNotModifyingSensitiveFields() {
       let sensitiveFields = [
         'role', 'status', 'enrolledCourses', 'progress', 
@@ -37,7 +34,6 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
     }
 
-    // التحقق من صحة بيانات المراجعة (سد الثغرة الثانية)
     function isValidReview() {
       let data = request.resource.data;
       return data.userId == request.auth.uid
@@ -50,16 +46,11 @@ service cloud.firestore {
 
     match /users/{userId} {
       // القراءة: المدير يرى الكل، المسجل يرى نفسه. 
-      // لوحة الشرف: تسمح للمسجلين فقط برؤية من وافق على الظهور (حماية من الغرباء)
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (isAuthenticated() && resource.data.showInLeaderboard == true);
+      // لوحة الشرف: تسمح للجميع (بمن فيهم الزوار غير المسجلين) برؤية من وافق على الظهور العام لتحفيزهم على الانضمام
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (resource.data.showInLeaderboard == true);
       
-      // الإنشاء: يجب أن يكون المستخدم مسجلاً وأن يلتزم بشروط "المستخدم الجديد الصالح"
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
-      
-      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته الشخصية البسيطة (اسم، صورة، هاتف، حالة الظهور)
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
-      
-      // الحذف: المدير فقط من يملك حق حذف الحسابات لضمان بقاء سجلات الاشتراكات المالية
       allow delete: if isAdmin();
     }
 
@@ -95,10 +86,7 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // التحقق من الهوية الحقيقية والاشتراك الفعلي قبل السماح بالكتابة
       allow create: if isAuthenticated() && isValidReview();
-      
-      // منع التلاعب بالتقييمات بعد نشرها
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }

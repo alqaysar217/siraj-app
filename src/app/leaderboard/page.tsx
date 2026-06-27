@@ -10,18 +10,21 @@ import {
   Award, 
   Medal,
   Crown,
-  ChevronDown
+  ChevronDown,
+  UserPlus
 } from "lucide-react";
-import { useCollection, useMemoFirebase } from "@/firebase";
+import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, where, limit } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useMemo, useState, useEffect } from "react";
+import Link from "next/link";
 
 export default function PublicLeaderboardPage() {
   const db = useFirestore();
+  const { user } = useUser();
   const [mounted, setMounted] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
 
@@ -29,7 +32,7 @@ export default function PublicLeaderboardPage() {
     setMounted(true);
   }, []);
   
-  // جلب الطلاب الذين وافقوا على الظهور العام (متاح للجميع حسب قواعد الحماية الجديدة)
+  // جلب الطلاب الذين وافقوا على الظهور العام (متاح للجميع الآن)
   const usersQuery = useMemoFirebase(() => 
     db ? query(
       collection(db, "users"), 
@@ -76,6 +79,15 @@ export default function PublicLeaderboardPage() {
            <p className="text-muted-foreground text-xs md:text-lg max-w-2xl mx-auto font-medium leading-relaxed px-4">
              قائمة الشرف للطلاب الأكثر تفاعلاً وإنجازاً. تنافس مع زملائك واحصد النقاط لتتصدر القائمة الذهبية.
            </p>
+           {!user && (
+             <div className="pt-4 animate-bounce">
+                <Button asChild className="bg-primary text-white rounded-2xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20">
+                   <Link href="/auth/register">
+                      <UserPlus className="w-5 h-5" /> كن واحداً منهم وسجل الآن
+                   </Link>
+                </Button>
+             </div>
+           )}
         </header>
 
         {loading ? (
@@ -129,7 +141,7 @@ export default function PublicLeaderboardPage() {
                           <TableCell className="py-3 md:py-6 px-1 md:px-4">
                             <div className="flex items-center gap-2 md:gap-4 text-right">
                               <Avatar className={cn(
-                                "h-8 w-8 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
+                                "h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
                                 index === 0 ? "border-yellow-400" : "border-white"
                               )}>
                                 <AvatarImage src={student.photoURL || undefined} className="object-cover" />
