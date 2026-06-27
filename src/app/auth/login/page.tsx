@@ -30,7 +30,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // جلب سجل المحاولات عند تحميل الصفحة
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const storedAttempts = parseInt(localStorage.getItem('login_attempts') || '0');
@@ -44,7 +43,6 @@ export default function LoginPage() {
     }
   }, []);
 
-  // عداد الحظر الحي
   useEffect(() => {
     if (lockRemaining > 0) {
       const timer = setInterval(() => {
@@ -80,17 +78,19 @@ export default function LoginPage() {
   const handleLogin = async () => {
     if (!auth || !db) return;
     
-    // منع المحاولة إذا كان الحظر نشطاً
     if (lockRemaining > 0) {
       toast({ 
         variant: "destructive", 
-        title: "الجهاز محظور", 
+        title: "الجهاز محظور مؤقتاً", 
         description: `يرجى الانتظار ${Math.floor(lockRemaining / 60)}:${String(lockRemaining % 60).padStart(2, '0')} دقيقة.` 
       });
       return;
     }
 
-    if (!email || !password) {
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى إدخال البريد وكلمة المرور." });
       return;
     }
@@ -98,52 +98,35 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. محاولة تسجيل الدخول عبر Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // 1. تسجيل الدخول
+      const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const user = userCredential.user;
 
-      // مسح معرف الجلسة القديم فوراً لمنع التداخل
-      localStorage.removeItem('siraj_session_id');
+      // 2. تجهيز بيانات الجلسة الجديدة
+      const deviceId = getDeviceFingerprint();
+      const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const isDefaultPass = cleanPassword === 'student123';
 
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
       
-      const deviceId = getDeviceFingerprint();
-      const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const isDefaultPass = password === 'student123';
-
+      // 3. تحديث قاعدة البيانات بالسيرفر أولاً
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        
         if (userData.status === 'banned') {
           await signOut(auth);
-          toast({ variant: "destructive", title: "الحساب محظور", description: "نأسف، لقد تم حظر وصولك للمنصة." });
+          toast({ variant: "destructive", title: "الحساب محظور", description: "لقد تم إيقاف صلاحية دخولك للمنصة." });
           setLoading(false);
           return;
         }
 
-        // تحديث قاعدة البيانات بالسيرفر أولاً
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId),
           forcePasswordChange: userData.forcePasswordChange || isDefaultPass
         });
-
-        // ثم حفظ الجلسة محلياً لضمان التطابق مع useUser
-        localStorage.setItem('siraj_session_id', newSessionId);
-
-        // تصفير عداد المحاولات بعد النجاح
-        localStorage.removeItem('login_attempts');
-        localStorage.removeItem('login_lock_until');
-
-        if (userData.forcePasswordChange || isDefaultPass) {
-          router.push("/auth/change-password");
-          setLoading(false);
-          return;
-        }
       } else {
-        // إنشاء ملف الطالب إذا لم يكن موجوداً (للحسابات القديمة)
-        const initialData = {
+        await setDoc(userDocRef, {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
           email: user.email,
@@ -153,49 +136,46 @@ export default function LoginPage() {
           deviceIds: [deviceId],
           createdAt: new Date().toISOString(),
           forcePasswordChange: isDefaultPass
-        };
-
-        await setDoc(userDocRef, initialData);
-        localStorage.setItem('siraj_session_id', newSessionId);
-        
-        localStorage.removeItem('login_attempts');
-        localStorage.removeItem('login_lock_until');
-
-        if (isDefaultPass) {
-          router.push("/auth/change-password");
-          setLoading(false);
-          return;
-        }
+        });
       }
 
-      router.push("/dashboard");
+      // 4. حفظ الجلسة محلياً مع ختم زمني لمنع طرد "السباق التقني"
+      localStorage.setItem('siraj_session_id', newSessionId);
+      localStorage.setItem('siraj_session_timestamp', Date.now().toString());
+
+      // 5. تصفير الحظر
+      localStorage.removeItem('login_attempts');
+      localStorage.removeItem('login_lock_until');
+
+      // 6. التوجيه
+      if (isDefaultPass || userSnap.data()?.forcePasswordChange) {
+        router.push("/auth/change-password");
+      } else {
+        router.push("/dashboard");
+      }
+
     } catch (error: any) {
       console.error("Login Error:", error);
       
-      // منطق الحظر التصاعدي
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());
       
+      let title = "خطأ في الدخول";
+      let desc = "البريد أو كلمة السر غير صحيحة.";
+
       if (newAttempts >= 5) {
-        // العقوبة: المحاولة 5 = 1 دقيقة، المحاولة 6 = 2 دقيقة، وهكذا
         const lockMinutes = newAttempts - 4; 
         const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
         localStorage.setItem('login_lock_until', lockUntil.toString());
         setLockRemaining(lockMinutes * 60);
-        
-        toast({ 
-          variant: "destructive", 
-          title: "تم تقييد الدخول", 
-          description: `لقد تجاوزت المحاولات المسموحة. تم حظرك لمدة ${lockMinutes} دقيقة.` 
-        });
+        title = "تم تقييد الجهاز";
+        desc = `تجاوزت المحاولات. تم حظرك لمدة ${lockMinutes} دقيقة.`;
       } else {
-        toast({ 
-          variant: "destructive", 
-          title: "خطأ في البيانات", 
-          description: `كلمة السر غير صحيحة. متبقي لك ${5 - newAttempts} محاولات قبل الحظر.` 
-        });
+        desc = `كلمة السر غير صحيحة. متبقي لك ${5 - newAttempts} محاولات قبل الحظر المؤقت.`;
       }
+      
+      toast({ variant: "destructive", title, description: desc });
       setLoading(false);
     }
   };
@@ -204,7 +184,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col bg-background" dir="rtl">
       <Navbar />
       <div className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md luxury-shadow border-primary/5 rounded-[2.5rem] overflow-hidden">
+        <Card className="w-full max-w-md luxury-shadow border-primary/5 rounded-[2.5rem] overflow-hidden bg-white/95 backdrop-blur-xl">
           <CardHeader className="text-center pb-6 pt-10">
             <div className="mx-auto w-14 h-14 relative mb-4 transition-transform hover:scale-110">
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
@@ -257,7 +237,7 @@ export default function LoginPage() {
             </div>
 
             <Button 
-              disabled={loading || !auth || lockRemaining > 0} 
+              disabled={loading || lockRemaining > 0} 
               onClick={handleLogin} 
               className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 hover:scale-[1.02] transition-transform active:scale-95"
             >

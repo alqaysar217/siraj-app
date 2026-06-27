@@ -49,13 +49,6 @@ export function useUser() {
           const data = docSnap.data();
           setProfile(data);
 
-          // لا تتخذ إجراءات أمنية إذا كان المستخدم في صفحات التوثيق أصلاً
-          const isAuthFlow = pathname.includes('/auth/');
-          if (isAuthFlow && pathname !== '/auth/change-password') {
-             setLoading(false);
-             return;
-          }
-
           if (data.role === 'student' && !isKickingRef.current) {
             // 1. فحص الحظر
             if (data.status === 'banned') {
@@ -66,22 +59,25 @@ export function useUser() {
               return;
             }
 
-            // 2. فحص تعدد الأجهزة (الجلسات)
+            // 2. فحص تعدد الأجهزة مع "مهلة حماية" لمنع تعارض الدخول الجديد
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
-            
-            // طرد المستخدم فقط إذا كان هناك "جلسة نشطة" محلية تختلف عن السيرفر
-            // هذا يمنع الطرد عند أول دخول من جهاز جديد لأن localSessionId سيكون null وقتها
-            if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId) {
+            const sessionTimestamp = typeof window !== 'undefined' ? parseInt(localStorage.getItem('siraj_session_timestamp') || '0') : 0;
+            const isVeryRecent = Date.now() - sessionTimestamp < 5000; // 5 ثوانٍ حماية
+
+            if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId && !isVeryRecent) {
               isKickingRef.current = true;
               signOut(auth).then(() => {
-                if (typeof window !== 'undefined') localStorage.removeItem('siraj_session_id');
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('siraj_session_id');
+                  localStorage.removeItem('siraj_session_timestamp');
+                }
                 toast({ variant: "destructive", title: "تنبيه أمني", description: "تم تسجيل الدخول من جهاز آخر، تم إنهاء هذه الجلسة." });
               });
               return;
             }
 
             // 3. فحص التغيير الإجباري لكلمة السر
-            if (data.forcePasswordChange && pathname !== '/auth/change-password') {
+            if (data.forcePasswordChange && !pathname.includes('/auth/change-password') && !pathname.includes('/auth/login')) {
               router.replace('/auth/change-password');
               return;
             }

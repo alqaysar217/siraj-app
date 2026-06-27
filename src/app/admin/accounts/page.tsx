@@ -55,16 +55,17 @@ export default function AccountManagementPage() {
     if (!users) return [];
     return users.filter(u => 
       u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.id?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
 
   const handleForcePasswordReset = async () => {
     if (!userToForceReset) return;
-    setProcessing(userToForceReset.uid);
+    const targetUid = userToForceReset.id || userToForceReset.uid;
+    setProcessing(targetUid);
     try {
-      // استدعاء الـ Server Action الذي يقوم بتغيير الباسورد الفعلي لـ student123
-      const result = await resetStudentPassword(userToForceReset.uid);
+      const result = await resetStudentPassword(targetUid);
       
       if (result.success) {
         toast({ 
@@ -78,7 +79,7 @@ export default function AccountManagementPage() {
       toast({ 
         variant: "destructive", 
         title: "خطأ في التصفير", 
-        description: error.message || "فشل تصفير كلمة السر. تأكد من وجود صلاحيات الأدمن." 
+        description: error.message || "فشل تصفير كلمة السر. تأكد من وجود اتصال مستقر." 
       });
     } finally {
       setProcessing(null);
@@ -88,9 +89,10 @@ export default function AccountManagementPage() {
 
   const handleResetDevices = async () => {
     if (!db || !userToReset) return;
-    setProcessing(userToReset.uid);
+    const targetUid = userToReset.id || userToReset.uid;
+    setProcessing(targetUid);
     try {
-      await updateDoc(doc(db, "users", userToReset.uid), {
+      await updateDoc(doc(db, "users", targetUid), {
         deviceIds: [],
         lastSessionId: "reset_" + Date.now() 
       });
@@ -105,10 +107,11 @@ export default function AccountManagementPage() {
 
   const confirmToggleStatus = async () => {
     if (!db || !userToStatusChange) return;
-    setProcessing(userToStatusChange.uid);
+    const targetUid = userToStatusChange.id || userToStatusChange.uid;
+    setProcessing(targetUid);
     const newStatus = userToStatusChange.status === 'banned' ? 'active' : 'banned';
     try {
-      await updateDoc(doc(db, "users", userToStatusChange.uid), { 
+      await updateDoc(doc(db, "users", targetUid), { 
         status: newStatus,
         lastSessionId: newStatus === 'banned' ? 'banned_' + Date.now() : userToStatusChange.lastSessionId
       });
@@ -126,19 +129,20 @@ export default function AccountManagementPage() {
 
   const handleDeleteUser = async () => {
     if (!db || !userToDelete) return;
-    setProcessing(userToDelete.uid);
+    const targetUid = userToDelete.id || userToDelete.uid;
+    setProcessing(targetUid);
     try {
       const trashRef = doc(collection(db, "trash"));
       await setDoc(trashRef, {
-        originalId: userToDelete.uid,
-        originalPath: `users/${userToDelete.uid}`,
+        originalId: targetUid,
+        originalPath: `users/${targetUid}`,
         type: "user",
         title: `حساب: ${userToDelete.name}`,
         data: userToDelete,
         deletedAt: serverTimestamp()
       });
 
-      await deleteDoc(doc(db, "users", userToDelete.uid));
+      await deleteDoc(doc(db, "users", targetUid));
       toast({ title: "تم الحذف", description: "تم نقل الحساب إلى سلة المهملات بنجاح." });
     } catch (error) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل حذف الحساب." });
@@ -188,7 +192,7 @@ export default function AccountManagementPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((user: any) => (
-                      <TableRow key={user.uid} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
+                      <TableRow key={user.id} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
                         <TableCell className="py-4">
                           <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
@@ -208,7 +212,7 @@ export default function AccountManagementPage() {
                           <div className="flex flex-col items-center gap-1.5">
                              <Button 
                                 onClick={() => setUserToForceReset(user)}
-                                disabled={processing === user.uid}
+                                disabled={processing === (user.id || user.uid)}
                                 variant="outline"
                                 size="sm"
                                 className="h-8 rounded-lg border-primary/20 text-primary font-bold gap-2 text-[10px]"
@@ -234,7 +238,7 @@ export default function AccountManagementPage() {
                         <TableCell className="py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
                             <Button 
-                              disabled={processing === user.uid || (user.deviceIds?.length || 0) === 0}
+                              disabled={processing === (user.id || user.uid) || (user.deviceIds?.length || 0) === 0}
                               onClick={() => setUserToReset(user)}
                               variant="outline"
                               size="sm"
@@ -246,7 +250,7 @@ export default function AccountManagementPage() {
                             </Button>
                             
                             <Button 
-                              disabled={processing === user.uid}
+                              disabled={processing === (user.id || user.uid)}
                               onClick={() => setUserToStatusStatusChange(user)}
                               variant="ghost"
                               size="icon"
@@ -257,7 +261,7 @@ export default function AccountManagementPage() {
                             </Button>
 
                             <Button 
-                              disabled={processing === user.uid}
+                              disabled={processing === (user.id || user.uid)}
                               onClick={() => setUserToDelete(user)}
                               variant="ghost"
                               size="icon"
