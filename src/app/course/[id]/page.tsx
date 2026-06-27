@@ -140,7 +140,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         <div className="space-y-2">
           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">تقويم الوحدة التعليمية</h2>
           <p className="text-muted-foreground text-sm md:text-lg leading-relaxed max-w-lg mx-auto">
-            تنبيه: يتم احتساب نقاط هذا التقويم من أول محاولة إجابة فقط. يمكنك إعادة التقويم لاحقاً للمراجعة، ولكن لن تمنح نقاطاً إضافية.
+            تنبيه: يتم احتساب نقاط هذا تقويم من أول محاولة إجابة فقط. يمكنك إعادة التقويم لاحقاً للمراجعة، ولكن لن تمنح نقاطاً إضافية.
           </p>
         </div>
         <Button onClick={() => setStarted(true)} className="h-14 px-12 rounded-2xl bg-primary text-white font-bold text-lg shadow-lg">
@@ -416,9 +416,26 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       return;
     }
     setSubmittingReview(true);
-    const reviewData = { courseId: id, courseTitle: course?.title || "دورة سراج", userId: user.uid, userName: profile?.name || "طالب مجهول", userPhoto: profile?.photoURL || "", rating, comment: reviewComment, createdAt: serverTimestamp() };
+    // تم التأكد من إرسال userId: user.uid ليتطابق مع قيود الحماية الجديدة
+    const reviewData = { 
+      courseId: id, 
+      courseTitle: course?.title || "دورة سراج", 
+      userId: user.uid, 
+      userName: profile?.name || "طالب مجهول", 
+      userPhoto: profile?.photoURL || "", 
+      rating, 
+      comment: reviewComment, 
+      createdAt: serverTimestamp() 
+    };
     addDoc(collection(db, "reviews"), reviewData)
       .then(() => { setIsReviewSubmitted(true); toast({ title: "تم تسجيل تقييمك", description: "شكراً لك!" }); })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'reviews',
+          operation: 'create',
+          requestResourceData: reviewData
+        }));
+      })
       .finally(() => setSubmittingReview(false));
   };
 

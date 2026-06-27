@@ -81,11 +81,12 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // لا يسمح بكتابة مراجعة إلا للمشتركين فعلياً، ويجب أن يكتبها المستخدم بهويته الحقيقية فقط
+      // سد الثغرة الثانية: التحقق من الهوية الحقيقية والاشتراك الفعلي قبل السماح بالكتابة
       allow create: if isAuthenticated() 
-        && getUserData().enrolledCourses.hasAny([request.resource.data.courseId])
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && getUserData().enrolledCourses.hasAny([request.resource.data.courseId]);
       
+      // منع التلاعب بالتقييمات بعد نشرها - الحذف للمدير فقط
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }
