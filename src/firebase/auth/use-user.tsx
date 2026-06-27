@@ -60,7 +60,7 @@ export function useUser() {
               return;
             }
 
-            // 2. فحص تعدد الأجهزة مع مهلة حماية ممتدة لضمان المزامنة
+            // 2. فحص تعدد الأجهزة مع مهلة حماية ممتدة
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
             const sessionTimestamp = typeof window !== 'undefined' ? parseInt(localStorage.getItem('siraj_session_timestamp') || '0') : 0;
             
@@ -78,21 +78,11 @@ export function useUser() {
               });
               return;
             }
-
-            // 3. فحص التغيير الإجباري لكلمة السر
-            if (data.forcePasswordChange && !pathname.includes('/auth/change-password') && !pathname.includes('/auth/login')) {
-              router.replace('/auth/change-password');
-              return;
-            }
           }
-        } else {
-          // إذا كان المستخدم مسجلاً في Auth ولكن ليس له ملف Firestore بعد (حالة نادرة للمستخدمين القدامى)
-          setProfile(null);
         }
         setLoading(false);
       },
       (error) => {
-        console.error("Profile Subscription Error:", error);
         setLoading(false);
       }
     );

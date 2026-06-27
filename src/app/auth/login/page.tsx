@@ -10,10 +10,10 @@ import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/navbar";
 import { useAuth, useFirestore } from "@/firebase/provider";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, AlertCircle } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -22,6 +22,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [showResetView, setShowResetView] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockRemaining, setLockRemaining] = useState(0);
@@ -62,15 +65,9 @@ export default function LoginPage() {
 
   const getDeviceFingerprint = () => {
     if (typeof window === 'undefined') return "Unknown";
-    const ua = navigator.userAgent;
-    let deviceName = "Device";
-    if (/android/i.test(ua)) deviceName = "Android";
-    else if (/iPad|iPhone|iPod/.test(ua)) deviceName = "iOS";
-    else if (/Windows/i.test(ua)) deviceName = "Windows";
-    
     let storedId = localStorage.getItem('siraj_device_token');
     if (!storedId) {
-      storedId = `${deviceName}-${Math.random().toString(36).substring(2, 7)}`;
+      storedId = `Device-${Math.random().toString(36).substring(2, 7)}`;
       localStorage.setItem('siraj_device_token', storedId);
     }
     return storedId;
@@ -88,7 +85,6 @@ export default function LoginPage() {
       return;
     }
 
-    // تنظيف صارم للمدخلات لمنع خطأ invalid-credential الناتج عن المسافات
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
@@ -100,42 +96,29 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. تسجيل الدخول
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const user = userCredential.user;
 
-      // 2. توليد بيانات الجلسة والجهاز
       const deviceId = getDeviceFingerprint();
-      const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const isDefaultPass = cleanPassword === 'student123';
-
-      // 3. هام جداً: حفظ الجلسة محلياً فوراً لمنع تعارض المزامنة
+      const newSessionId = `sess_${Date.now()}`;
+      
+      // حفظ الجلسة محلياً قبل Firestore لضمان المزامنة
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
       
-      let forceChange = isDefaultPass;
-
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.status === 'banned') {
-          await signOut(auth);
-          localStorage.removeItem('siraj_session_id');
-          toast({ variant: "destructive", title: "الحساب محظور", description: "لقد تم إيقاف صلاحية دخولك للمنصة." });
-          setLoading(false);
-          return;
+          throw new Error("banned");
         }
-        forceChange = userData.forcePasswordChange || isDefaultPass;
-
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
-          deviceIds: arrayUnion(deviceId),
-          forcePasswordChange: forceChange
+          deviceIds: arrayUnion(deviceId)
         });
       } else {
-        // دعم الحسابات القديمة التي لا تملك ملف Firestore
         await setDoc(userDocRef, {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
@@ -144,51 +127,102 @@ export default function LoginPage() {
           status: "active",
           lastSessionId: newSessionId,
           deviceIds: [deviceId],
-          createdAt: new Date().toISOString(),
-          forcePasswordChange: isDefaultPass
+          createdAt: new Date().toISOString()
         });
       }
 
-      // 4. تصفير الحظر عند النجاح
       localStorage.removeItem('login_attempts');
       localStorage.removeItem('login_lock_until');
-      setFailedAttempts(0);
-
-      if (forceChange) {
-        router.push("/auth/change-password");
-      } else {
-        router.push("/dashboard");
-      }
+      
+      router.push("/dashboard");
 
     } catch (error: any) {
-      console.error("Login Error Details:", error);
-      
-      const newAttempts = failedAttempts + 1;
-      setFailedAttempts(newAttempts);
-      localStorage.setItem('login_attempts', newAttempts.toString());
-      
-      let title = "خطأ في الدخول";
-      let desc = "البريد أو كلمة السر غير صحيحة.";
-
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+      if (error.message === "banned") {
+        toast({ variant: "destructive", title: "الحساب محظور", description: "تم إيقاف صلاحية دخولك للمنصة." });
+      } else {
+        const newAttempts = failedAttempts + 1;
+        setFailedAttempts(newAttempts);
+        localStorage.setItem('login_attempts', newAttempts.toString());
+        
+        let desc = "البريد أو كلمة السر غير صحيحة.";
         if (newAttempts >= 5) {
           const lockMinutes = newAttempts - 4;
           const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
           localStorage.setItem('login_lock_until', lockUntil.toString());
           setLockRemaining(lockMinutes * 60);
-          title = "تقييد مؤقت";
-          desc = `تجاوزت المحاولات. تم حظر الجهاز لمدة ${lockMinutes} دقيقة.`;
+          desc = `تجاوزت المحاولات. تم حظر الجهاز لـ ${lockMinutes} دقيقة.`;
         } else {
-          desc = `بيانات الدخول خاطئة. متبقي ${5 - newAttempts} محاولات قبل الحظر.`;
+          desc = `بيانات خاطئة. متبقي ${5 - newAttempts} محاولات قبل الحظر.`;
         }
-      } else {
-        desc = "حدث خطأ غير متوقع في نظام الحماية. حاول ثانية.";
+        toast({ variant: "destructive", title: "فشل الدخول", description: desc });
       }
-      
-      toast({ variant: "destructive", title, description: desc });
       setLoading(false);
     }
   };
+
+  const handlePasswordReset = async () => {
+    if (!auth || !email) {
+      toast({ variant: "destructive", title: "تنبيه", description: "يرجى كتابة بريدك الإلكتروني أولاً." });
+      return;
+    }
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
+      setResetSent(true);
+      toast({ title: "تم الإرسال", description: "تحقق من بريدك الإلكتروني (بما في ذلك الجنك/سبام)." });
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "فشل الإرسال", description: "تأكد من صحة البريد أو حاول لاحقاً." });
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  if (showResetView) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background" dir="rtl">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md luxury-shadow border-none rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="text-center pt-10 pb-6">
+              <div className="mx-auto w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mb-4">
+                <Lock className="w-8 h-8 text-primary" />
+              </div>
+              <CardTitle className="text-2xl font-black text-primary font-headline">استعادة كلمة السر</CardTitle>
+              <CardDescription className="font-bold">أدخل بريدك وسنرسل لك رابطاً آمناً</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 px-8">
+              {resetSent ? (
+                <div className="text-center py-6 space-y-4 animate-in fade-in zoom-in">
+                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-10 h-10 text-green-600" />
+                  </div>
+                  <p className="text-sm font-bold text-primary">تم إرسال رابط التغيير لبريدك بنجاح.</p>
+                  <Button variant="outline" onClick={() => setShowResetView(false)} className="w-full rounded-xl">العودة للدخول</Button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label className="font-bold mr-1">بريدك الإلكتروني</Label>
+                    <Input 
+                      type="email" 
+                      placeholder="example@gmail.com" 
+                      className="h-12 rounded-2xl bg-muted/30 border-primary/5"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  <Button disabled={resetLoading} onClick={handlePasswordReset} className="w-full h-14 rounded-2xl bg-primary text-white font-black shadow-lg">
+                    {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "إرسال رابط الاستعادة"}
+                  </Button>
+                  <button onClick={() => setShowResetView(false)} className="w-full text-xs font-bold text-muted-foreground hover:text-primary">إلغاء والعودة</button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background" dir="rtl">
@@ -205,12 +239,12 @@ export default function LoginPage() {
           <CardContent className="space-y-6 px-8">
             
             {lockRemaining > 0 && (
-              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-in fade-in zoom-in duration-300">
+              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-in fade-in zoom-in">
                 <Clock className="w-6 h-6 shrink-0" />
                 <div className="text-right">
                   <p className="text-[10px] font-black uppercase">محظور مؤقتاً</p>
                   <p className="text-sm font-black" dir="ltr">
-                    {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
+                    {Math.floor(lockRemaining / 60)}:${String(lockRemaining % 60).padStart(2, '0')}
                   </p>
                 </div>
               </div>
@@ -255,15 +289,18 @@ export default function LoginPage() {
             </Button>
 
             <div className="text-center pt-2">
-              <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-xs text-muted-foreground font-bold hover:text-secondary">
-                هل نسيت كلمة المرور؟ اطلب مساعدة محمود
-              </Link>
+              <button onClick={() => setShowResetView(true)} className="text-xs text-muted-foreground font-bold hover:text-secondary">
+                نسيت كلمة المرور؟ استعدها برابط آمن
+              </button>
             </div>
           </CardContent>
-          <CardFooter className="justify-center pb-10">
+          <CardFooter className="flex flex-col gap-4 pb-10">
             <div className="text-muted-foreground font-bold text-sm">
               مستخدم جديد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">أنشئ حسابك الآن</Link>
             </div>
+            <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-[10px] font-black text-primary/40 flex items-center gap-1 hover:text-primary transition-colors">
+              الدعم الفني المباشر <ArrowRight className="w-3 h-3 rotate-180" />
+            </Link>
           </CardFooter>
         </Card>
       </div>
