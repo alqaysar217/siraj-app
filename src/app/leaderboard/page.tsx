@@ -1,3 +1,4 @@
+
 "use client";
 
 import Navbar from "@/components/navbar";
@@ -32,8 +33,8 @@ export default function PublicLeaderboardPage() {
   }, []);
   
   /**
-   * استعلام محسّن متوافق مع قواعد الحماية للظهور العام.
-   * الفلتر 'showInLeaderboard == true' هو المفتاح للسماح للزوار بالقراءة.
+   * استعلام متوافق تماماً مع قواعد الحماية الجديدة.
+   * الفلتر 'showInLeaderboard == true' يضمن أن السيرفر سيسمح بالطلب حتى للزوار.
    */
   const usersQuery = useMemoFirebase(() => 
     db ? query(
@@ -51,12 +52,10 @@ export default function PublicLeaderboardPage() {
     return users.map((user: any) => {
       const progressEntries = Object.values(user.progress || {});
       const totalPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
-      const totalCompletedLessons = progressEntries.reduce((acc: number, curr: any) => acc + (curr.completedLessons?.length || 0), 0);
       
       return {
         ...user,
-        totalPoints,
-        totalCompletedLessons
+        totalPoints
       };
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [users]);
@@ -98,8 +97,10 @@ export default function PublicLeaderboardPage() {
             <p className="text-muted-foreground font-bold">جاري تحديث لوحة الشرف...</p>
           </div>
         ) : error ? (
-           <div className="py-20 text-center bg-red-50 rounded-3xl border border-red-100">
+           <div className="py-20 text-center bg-red-50 rounded-3xl border border-red-100 p-8">
+              <Award className="w-12 h-12 text-red-200 mx-auto mb-4" />
               <p className="text-red-600 font-bold">عذراً، فشل الاتصال بسجل المتصدرين. يرجى المحاولة لاحقاً.</p>
+              <p className="text-red-400 text-xs mt-2">تأكد من أنك قمت بتفعيل "قواعد الحماية" المحدثة.</p>
            </div>
         ) : leaderboard.length > 0 ? (
           <div className="space-y-8">
