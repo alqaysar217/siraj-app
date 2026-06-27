@@ -438,20 +438,21 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   };
 
   const CurriculumContent = () => (
-    <div className="space-y-6">
+    <div className="space-y-6" dir="rtl">
       <Accordion type="single" collapsible className="space-y-4">
         {Object.entries(groupedLessons).map(([unitTitle, unitLessons]: [string, any], uIdx) => (
           <AccordionItem key={unitTitle} value={`unit-${uIdx}`} className="border rounded-2xl overflow-hidden bg-card border-primary/5">
             <AccordionTrigger className="hover:no-underline py-5 px-5 bg-muted/20 text-right [&[data-state=open]>svg]:rotate-180">
-              <div className="flex items-center gap-4 text-right">
-                <div className="p-2.5 bg-primary text-white rounded-xl shadow-md"><BookOpen className="w-5 h-5" /></div>
-                <div className="text-right">
+              <div className="flex items-center gap-4 text-right flex-row">
+                {/* الأيقونة أولاً على اليمين */}
+                <div className="p-2.5 bg-primary text-white rounded-xl shadow-md shrink-0"><BookOpen className="w-5 h-5" /></div>
+                <div className="text-right flex-1">
                   <h4 className="text-base font-black text-primary">{unitTitle}</h4>
                   <p className="text-[10px] text-muted-foreground font-bold">{unitLessons.length} عناصر تعليمية</p>
                 </div>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="p-3 space-y-1.5" dir="rtl">
+            <AccordionContent className="p-3 space-y-1.5">
               {unitLessons.map((lesson: any, lIdx: number) => {
                 const gIndex = lessons?.findIndex(l => l.id === lesson.id) ?? 0;
                 const isLocked = isLessonLocked(lesson, gIndex);
@@ -459,14 +460,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 return (
                   <button key={lesson.id} disabled={isLocked} onClick={() => { selectLesson(lesson.id); setIsCurriculumOpen(false); }}
                     className={cn("w-full text-right p-4 rounded-xl flex items-center justify-between transition-all", isActive ? "bg-secondary text-white shadow-lg scale-[1.02]" : "hover:bg-primary/5", isLocked && "opacity-40")}>
-                    <div className="flex items-center gap-4 text-right">
-                      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs", isActive ? "bg-white/20" : "bg-muted text-primary")}>{lIdx + 1}</div>
-                      <div className="text-right">
+                    <div className="flex items-center gap-4 text-right flex-row">
+                      {/* الرقم/الأيقونة على اليمين */}
+                      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0", isActive ? "bg-white/20" : "bg-muted text-primary")}>{lIdx + 1}</div>
+                      <div className="text-right flex-1">
                         <div className="text-sm font-bold">{lesson.title}</div>
                         <div className="text-[10px] opacity-70 flex items-center gap-1 mt-1 font-bold"><Clock className="w-3.5 h-3.5" /> {lesson.duration} دقيقة</div>
                       </div>
                     </div>
-                    <div>{isLocked ? <Lock className="w-4 h-4 opacity-50" /> : userProgress.completedLessons?.includes(lesson.id) ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <PlayCircle className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />}</div>
+                    <div className="shrink-0">{isLocked ? <Lock className="w-4 h-4 opacity-50" /> : userProgress.completedLessons?.includes(lesson.id) ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <PlayCircle className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />}</div>
                   </button>
                 );
               })}
@@ -481,8 +483,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
-  // بناء رسالة الواتساب الاحترافية الموجهة للموظف
-  const whatsappMessage = `مرحبا منصة سراج،، انا ${profile?.name || 'طالب جديد'} وبريدي هو (${profile?.email || 'لم يتم تسجيله بعد'}) اريد منك تفعيل كورس (${course?.title}) وسوف اقوم بايداع الرسوم الان في حسابكم وارسال السند اليكم`;
+  const studentName = profile?.name || 'طالب جديد';
+  const studentEmail = profile?.email || 'لم يتم تسجيله بعد';
+  const courseTitle = course?.title || 'الدورة';
+  const whatsappMessage = `مرحبا منصة سراج،، انا ${studentName} وبريدي هو (${studentEmail}) اريد منك تفعيل كورس (${courseTitle}) وسوف اقوم بايداع الرسوم الان في حسابكم وارسال السند اليكم`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -550,8 +554,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         </>
                       ) : (
                         <>
-                          <span>الدرس التالي</span>
                           <ArrowLeft className="w-5 h-5" />
+                          <span>الدرس التالي</span>
                         </>
                       )}
                     </Button>
@@ -621,11 +625,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
                       <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-4 md:gap-6 text-right" dir="rtl">
-                        {/* شعار البنك على اليمين */}
                         <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden border border-border/50">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
-                        {/* بيانات البنك تليها */}
                         <div className="flex-1 overflow-hidden space-y-1">
                           <h4 className="font-black text-base md:text-lg text-primary leading-tight">{bank.bankName}</h4>
                           <p className="text-[10px] md:text-xs text-muted-foreground truncate font-bold">{bank.accountHolder}</p>
@@ -672,12 +674,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       reviews.map((r: any, i: number) => (
                         <div key={i} className="bg-card p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow space-y-4 text-right flex flex-col">
                           <div className="flex flex-row items-center gap-4" dir="rtl">
-                            {/* صورة الطالب على اليمين */}
                             <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-sm shrink-0">
                               <AvatarImage src={r.userPhoto} className="object-cover" />
                               <AvatarFallback className="bg-primary text-white font-black">{r.userName?.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            {/* اسم الطالب والتقييم */}
                             <div className="text-right overflow-hidden">
                               <div className="font-black text-sm md:text-base text-primary truncate">{r.userName}</div>
                               <div className="flex gap-0.5 mt-0.5">
