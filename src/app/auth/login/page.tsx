@@ -13,7 +13,7 @@ import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, ArrowRight, MessageCircle, AlertCircle } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, ArrowRight, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";

@@ -21,8 +21,7 @@ import {
   Copy,
   Check,
   Mail,
-  Send,
-  MessageCircle
+  Send
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useAuth } from "@/firebase";
 import { collection, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -172,13 +171,13 @@ export default function AccountManagementPage() {
         <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
           <CardHeader className="bg-muted/30 pb-6 border-b border-border/50">
             <div className="relative w-full md:max-w-md">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input 
                 placeholder="ابحث بالاسم، البريد، أو الـ UID..." 
                 className="pr-12 h-12 rounded-2xl bg-background border-primary/10 shadow-sm text-right"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
             </div>
           </CardHeader>
           <CardContent className="p-0">
