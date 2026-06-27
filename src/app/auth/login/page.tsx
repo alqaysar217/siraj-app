@@ -87,7 +87,7 @@ export default function LoginPage() {
       return;
     }
 
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
@@ -98,11 +98,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. تسجيل الدخول - فحص البيانات مع خادم Firebase
+      // 1. تنظيف مسبق للجلسة المحلية لمنع تعارض الحماية
+      localStorage.removeItem('siraj_session_id');
+      localStorage.removeItem('siraj_session_timestamp');
+
+      // 2. تسجيل الدخول الفعلي
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const user = userCredential.user;
 
-      // 2. تجهيز بيانات الجلسة الجديدة
+      // 3. تجهيز بيانات الجلسة الجديدة
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const isDefaultPass = cleanPassword === 'student123';
@@ -110,7 +114,9 @@ export default function LoginPage() {
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
       
-      // 3. تحديث قاعدة البيانات بالسيرفر أولاً
+      let forceChange = isDefaultPass;
+
+      // 4. تحديث قاعدة البيانات بالسيرفر
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.status === 'banned') {
@@ -119,11 +125,12 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
+        forceChange = userData.forcePasswordChange || isDefaultPass;
 
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId),
-          forcePasswordChange: userData.forcePasswordChange || isDefaultPass
+          forcePasswordChange: forceChange
         });
       } else {
         // دعم الحسابات القديمة التي ليس لها ملف Firestore
@@ -140,18 +147,17 @@ export default function LoginPage() {
         });
       }
 
-      // 4. حفظ الجلسة محلياً مع ختم زمني لمنع طرد "السباق التقني"
+      // 5. حفظ الجلسة محلياً مع ختم زمني للثواني الأولى
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
-      // 5. تصفير الحظر تماماً عند النجاح
+      // 6. تصفير الحظر تماماً عند النجاح
       localStorage.removeItem('login_attempts');
       localStorage.removeItem('login_lock_until');
       setFailedAttempts(0);
 
-      // 6. التوجيه بناءً على حالة كلمة السر
-      const finalUserSnap = await getDoc(userDocRef);
-      if (isDefaultPass || finalUserSnap.data()?.forcePasswordChange) {
+      // 7. التوجيه النهائي
+      if (forceChange) {
         router.push("/auth/change-password");
       } else {
         router.push("/dashboard");
@@ -160,26 +166,27 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Login Error:", error);
       
-      // معالجة خطأ بيانات الدخول غير الصحيحة (invalid-credential)
-      const isCredentialError = error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found';
+      const isCredentialError = error.code === 'auth/invalid-credential' || 
+                               error.code === 'auth/wrong-password' || 
+                               error.code === 'auth/user-not-found';
       
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());
       
       let title = "خطأ في الدخول";
-      let desc = isCredentialError ? "البريد أو كلمة السر غير صحيحة." : "حدث خطأ غير متوقع في الاتصال بالخادم.";
+      let desc = isCredentialError ? "البريد أو كلمة السر غير صحيحة." : "فشل الاتصال بخادم الحماية.";
 
-      // نظام الحظر التصاعدي
+      // نظام الحظر التصاعدي الذي طلبه محمود
       if (newAttempts >= 5) {
-        const lockMinutes = newAttempts - 4; 
+        const lockMinutes = newAttempts - 4; // 1 min for 5th, 2 for 6th, etc.
         const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
         localStorage.setItem('login_lock_until', lockUntil.toString());
         setLockRemaining(lockMinutes * 60);
-        title = "تم تقييد الجهاز";
-        desc = `تجاوزت المحاولات المسموحة. تم حظرك لمدة ${lockMinutes} دقيقة.`;
+        title = "تقييد مؤقت للجهاز";
+        desc = `تجاوزت المحاولات المسموحة. تم حظر الجهاز لمدة ${lockMinutes} دقيقة.`;
       } else if (isCredentialError) {
-        desc = `كلمة السر غير صحيحة. متبقي لك ${5 - newAttempts} محاولات قبل الحظر المؤقت.`;
+        desc = `كلمة السر خاطئة. متبقي ${5 - newAttempts} محاولات قبل حظر الجهاز.`;
       }
       
       toast({ variant: "destructive", title, description: desc });
@@ -197,7 +204,7 @@ export default function LoginPage() {
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
             <CardTitle className="text-3xl font-black font-headline text-primary">تسجيل الدخول</CardTitle>
-            <CardDescription className="font-bold">مرحباً بك في بيئة التعلم الآمنة</CardDescription>
+            <CardDescription className="font-bold">مرحباً بك في منصة سراج التعليمية</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8">
             
@@ -205,9 +212,9 @@ export default function LoginPage() {
               <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-pulse">
                 <Clock className="w-6 h-6 shrink-0" />
                 <div className="text-right">
-                  <p className="text-[10px] font-black uppercase">الجهاز محظور مؤقتاً</p>
-                  <p className="text-sm font-black">
-                    يرجى الانتظار: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
+                  <p className="text-[10px] font-black uppercase tracking-wider">الجهاز مقيد حالياً</p>
+                  <p className="text-sm font-black" dir="ltr">
+                    Wait: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
                   </p>
                 </div>
               </div>
@@ -246,20 +253,20 @@ export default function LoginPage() {
             <Button 
               disabled={loading || lockRemaining > 0} 
               onClick={handleLogin} 
-              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 hover:scale-[1.02] transition-transform active:scale-95"
+              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 hover:scale-[1.02] transition-all active:scale-95"
             >
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "دخول المنصة"}
             </Button>
 
             <div className="text-center pt-2">
               <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-xs text-muted-foreground font-bold hover:text-secondary transition-colors">
-                نسيت كلمة المرور؟ تواصل معنا للمساعدة
+                هل نسيت كلمة المرور؟ اطلب المساعدة
               </Link>
             </div>
           </CardContent>
           <CardFooter className="justify-center pb-10">
             <div className="text-muted-foreground font-bold text-sm">
-              ليس لديك حساب بعد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">إنشاء حساب جديد</Link>
+              مستخدم جديد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">أنشئ حسابك الآن</Link>
             </div>
           </CardFooter>
         </Card>
