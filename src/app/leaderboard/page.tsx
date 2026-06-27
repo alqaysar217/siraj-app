@@ -32,37 +32,40 @@ export default function PublicLeaderboardPage() {
     setMounted(true);
   }, []);
   
-  /**
-   * استعلام متوافق تماماً مع قواعد الحماية.
-   * الفلتر 'showInLeaderboard == true' هو المفتاح للسماح للزوار بالقراءة.
-   */
+  // استعلام متوافق 100% مع قواعد الحماية الجديدة
+  // يطلب فقط الطلاب الذين وافقوا على الظهور العام
   const usersQuery = useMemoFirebase(() => 
     db ? query(
       collection(db, "users"), 
       where("showInLeaderboard", "==", true),
-      limit( visibleCount > 50 ? 100 : 50 ) 
+      limit(100) 
     ) : null
-  , [db, visibleCount]);
+  , [db]);
   
-  const { data: users, loading, error } = useCollection(usersQuery);
+  const { data: users, loading } = useCollection(usersQuery);
 
   const leaderboard = useMemo(() => {
     if (!users) return [];
 
-    return users.map((user: any) => {
-      const progressEntries = Object.values(user.progress || {});
+    return users.map((u: any) => {
+      // احتساب النقاط من كائن التقدم
+      const progressEntries = Object.values(u.progress || {});
       const totalPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
       
       return {
-        ...user,
+        id: u.id,
+        name: u.name,
+        photoURL: u.photoURL,
         totalPoints
       };
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [users]);
 
+  // حصر العرض للزائر في أول 10 متصدرين للتحفيز
   const visibleLeaderboard = useMemo(() => {
-    return leaderboard.slice(0, visibleCount);
-  }, [leaderboard, visibleCount]);
+    const count = user ? visibleCount : 10;
+    return leaderboard.slice(0, count);
+  }, [leaderboard, visibleCount, user]);
 
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + 10);
@@ -96,12 +99,6 @@ export default function PublicLeaderboardPage() {
             <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4 opacity-50" />
             <p className="text-muted-foreground font-bold">جاري تحديث لوحة الشرف...</p>
           </div>
-        ) : error ? (
-           <div className="py-20 text-center bg-red-50 rounded-3xl border border-red-100 p-8">
-              <Award className="w-12 h-12 text-red-200 mx-auto mb-4" />
-              <p className="text-red-600 font-bold">عذراً، فشل الاتصال بقاعدة البيانات حالياً.</p>
-              <p className="text-red-400 text-xs mt-2">يرجى إعادة المحاولة بعد قليل.</p>
-           </div>
         ) : leaderboard.length > 0 ? (
           <div className="space-y-8">
             <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">
@@ -123,7 +120,7 @@ export default function PublicLeaderboardPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {visibleLeaderboard.map((student: any, index) => (
+                      {visibleLeaderboard.map((student, index) => (
                         <TableRow key={student.id} className={cn(
                           "hover:bg-primary/5 transition-colors border-b border-primary/5",
                           index === 0 && "bg-yellow-50/30",
@@ -184,7 +181,7 @@ export default function PublicLeaderboardPage() {
               </CardContent>
             </Card>
 
-            {leaderboard.length > visibleCount && (
+            {user && leaderboard.length > visibleCount && (
               <div className="flex justify-center pt-4">
                 <Button 
                   onClick={handleLoadMore} 
@@ -194,6 +191,15 @@ export default function PublicLeaderboardPage() {
                   <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-secondary" />
                   عرض المزيد من الأبطال
                 </Button>
+              </div>
+            )}
+
+            {!user && leaderboard.length > 10 && (
+              <div className="text-center py-6">
+                 <p className="text-muted-foreground font-bold text-sm mb-4">هل تريد رؤية قائمة الـ 100 بطل كاملة؟</p>
+                 <Button asChild className="bg-secondary text-white rounded-2xl h-14 px-10 font-black shadow-lg">
+                    <Link href="/auth/register">سجل الآن واكتشف ترتيبك</Link>
+                 </Button>
               </div>
             )}
           </div>

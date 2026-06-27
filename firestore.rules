@@ -10,7 +10,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // تحصين الدالة لتعمل فقط للمسجلين وتجنب الأخطاء للزوار
+      // فحص سريع: إذا لم يكن مسجلاً، فهو ليس مديراً بالتأكيد
+      // هذا يمنع حدوث خطأ عند فحص الزوار
       return isLoggedIn() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin';
     }
@@ -18,22 +19,23 @@ service cloud.firestore {
     // --- قواعد مجموعات المستخدمين ---
 
     match /users/{userId} {
-      // السماح بالقراءة (get & list) 
-      // الشرط الأول: للزوار والجميع إذا كان المستخدم وافق على الظهور العام
-      // نستخدم get() مع قيمة افتراضية لتجنب تعطل القاعدة إذا كان الحقل مفقوداً
-      allow read: if (resource.data.get('showInLeaderboard', false) == true) 
-                  || (isLoggedIn() && (request.auth.uid == userId || isAdmin()));
+      // 1. القاعدة الذهبية للظهور العام (للضيوف والجميع)
+      // تسمح بجلب القائمة (list) والقراءة المفردة (get) بناءً على حقل الموافقة فقط
+      allow read: if resource.data.get('showInLeaderboard', false) == true;
+      
+      // 2. قاعدة أصحاب الحسابات والمديرين
+      // تسمح لهم بقراءة كافة البيانات (حتى الخاصة مثل الإيميل)
+      allow read: if isLoggedIn() && (request.auth.uid == userId || isAdmin());
       
       // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص
       allow create: if isLoggedIn() && request.auth.uid == userId 
-                    && request.resource.data.get('role', 'student') == 'student'
-                    && request.resource.data.get('status', 'active') == 'active';
+                    && request.resource.data.get('role', 'student') == 'student';
       
       // التحديث: منع الطلاب من تعديل الحقول الحساسة
       allow update: if isAdmin() 
                   || (isLoggedIn() && request.auth.uid == userId 
                       && !(request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status', 'email', 'progress'])));
+                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status', 'email'])));
       
       // الحذف: للمدير فقط
       allow delete: if isAdmin();
@@ -71,11 +73,8 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isLoggedIn() 
-                    && request.resource.data.userId == request.auth.uid;
-      
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     match /bankAccounts/{accountId} {
