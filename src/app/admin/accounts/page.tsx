@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from "react";
@@ -36,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { resetStudentPassword } from "@/app/actions/admin-auth";
 
 export default function AccountManagementPage() {
   const db = useFirestore();
@@ -60,19 +60,22 @@ export default function AccountManagementPage() {
   }, [users, searchTerm]);
 
   const handleForcePasswordReset = async () => {
-    if (!db || !userToForceReset) return;
+    if (!userToForceReset) return;
     setProcessing(userToForceReset.uid);
     try {
-      // أمن: نقوم بوضع علامة "إجبارية التغيير" في الدخول القادم
-      await updateDoc(doc(db, "users", userToForceReset.uid), {
-        forcePasswordChange: true
-      });
-      toast({ 
-        title: "تم جدولة إعادة التعيين", 
-        description: `عند دخول "${userToForceReset.name}" القادم، سيُجبر على تغيير كلمة سره فوراً.` 
-      });
+      // استدعاء الـ Server Action الذي يقوم بتغيير الباسورد الفعلي لـ student123
+      const result = await resetStudentPassword(userToForceReset.uid);
+      
+      if (result.success) {
+        toast({ 
+          title: "اكتمل التصفير", 
+          description: `تم تغيير كلمة سر "${userToForceReset.name}" إلى "student123" بنجاح.` 
+        });
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تفعيل طلب إعادة التعيين." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تصفير كلمة السر. قد يكون ذلك بسبب الصلاحيات." });
     } finally {
       setProcessing(null);
       setUserToForceReset(null);
@@ -147,7 +150,7 @@ export default function AccountManagementPage() {
       <div className="container mx-auto px-4 py-10 max-w-7xl text-right">
         <header className="mb-10">
           <h1 className="text-3xl font-bold font-headline text-primary mb-2">إدارة الحسابات والأمان</h1>
-          <p className="text-muted-foreground">تحكم في صلاحيات الدخول، حظر الأجهزة، وفرض تغيير كلمات السر للطلاب.</p>
+          <p className="text-muted-foreground">تحكم في صلاحيات الدخول، حظر الأجهزة، وتصفير كلمات السر للطلاب.</p>
         </header>
 
         <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
@@ -201,16 +204,16 @@ export default function AccountManagementPage() {
                           <div className="flex flex-col items-center gap-1.5">
                              <Button 
                                 onClick={() => setUserToForceReset(user)}
-                                disabled={processing === user.uid || user.forcePasswordChange}
+                                disabled={processing === user.uid}
                                 variant="outline"
                                 size="sm"
                                 className="h-8 rounded-lg border-primary/20 text-primary font-bold gap-2 text-[10px]"
                              >
-                                {user.forcePasswordChange ? <History className="w-3 h-3 text-secondary" /> : <KeyRound className="w-3 h-3" />}
-                                {user.forcePasswordChange ? "في انتظار التغيير" : "طلب تغيير السر"}
+                                {user.forcePasswordChange ? <History className="w-3 h-3 text-secondary" /> : <RefreshCw className="w-3 h-3" />}
+                                {user.forcePasswordChange ? "بانتظار تغيير الطالب" : "تصفير كلمة السر"}
                              </Button>
                              <span className="text-[8px] text-muted-foreground font-bold">
-                                {user.forcePasswordChange ? "سيطلب منه التغيير فور دخوله" : "أمن: كلمة السر مشفرة ولا تظهر للمدير"}
+                                {user.forcePasswordChange ? "سيجبر على التغيير فور دخوله" : "سيعين السر لـ: student123"}
                              </span>
                           </div>
                         </TableCell>
@@ -235,7 +238,7 @@ export default function AccountManagementPage() {
                               title="تصفير الأجهزة المسجلة"
                             >
                               <RefreshCw className="w-3 h-3" />
-                              تصفير
+                              أجهزة
                             </Button>
                             
                             <Button 
@@ -275,7 +278,7 @@ export default function AccountManagementPage() {
           </CardContent>
         </Card>
 
-        {/* حوار تأكيد طلب تغيير كلمة السر */}
+        {/* حوار تأكيد تصفير كلمة السر */}
         <AlertDialog open={!!userToForceReset} onOpenChange={(open) => !open && setUserToForceReset(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -283,9 +286,10 @@ export default function AccountManagementPage() {
                 <KeyRound className="w-10 h-10 text-primary" />
               </div>
               <AlertDialogHeader className="space-y-3 p-0">
-                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">فرض تغيير كلمة السر؟</AlertDialogTitle>
+                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">تصفير كلمة السر؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
-                  سيقوم النظام بإجبار <span className="text-primary font-bold">"{userToForceReset?.name}"</span> على تعيين كلمة سر جديدة فور دخوله القادم للمنصة. لن يتمكن من تصفح أي دروس حتى يتم التغيير.
+                  سيتم تغيير كلمة سر الطالب <span className="text-primary font-bold">"{userToForceReset?.name}"</span> لتصبح <code className="bg-muted px-2 py-0.5 rounded font-black text-secondary">student123</code>. <br />
+                  سيتوجب عليه تغييرها فور دخوله للمنصة.
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>
@@ -294,7 +298,7 @@ export default function AccountManagementPage() {
                 onClick={handleForcePasswordReset}
                 className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90"
               >
-                تأكيد الفرض
+                تأكيد التصفير
               </AlertDialogAction>
               <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">
                 إلغاء
@@ -303,7 +307,7 @@ export default function AccountManagementPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* حوار تأكيد الحظر/التنشيط */}
+        {/* بقية الحوارات السابقة كما هي */}
         <AlertDialog open={!!userToStatusChange} onOpenChange={(open) => !open && setUserToStatusStatusChange(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -335,7 +339,6 @@ export default function AccountManagementPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* حوار تأكيد تصفير الأجهزة */}
         <AlertDialog open={!!userToReset} onOpenChange={(open) => !open && setUserToReset(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -363,7 +366,6 @@ export default function AccountManagementPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* حوار تأكيد الحذف النهائي */}
         <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
