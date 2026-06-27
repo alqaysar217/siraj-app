@@ -11,7 +11,9 @@ import {
   Medal,
   Crown,
   ChevronDown,
-  UserPlus
+  UserPlus,
+  Lock,
+  LogIn
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, where, limit } from "firebase/firestore";
@@ -22,9 +24,9 @@ import { cn } from "@/lib/utils";
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 
-export default function PublicLeaderboardPage() {
+export default function LeaderboardPage() {
   const db = useFirestore();
-  const { user } = useUser();
+  const { user, loading: authLoading } = useUser();
   const [mounted, setMounted] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
 
@@ -32,23 +34,21 @@ export default function PublicLeaderboardPage() {
     setMounted(true);
   }, []);
   
-  // استعلام متوافق 100% مع قواعد الحماية الجديدة
-  // يطلب فقط الطلاب الذين وافقوا على الظهور العام
+  // الاستعلام يطلب فقط الطلاب الذين وافقوا على الظهور
   const usersQuery = useMemoFirebase(() => 
-    db ? query(
+    (db && user) ? query(
       collection(db, "users"), 
       where("showInLeaderboard", "==", true),
       limit(100) 
     ) : null
-  , [db]);
+  , [db, user]);
   
-  const { data: users, loading } = useCollection(usersQuery);
+  const { data: users, loading: dataLoading } = useCollection(usersQuery);
 
   const leaderboard = useMemo(() => {
     if (!users) return [];
 
     return users.map((u: any) => {
-      // احتساب النقاط من كائن التقدم
       const progressEntries = Object.values(u.progress || {});
       const totalPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
       
@@ -61,15 +61,56 @@ export default function PublicLeaderboardPage() {
     }).sort((a, b) => b.totalPoints - a.totalPoints);
   }, [users]);
 
-  // حصر العرض للزائر في أول 10 متصدرين للتحفيز
   const visibleLeaderboard = useMemo(() => {
-    const count = user ? visibleCount : 10;
-    return leaderboard.slice(0, count);
-  }, [leaderboard, visibleCount, user]);
+    return leaderboard.slice(0, visibleCount);
+  }, [leaderboard, visibleCount]);
 
   const handleLoadMore = () => {
     setVisibleCount(prev => prev + 10);
   };
+
+  // حالة التحميل
+  if (authLoading || (user && dataLoading && visibleLeaderboard.length === 0)) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center py-20">
+          <Loader2 className="w-12 h-12 animate-spin text-secondary opacity-50" />
+          <p className="mt-4 text-muted-foreground font-bold">جاري تحميل قائمة الأبطال...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // حالة الزائر غير المسجل
+  if (!user && !authLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background" dir="rtl">
+        <Navbar />
+        <div className="flex-1 container mx-auto px-4 py-20 max-w-2xl text-center flex flex-col items-center justify-center">
+           <div className="w-24 h-24 bg-primary/5 rounded-[2.5rem] flex items-center justify-center mb-8 border-2 border-dashed border-primary/10">
+              <Lock className="w-12 h-12 text-primary opacity-40" />
+           </div>
+           <h1 className="text-3xl md:text-4xl font-black text-primary font-headline mb-4">محتوى حصري للمشتركين</h1>
+           <p className="text-muted-foreground text-lg leading-relaxed mb-10">
+              لوحة المتصدرين وقائمة الشرف متاحة فقط لطلاب "سراج" المسجلين. سجل دخولك الآن لتكتشف ترتيبك وتنافس مع زملائك.
+           </p>
+           <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+              <Button asChild size="lg" className="h-16 px-10 rounded-2xl bg-primary text-white font-black text-xl shadow-xl">
+                 <Link href="/auth/login" className="gap-2">
+                    <LogIn className="w-6 h-6" /> تسجيل الدخول
+                 </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="h-16 px-10 rounded-2xl font-black text-xl border-primary/10">
+                 <Link href="/auth/register" className="gap-2">
+                    <UserPlus className="w-6 h-6" /> إنشاء حساب جديد
+                 </Link>
+              </Button>
+           </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -83,133 +124,102 @@ export default function PublicLeaderboardPage() {
            <p className="text-muted-foreground text-xs md:text-lg max-w-2xl mx-auto font-medium leading-relaxed px-4">
              قائمة الشرف للطلاب الأكثر تفاعلاً وإنجازاً. تنافس مع زملائك واحصد النقاط لتتصدر القائمة الذهبية.
            </p>
-           {!user && (
-             <div className="pt-4 animate-bounce">
-                <Button asChild className="bg-primary text-white rounded-2xl h-12 px-8 font-black gap-2 shadow-xl shadow-primary/20">
-                   <Link href="/auth/register">
-                      <UserPlus className="w-5 h-5" /> سجل الآن وكن واحداً منهم
-                   </Link>
-                </Button>
-             </div>
-           )}
         </header>
 
-        {loading && visibleLeaderboard.length === 0 ? (
-          <div className="py-32 text-center">
-            <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4 opacity-50" />
-            <p className="text-muted-foreground font-bold">جاري تحديث لوحة الشرف...</p>
-          </div>
-        ) : leaderboard.length > 0 ? (
-          <div className="space-y-8">
-            <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">
-              <CardHeader className="bg-muted/20 border-b border-border/50 p-5 md:p-8 text-right flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg md:text-2xl font-black text-primary font-headline">لوحة المتصدرين</CardTitle>
-                  <CardDescription className="font-bold mt-1 text-[10px] md:text-sm">تُحدث النقاط تلقائياً بناءً على نشاطك الدراسي</CardDescription>
-                </div>
-                <Trophy className="w-6 h-6 md:w-10 md:h-10 text-secondary opacity-30 shrink-0" />
-              </CardHeader>
-              <CardContent className="p-0 overflow-hidden">
-                <div className="overflow-x-auto">
-                  <Table className="text-right w-full min-w-[300px]">
-                    <TableHeader className="bg-muted/10">
-                      <TableRow>
-                        <TableHead className="text-center font-black py-4 w-12 md:w-24 px-2">#</TableHead>
-                        <TableHead className="text-right font-black py-4 px-2">الطالب</TableHead>
-                        <TableHead className="text-center font-black py-4 w-20 md:w-32 px-2">النقاط</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {visibleLeaderboard.map((student, index) => (
-                        <TableRow key={student.id} className={cn(
-                          "hover:bg-primary/5 transition-colors border-b border-primary/5",
-                          index === 0 && "bg-yellow-50/30",
-                          index === 1 && "bg-slate-50/30",
-                          index === 2 && "bg-orange-50/30"
-                        )}>
-                          <TableCell className="text-center px-1 md:px-2">
-                            <div className={cn(
-                              "w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto font-black text-xs md:text-sm transition-transform hover:scale-110 shadow-sm",
-                              index === 0 ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
-                              index === 1 ? "bg-slate-100 text-slate-700 border border-slate-200" :
-                              index === 2 ? "bg-orange-100 text-orange-700 border border-orange-200" :
-                              "bg-muted text-muted-foreground"
+        <div className="space-y-8">
+          <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">
+            <CardHeader className="bg-muted/20 border-b border-border/50 p-5 md:p-8 text-right flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg md:text-2xl font-black text-primary font-headline">لوحة المتصدرين</CardTitle>
+                <CardDescription className="font-bold mt-1 text-[10px] md:text-sm">تُحدث النقاط تلقائياً بناءً على نشاطك الدراسي</CardDescription>
+              </div>
+              <Trophy className="w-6 h-6 md:w-10 md:h-10 text-secondary opacity-30 shrink-0" />
+            </CardHeader>
+            <CardContent className="p-0 overflow-hidden">
+              <div className="overflow-x-auto">
+                <Table className="text-right w-full min-w-[300px]">
+                  <TableHeader className="bg-muted/10">
+                    <TableRow>
+                      <TableHead className="text-center font-black py-4 w-12 md:w-24 px-2">#</TableHead>
+                      <TableHead className="text-right font-black py-4 px-2">الطالب</TableHead>
+                      <TableHead className="text-center font-black py-4 w-20 md:w-32 px-2">النقاط</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {visibleLeaderboard.map((student, index) => (
+                      <TableRow key={student.id} className={cn(
+                        "hover:bg-primary/5 transition-colors border-b border-primary/5",
+                        index === 0 && "bg-yellow-50/30",
+                        index === 1 && "bg-slate-50/30",
+                        index === 2 && "bg-orange-50/30"
+                      )}>
+                        <TableCell className="text-center px-1 md:px-2">
+                          <div className={cn(
+                            "w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto font-black text-xs md:text-sm transition-transform hover:scale-110 shadow-sm",
+                            index === 0 ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
+                            index === 1 ? "bg-slate-100 text-slate-700 border border-slate-200" :
+                            index === 2 ? "bg-orange-100 text-orange-700 border border-orange-200" :
+                            "bg-muted text-muted-foreground"
+                          )}>
+                            {index === 0 ? <Crown className="w-4 h-4 md:w-6 md:h-6" /> : 
+                             index === 1 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-slate-500" /> :
+                             index === 2 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-orange-600" /> :
+                             index + 1}
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 md:py-6 px-1 md:px-4">
+                          <div className="flex items-center gap-2 md:gap-4 text-right">
+                            <Avatar className={cn(
+                              "h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
+                              index === 0 ? "border-yellow-400" : "border-white"
                             )}>
-                              {index === 0 ? <Crown className="w-4 h-4 md:w-6 md:h-6" /> : 
-                               index === 1 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-slate-500" /> :
-                               index === 2 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-orange-600" /> :
-                               index + 1}
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-3 md:py-6 px-1 md:px-4">
-                            <div className="flex items-center gap-2 md:gap-4 text-right">
-                              <Avatar className={cn(
-                                "h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
-                                index === 0 ? "border-yellow-400" : "border-white"
-                              )}>
-                                <AvatarImage src={student.photoURL || undefined} className="object-cover" />
-                                <AvatarFallback className="bg-primary/5 text-primary font-black text-[10px] md:text-lg">{student.name?.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div className="overflow-hidden">
-                                <div className="font-black text-primary text-xs md:text-lg truncate max-w-[80px] md:max-w-none">{student.name}</div>
-                                <div className="text-[7px] md:text-[10px] text-muted-foreground font-bold tracking-wider uppercase truncate">
-                                  {index === 0 ? "البطل الذهبي" : index === 1 ? "المنافس الفضي" : index === 2 ? "المثابر البرونزي" : "طالب سراج"}
-                                </div>
+                              <AvatarImage src={student.photoURL || undefined} className="object-cover" />
+                              <AvatarFallback className="bg-primary/5 text-primary font-black text-[10px] md:text-lg">{student.name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="overflow-hidden">
+                              <div className="font-black text-primary text-xs md:text-lg truncate max-w-[80px] md:max-w-none">{student.name}</div>
+                              <div className="text-[7px] md:text-[10px] text-muted-foreground font-bold tracking-wider uppercase truncate">
+                                {index === 0 ? "البطل الذهبي" : index === 1 ? "المنافس الفضي" : index === 2 ? "المثابر البرونزي" : "طالب سراج"}
                               </div>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-center px-1 md:px-2">
-                            <div className={cn(
-                              "inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl shadow-inner",
-                              index === 0 ? "bg-yellow-100/50" : "bg-secondary/10"
-                            )}>
-                               <Medal className={cn(
-                                 "w-3 h-3 md:w-5 md:h-5",
-                                 index === 0 ? "text-yellow-600 fill-yellow-600" : "text-secondary fill-transparent"
-                               )} />
-                               <span className={cn(
-                                 "text-xs md:text-lg font-black",
-                                 index === 0 ? "text-yellow-700" : "text-secondary"
-                               )} dir="ltr">{mounted ? student.totalPoints : '0'}</span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-
-            {user && leaderboard.length > visibleCount && (
-              <div className="flex justify-center pt-4">
-                <Button 
-                  onClick={handleLoadMore} 
-                  variant="outline" 
-                  className="h-12 md:h-14 px-8 md:px-10 rounded-xl md:rounded-2xl border-primary/10 bg-white font-black text-primary hover:bg-primary/5 gap-2 shadow-lg text-xs md:text-base"
-                >
-                  <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-secondary" />
-                  عرض المزيد من الأبطال
-                </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center px-1 md:px-2">
+                          <div className={cn(
+                            "inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl shadow-inner",
+                            index === 0 ? "bg-yellow-100/50" : "bg-secondary/10"
+                          )}>
+                             <Medal className={cn(
+                               "w-3 h-3 md:w-5 md:h-5",
+                               index === 0 ? "text-yellow-600 fill-yellow-600" : "text-secondary fill-transparent"
+                             )} />
+                             <span className={cn(
+                               "text-xs md:text-lg font-black",
+                               index === 0 ? "text-yellow-700" : "text-secondary"
+                             )} dir="ltr">{mounted ? student.totalPoints : '0'}</span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            )}
+            </CardContent>
+          </Card>
 
-            {!user && leaderboard.length > 10 && (
-              <div className="text-center py-6">
-                 <p className="text-muted-foreground font-bold text-sm mb-4">هل تريد رؤية قائمة الـ 100 بطل كاملة؟</p>
-                 <Button asChild className="bg-secondary text-white rounded-2xl h-14 px-10 font-black shadow-lg">
-                    <Link href="/auth/register">سجل الآن واكتشف ترتيبك</Link>
-                 </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="py-32 text-center bg-card/50 rounded-[1.5rem] md:rounded-[2.5rem] border-2 border-dashed">
-             <Trophy className="w-20 h-20 text-muted-foreground/20 mx-auto mb-6" />
-             <h3 className="text-xl font-bold text-primary">لوحة المتصدرين فارغة حالياً</h3>
-             <p className="text-muted-foreground mt-2 px-4">كن أول من يحصد النقاط ويتصدر القائمة!</p>
-          </div>
-        )}
+          {leaderboard.length > visibleCount && (
+            <div className="flex justify-center pt-4">
+              <Button 
+                onClick={handleLoadMore} 
+                variant="outline" 
+                className="h-12 md:h-14 px-8 md:px-10 rounded-xl md:rounded-2xl border-primary/10 bg-white font-black text-primary hover:bg-primary/5 gap-2 shadow-lg text-xs md:text-base"
+              >
+                <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-secondary" />
+                عرض المزيد من الأبطال
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

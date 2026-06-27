@@ -65,7 +65,7 @@ export default function Navbar() {
     { name: "تصفح الدورات", href: "/courses", icon: GraduationCap },
     { name: "المكتبة العلمية", href: "/books", icon: Library },
     { name: "التعرف على المدربين", href: "/instructors", icon: UsersRound },
-    { name: "نخبة الطلاب", href: "/leaderboard", icon: Trophy },
+    { name: "نخبة الطلاب", href: "/leaderboard", icon: Trophy, authRequired: true },
     { name: "حسابات التواصل", href: "/social-links", icon: Share2 },
     { name: "التحقق من الشهادة", href: "/verify-certificate", icon: SearchCheck },
     { name: "مساحتي التعليمية", href: "/dashboard", icon: LayoutDashboard, authRequired: true },

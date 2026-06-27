@@ -10,8 +10,6 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // فحص سريع: إذا لم يكن مسجلاً، فهو ليس مديراً بالتأكيد
-      // هذا يمنع حدوث خطأ عند فحص الزوار
       return isLoggedIn() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin';
     }
@@ -19,13 +17,15 @@ service cloud.firestore {
     // --- قواعد مجموعات المستخدمين ---
 
     match /users/{userId} {
-      // 1. القاعدة الذهبية للظهور العام (للضيوف والجميع)
-      // تسمح بجلب القائمة (list) والقراءة المفردة (get) بناءً على حقل الموافقة فقط
-      allow read: if resource.data.get('showInLeaderboard', false) == true;
-      
-      // 2. قاعدة أصحاب الحسابات والمديرين
-      // تسمح لهم بقراءة كافة البيانات (حتى الخاصة مثل الإيميل)
-      allow read: if isLoggedIn() && (request.auth.uid == userId || isAdmin());
+      // 1. السماح بالقراءة فقط للمسجلين
+      // - صاحب الحساب يقرأ ملفه كاملاً
+      // - المدير يقرأ كافة الملفات
+      // - الطالب المسجل يقرأ فقط الملفات التي وافق أصحابها على الظهور في اللوحة
+      allow read: if isLoggedIn() && (
+        request.auth.uid == userId || 
+        isAdmin() || 
+        resource.data.get('showInLeaderboard', false) == true
+      );
       
       // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص
       allow create: if isLoggedIn() && request.auth.uid == userId 
