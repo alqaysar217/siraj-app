@@ -12,14 +12,14 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: any) => {
-      // رسالة احترافية للمدير تساعده على اكتشاف مكان الرفض الأمني
+      // استعادة الرسالة التفصيلية لمساعدة محمود في اكتشاف المشاكل أثناء التطوير
       const operation = error.context?.operation || 'غير معروفة';
       const path = error.context?.path || 'مسار غير معروف';
       
       toast({
         variant: 'destructive',
-        title: 'تنبيه أمني من الخادم',
-        description: `أهلاً محمود، الخادم يرفض العملية لـ (${operation}) على المسار (${path}). يرجى التأكد من القواعد السحابية.`,
+        title: 'تنبيه من الخادم السحابي',
+        description: `أهلاً محمود، الخادم يرفض العملية لـ (${operation}) على المسار (${path}). يرجى التأكد من قواعد الحماية في Firebase.`,
       });
     };
 

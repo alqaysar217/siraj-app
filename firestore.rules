@@ -3,64 +3,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- وظائف الحماية المتقدمة ---
+    // --- وظائف الحماية الأساسية ---
     
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
     function isAdmin() {
-      return isAuthenticated() && getUserData().role == 'admin';
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // فحص صحة بيانات المستخدم الجديد عند التسجيل
-    function isValidNewUser() {
-      let data = request.resource.data;
-      return data.role == 'student' 
-        && data.status == 'active' 
-        && data.enrolledCourses is list
-        && data.enrolledCourses.size() == 0 
-        && data.uid == request.auth.uid;
-    }
-
-    // منع الطالب من تعديل الحقول الحساسة
-    function isNotModifyingSensitiveFields() {
-      let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
-      let sensitiveFields = [
-        'role', 'status', 'enrolledCourses', 'progress', 
-        'enrollmentDetails', 'uid', 'email', 'deviceIds', 'createdAt', 'points'
-      ];
-      return !affectedKeys.hasAny(sensitiveFields);
-    }
-
-    // فحص صحة المراجعة: يجب أن يكون صاحب الحساب الحقيقي ومشتركاً
-    function isValidReview() {
-      let data = request.resource.data;
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      return data.userId == request.auth.uid
-        && data.rating is number
-        && data.rating >= 1 && data.rating <= 5
-        && user.enrolledCourses.hasAny([data.courseId]);
-    }
-
-    // --- القواعد المخصصة للمجموعات ---
+    // --- قواعد المجموعات ---
 
     match /users/{userId} {
-      // السماح للقراءة (get/list) إذا كان الحساب عاماً للجميع (للتحفيز) 
-      // أو إذا كان الشخص مديراً أو صاحب الحساب
-      // تم تقديم شرط showInLeaderboard لضمان عمل الـ list للزوار
+      // السماح بالقراءة (get/list) للجميع إذا كان الحساب عاماً (للوحة المتصدرين)
+      // أو إذا كان المستخدم هو المدير أو صاحب الحساب
       allow read: if (resource.data.showInLeaderboard == true) 
-                  || isAdmin() 
-                  || (isAuthenticated() && request.auth.uid == userId);
+                  || (isAuthenticated() && (request.auth.uid == userId || isAdmin()));
       
-      allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
+      // تأمين إنشاء الحساب: يجب أن يسجل كطالب وبدون دورات مسبقة
+      allow create: if isAuthenticated() && request.auth.uid == userId 
+                    && request.resource.data.role == 'student'
+                    && request.resource.data.enrolledCourses.size() == 0;
       
+      // تأمين التحديث: منع الطالب من تعديل رتبته أو أجهزته أو اشتراكاته
       allow update: if isAdmin() 
-                  || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
+                  || (isAuthenticated() && request.auth.uid == userId 
+                      && !(request.resource.data.diff(resource.data).affectedKeys()
+                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status'])));
       
       allow delete: if isAdmin();
     }
@@ -97,7 +68,10 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuthenticated() && isValidReview();
+      // التحقق من أن المراجع هو صاحب الحساب الحقيقي ومشترك فعلي في الدورة
+      allow create: if isAuthenticated() 
+                    && request.resource.data.userId == request.auth.uid
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.enrolledCourses.hasAny([request.resource.data.courseId]);
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
