@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -59,10 +60,10 @@ export function useUser() {
               return;
             }
 
-            // 2. فحص تعدد الأجهزة مع "مهلة حماية" لمنع تعارض الدخول الجديد
+            // 2. فحص تعدد الأجهزة مع مهلة حماية ممتدة لضمان المزامنة
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
             const sessionTimestamp = typeof window !== 'undefined' ? parseInt(localStorage.getItem('siraj_session_timestamp') || '0') : 0;
-            const isVeryRecent = Date.now() - sessionTimestamp < 5000; // 5 ثوانٍ حماية
+            const isVeryRecent = Date.now() - sessionTimestamp < 10000; // 10 ثوانٍ حماية
 
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId && !isVeryRecent) {
               isKickingRef.current = true;
@@ -71,7 +72,7 @@ export function useUser() {
                   localStorage.removeItem('siraj_session_id');
                   localStorage.removeItem('siraj_session_timestamp');
                 }
-                toast({ variant: "destructive", title: "تنبيه أمني", description: "تم تسجيل الدخول من جهاز آخر، تم إنهاء هذه الجلسة." });
+                toast({ variant: "destructive", title: "تنبيه أمني", description: "تم تسجيل الدخول من جهاز آخر." });
               });
               return;
             }

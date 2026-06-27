@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from "react";
@@ -19,7 +20,8 @@ import {
   KeyRound,
   History,
   Copy,
-  Check
+  Check,
+  Mail
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -59,26 +61,23 @@ export default function AccountManagementPage() {
     return users.filter(u => 
       u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.uid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.id?.toLowerCase().includes(searchTerm.toLowerCase())
+      u.uid?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
 
-  const handleCopyId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    setCopiedId(id);
+  const handleCopy = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(text);
     setTimeout(() => setCopiedId(null), 2000);
-    toast({ title: "تم النسخ", description: "معرف المستخدم جاهز للصق." });
+    toast({ title: "تم النسخ", description: `تم نسخ ${type} بنجاح.` });
   };
 
   const handleForcePasswordReset = async () => {
     if (!userToForceReset) return;
-    
-    // المعرف الحقيقي للطالب هو UID الموجود في المستند أو معرف المستند نفسه
-    const targetUid = userToForceReset.uid || userToForceReset.id;
+    const targetUid = userToForceReset.uid;
     
     if (!targetUid) {
-      toast({ variant: "destructive", title: "خطأ", description: "لم يتم العثور على معرف UID لهذا المستخدم." });
+      toast({ variant: "destructive", title: "خطأ", description: "معرف UID مفقود لهذا الحساب." });
       return;
     }
 
@@ -98,7 +97,7 @@ export default function AccountManagementPage() {
       toast({ 
         variant: "destructive", 
         title: "خطأ في التصفير", 
-        description: error.message || "فشل تصفير كلمة السر. تأكد من وجود اتصال مستقر." 
+        description: error.message || "فشل الاتصال بخادم الحماية." 
       });
     } finally {
       setProcessing(null);
@@ -108,14 +107,14 @@ export default function AccountManagementPage() {
 
   const handleResetDevices = async () => {
     if (!db || !userToReset) return;
-    const targetUid = userToReset.id || userToReset.uid;
+    const targetUid = userToReset.uid;
     setProcessing(targetUid);
     try {
       await updateDoc(doc(db, "users", targetUid), {
         deviceIds: [],
         lastSessionId: "reset_" + Date.now() 
       });
-      toast({ title: "اكتمل التصفير", description: "تم مسح سجل الأجهزة وإنهاء الجلسات بنجاح." });
+      toast({ title: "اكتمل التصفير", description: "تم مسح سجل الأجهزة وإنهاء كافة الجلسات." });
     } catch (error) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل تصفير سجل الأجهزة." });
     } finally {
@@ -126,7 +125,7 @@ export default function AccountManagementPage() {
 
   const confirmToggleStatus = async () => {
     if (!db || !userToStatusChange) return;
-    const targetUid = userToStatusChange.id || userToStatusChange.uid;
+    const targetUid = userToStatusChange.uid;
     setProcessing(targetUid);
     const newStatus = userToStatusChange.status === 'banned' ? 'active' : 'banned';
     try {
@@ -136,10 +135,10 @@ export default function AccountManagementPage() {
       });
       toast({ 
         title: newStatus === 'active' ? "تم التنشيط" : "تم الحظر", 
-        description: `حساب ${userToStatusChange.name} أصبح الآن ${newStatus === 'active' ? 'نشطاً' : 'محظوراً ومطروداً'}.` 
+        description: `حساب ${userToStatusChange.name} أصبح الآن ${newStatus === 'active' ? 'نشطاً' : 'محظوراً'}.` 
       });
     } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حالة الحساب." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث الحالة." });
     } finally {
       setProcessing(null);
       setUserToStatusStatusChange(null);
@@ -148,7 +147,7 @@ export default function AccountManagementPage() {
 
   const handleDeleteUser = async () => {
     if (!db || !userToDelete) return;
-    const targetUid = userToDelete.id || userToDelete.uid;
+    const targetUid = userToDelete.uid;
     setProcessing(targetUid);
     try {
       const trashRef = doc(collection(db, "trash"));
@@ -162,7 +161,7 @@ export default function AccountManagementPage() {
       });
 
       await deleteDoc(doc(db, "users", targetUid));
-      toast({ title: "تم الحذف", description: "تم نقل الحساب إلى سلة المهملات بنجاح." });
+      toast({ title: "تم الحذف", description: "تم نقل الحساب إلى سلة المهملات." });
     } catch (error) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل حذف الحساب." });
     } finally {
@@ -204,17 +203,17 @@ export default function AccountManagementPage() {
                   <TableHeader className="bg-muted/20">
                     <TableRow>
                       <TableHead className="text-right font-black py-4">صاحب الحساب</TableHead>
-                      <TableHead className="text-right font-black py-4">معلومات الأمان</TableHead>
-                      <TableHead className="text-center font-black py-4">تغيير السر</TableHead>
+                      <TableHead className="text-right font-black py-4">بيانات التحقق</TableHead>
+                      <TableHead className="text-center font-black py-4">الأمان</TableHead>
                       <TableHead className="text-center font-black py-4">الأجهزة</TableHead>
                       <TableHead className="text-center font-black py-4">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((user: any) => {
-                      const userUid = user.uid || user.id;
+                      const userUid = user.uid;
                       return (
-                        <TableRow key={user.id} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
+                        <TableRow key={user.uid} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
                           <TableCell className="py-4">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
@@ -226,14 +225,19 @@ export default function AccountManagementPage() {
                                   {user.name}
                                   {user.status === 'banned' && <Badge variant="destructive" className="h-4 text-[8px] px-1">محظور</Badge>}
                                 </div>
-                                <div className="text-[10px] text-muted-foreground font-mono">{user.email}</div>
+                                <div 
+                                  className="text-[10px] text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                                  onClick={() => handleCopy(user.email, "البريد")}
+                                >
+                                  <Mail className="w-2.5 h-2.5" /> {user.email}
+                                </div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell className="py-4">
                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => handleCopyId(userUid)}>
-                                   <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate max-w-[80px]">
+                                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => handleCopy(userUid, "المعرف")}>
+                                   <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate max-w-[100px]">
                                       UID: {userUid}
                                    </span>
                                    {copiedId === userUid ? <Check className="w-2.5 h-2.5 text-green-600" /> : <Copy className="w-2.5 h-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
@@ -256,7 +260,7 @@ export default function AccountManagementPage() {
                                   {user.forcePasswordChange ? "بانتظار الطالب" : "تصفير كلمة السر"}
                                </Button>
                                <span className="text-[8px] text-muted-foreground font-bold">
-                                  {user.forcePasswordChange ? "سيجبر على التغيير فوراً" : "الباسورد: student123"}
+                                  {user.forcePasswordChange ? "سيجبر على التغيير" : "تصبح: student123"}
                                </span>
                             </div>
                           </TableCell>
@@ -278,7 +282,6 @@ export default function AccountManagementPage() {
                                 variant="outline"
                                 size="sm"
                                 className="h-8 rounded-lg border-amber-200 text-amber-700 font-bold gap-1 text-[10px] hover:bg-amber-50"
-                                title="تصفير الأجهزة المسجلة"
                               >
                                 <RefreshCw className="w-3 h-3" />
                                 أجهزة
@@ -290,7 +293,6 @@ export default function AccountManagementPage() {
                                 variant="ghost"
                                 size="icon"
                                 className={`h-8 w-8 rounded-lg ${user.status === 'banned' ? 'text-green-600 hover:bg-green-50' : 'text-orange-600 hover:bg-orange-50'}`}
-                                title={user.status === 'banned' ? 'إلغاء الحظر' : 'حظر الحساب'}
                               >
                                 {user.status === 'banned' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                               </Button>
@@ -301,7 +303,6 @@ export default function AccountManagementPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 rounded-lg text-destructive hover:bg-red-50"
-                                title="حذف الحساب نهائياً"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -322,7 +323,6 @@ export default function AccountManagementPage() {
           </CardContent>
         </Card>
 
-        {/* حوار تأكيد تصفير كلمة السر */}
         <AlertDialog open={!!userToForceReset} onOpenChange={(open) => !open && setUserToForceReset(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -333,7 +333,7 @@ export default function AccountManagementPage() {
                 <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">تصفير كلمة السر؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
                   سيتم تغيير كلمة سر الطالب <span className="text-primary font-bold">"{userToForceReset?.name}"</span> لتصبح <code className="bg-muted px-2 py-0.5 rounded font-black text-secondary">student123</code>. <br />
-                  سيتوجب عليه تغييرها فور دخوله للمنصة.
+                  سيتوجب عليه تغييرها فوراً عند الدخول.
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>
@@ -351,7 +351,6 @@ export default function AccountManagementPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* بقية الحوارات */}
         <AlertDialog open={!!userToStatusChange} onOpenChange={(open) => !open && setUserToStatusStatusChange(null)}>
           <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -364,8 +363,8 @@ export default function AccountManagementPage() {
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
                   {userToStatusChange?.status === 'banned' 
-                    ? `سيتم إعادة تفعيل صلاحيات "${userToStatusChange?.name}" للدخول فوراً.` 
-                    : `سيتم منع "${userToStatusChange?.name}" من دخول المنصة وطرده من أي جلسة نشطة.`}
+                    ? `سيتم إعادة تفعيل صلاحيات "${userToStatusChange?.name}" للدخول.` 
+                    : `سيتم منع "${userToStatusChange?.name}" من دخول المنصة وطرده من الجلسات النشطة.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>
@@ -392,7 +391,7 @@ export default function AccountManagementPage() {
               <AlertDialogHeader className="space-y-3 p-0">
                 <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">تصفير سجل الأجهزة؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
-                  أنت على وشك مسح الأجهزة المسجلة لـ <span className="text-primary font-bold">"{userToReset?.name}"</span>. سيتمكن الطالب من الدخول من أجهزة جديدة تماماً.
+                  أنت على وشك مسح الأجهزة المسجلة لـ <span className="text-primary font-bold">"{userToReset?.name}"</span>. سيتمكن الطالب من الدخول من أجهزة جديدة.
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>
@@ -419,7 +418,7 @@ export default function AccountManagementPage() {
               <AlertDialogHeader className="space-y-3 p-0">
                 <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">حذف الحساب نهائياً؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
-                  أنت على وشك حذف حساب <span className="text-primary font-bold">"{userToDelete?.name}"</span> ونقله للسلة. لن يتمكن من الدخول مرة أخرى.
+                  أنت على وشك حذف حساب <span className="text-primary font-bold">"{userToDelete?.name}"</span> ونقله للسلة.
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>

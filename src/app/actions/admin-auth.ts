@@ -1,3 +1,4 @@
+
 'use server';
 
 import * as admin from 'firebase-admin';
@@ -5,7 +6,6 @@ import { firebaseConfig } from '@/firebase/config';
 
 /**
  * تهيئة Firebase Admin بشكل احترافي للعمل في بيئة الخادم
- * نستخدم معرف المشروع من الإعدادات لضمان الاتصال الصحيح
  */
 if (!admin.apps.length) {
   try {
@@ -19,7 +19,6 @@ if (!admin.apps.length) {
 
 /**
  * دالة لتصفير كلمة سر طالب معين برمجياً من جهة الخادم
- * تستخدم فقط من قبل المسؤولين عبر Server Actions
  * @param uid - المعرف الفريد للطالب في Firebase Auth
  */
 export async function resetStudentPassword(uid: string) {
@@ -29,14 +28,12 @@ export async function resetStudentPassword(uid: string) {
     const auth = admin.auth();
     const db = admin.firestore();
 
-    // 1. تحديث كلمة السر في نظام الحماية الأساسي (Auth) لتصبح الكلمة المؤقتة
-    // هذه العملية تتم في جهة السيرفر ولها أولوية قصوى
+    // 1. تحديث كلمة السر في نظام الحماية الأساسي (Auth)
     await auth.updateUser(uid, {
       password: 'student123',
     });
 
-    // 2. تحديث علامة الفرض في Firestore لضمان تحويله لصفحة التغيير فور دخوله
-    // نستخدم الـ UID كمعرف للمستند لضمان التطابق
+    // 2. تحديث علامة الفرض في Firestore لضمان تحويله لصفحة التغيير
     const userRef = db.collection('users').doc(uid);
     await userRef.update({
       forcePasswordChange: true,
@@ -48,7 +45,7 @@ export async function resetStudentPassword(uid: string) {
   } catch (error: any) {
     console.error("Reset Password Error Details:", error);
     
-    let userFriendlyError = "حدث خطأ أثناء محاولة تصفير كلمة السر.";
+    let userFriendlyError = "حدث خطأ أثناء محاولة تصفير كلمة السر. تأكد من وجود صلاحيات كافية.";
     if (error.code === 'auth/user-not-found') {
       userFriendlyError = "لم يتم العثور على هذا المستخدم في نظام الحماية.";
     }

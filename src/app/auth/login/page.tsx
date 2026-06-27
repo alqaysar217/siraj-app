@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -98,29 +99,29 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. تنظيف مسبق للجلسة المحلية لمنع تعارض الحماية
-      localStorage.removeItem('siraj_session_id');
-      localStorage.removeItem('siraj_session_timestamp');
-
-      // 2. تسجيل الدخول الفعلي
+      // 1. تسجيل الدخول
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const user = userCredential.user;
 
-      // 3. تجهيز بيانات الجلسة الجديدة
+      // 2. توليد بيانات الجلسة والجهاز
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const isDefaultPass = cleanPassword === 'student123';
+
+      // 3. هام جداً: حفظ الجلسة محلياً قبل تحديث قاعدة البيانات لمنع الطرد التلقائي
+      localStorage.setItem('siraj_session_id', newSessionId);
+      localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
       
       let forceChange = isDefaultPass;
 
-      // 4. تحديث قاعدة البيانات بالسيرفر
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.status === 'banned') {
           await signOut(auth);
+          localStorage.removeItem('siraj_session_id');
           toast({ variant: "destructive", title: "الحساب محظور", description: "لقد تم إيقاف صلاحية دخولك للمنصة." });
           setLoading(false);
           return;
@@ -133,7 +134,6 @@ export default function LoginPage() {
           forcePasswordChange: forceChange
         });
       } else {
-        // دعم الحسابات القديمة التي ليس لها ملف Firestore
         await setDoc(userDocRef, {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
@@ -147,16 +147,11 @@ export default function LoginPage() {
         });
       }
 
-      // 5. حفظ الجلسة محلياً مع ختم زمني للثواني الأولى
-      localStorage.setItem('siraj_session_id', newSessionId);
-      localStorage.setItem('siraj_session_timestamp', Date.now().toString());
-
-      // 6. تصفير الحظر تماماً عند النجاح
+      // 4. تصفير الحظر
       localStorage.removeItem('login_attempts');
       localStorage.removeItem('login_lock_until');
       setFailedAttempts(0);
 
-      // 7. التوجيه النهائي
       if (forceChange) {
         router.push("/auth/change-password");
       } else {
@@ -166,27 +161,22 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Login Error:", error);
       
-      const isCredentialError = error.code === 'auth/invalid-credential' || 
-                               error.code === 'auth/wrong-password' || 
-                               error.code === 'auth/user-not-found';
-      
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());
       
       let title = "خطأ في الدخول";
-      let desc = isCredentialError ? "البريد أو كلمة السر غير صحيحة." : "فشل الاتصال بخادم الحماية.";
+      let desc = "البريد أو كلمة السر غير صحيحة.";
 
-      // نظام الحظر التصاعدي الذي طلبه محمود
       if (newAttempts >= 5) {
-        const lockMinutes = newAttempts - 4; // 1 min for 5th, 2 for 6th, etc.
+        const lockMinutes = newAttempts - 4;
         const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
         localStorage.setItem('login_lock_until', lockUntil.toString());
         setLockRemaining(lockMinutes * 60);
-        title = "تقييد مؤقت للجهاز";
-        desc = `تجاوزت المحاولات المسموحة. تم حظر الجهاز لمدة ${lockMinutes} دقيقة.`;
-      } else if (isCredentialError) {
-        desc = `كلمة السر خاطئة. متبقي ${5 - newAttempts} محاولات قبل حظر الجهاز.`;
+        title = "تقييد مؤقت";
+        desc = `تجاوزت المحاولات. تم حظر الجهاز لمدة ${lockMinutes} دقيقة.`;
+      } else {
+        desc = `بيانات الدخول خاطئة. متبقي ${5 - newAttempts} محاولات.`;
       }
       
       toast({ variant: "destructive", title, description: desc });
@@ -200,21 +190,21 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-4">
         <Card className="w-full max-w-md luxury-shadow border-primary/5 rounded-[2.5rem] overflow-hidden bg-white/95 backdrop-blur-xl">
           <CardHeader className="text-center pb-6 pt-10">
-            <div className="mx-auto w-14 h-14 relative mb-4 transition-transform hover:scale-110">
+            <div className="mx-auto w-14 h-14 relative mb-4">
               <Image src="/logo.png" alt="Logo" fill className="object-contain" />
             </div>
             <CardTitle className="text-3xl font-black font-headline text-primary">تسجيل الدخول</CardTitle>
-            <CardDescription className="font-bold">مرحباً بك في منصة سراج التعليمية</CardDescription>
+            <CardDescription className="font-bold">منصة سراج التعليمية</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8">
             
             {lockRemaining > 0 && (
-              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-pulse">
+              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800">
                 <Clock className="w-6 h-6 shrink-0" />
                 <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-wider">الجهاز مقيد حالياً</p>
+                  <p className="text-[10px] font-black uppercase">محظور مؤقتاً</p>
                   <p className="text-sm font-black" dir="ltr">
-                    Wait: {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
+                    {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
                   </p>
                 </div>
               </div>
@@ -228,7 +218,7 @@ export default function LoginPage() {
                 id="email" 
                 type="email" 
                 placeholder="example@gmail.com" 
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all" 
+                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
                 disabled={loading || lockRemaining > 0} 
@@ -243,7 +233,7 @@ export default function LoginPage() {
                 id="password" 
                 type="password" 
                 placeholder="••••••••" 
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all" 
+                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 disabled={loading || lockRemaining > 0} 
@@ -253,14 +243,14 @@ export default function LoginPage() {
             <Button 
               disabled={loading || lockRemaining > 0} 
               onClick={handleLogin} 
-              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 hover:scale-[1.02] transition-all active:scale-95"
+              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2"
             >
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "دخول المنصة"}
             </Button>
 
             <div className="text-center pt-2">
-              <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-xs text-muted-foreground font-bold hover:text-secondary transition-colors">
-                هل نسيت كلمة المرور؟ اطلب المساعدة
+              <Link href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}`} className="text-xs text-muted-foreground font-bold hover:text-secondary">
+                هل نسيت كلمة المرور؟ اطلب مساعدة محمود
               </Link>
             </div>
           </CardContent>
