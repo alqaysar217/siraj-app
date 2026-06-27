@@ -17,7 +17,9 @@ import {
   UserCheck,
   ShieldAlert,
   KeyRound,
-  History
+  History,
+  Copy,
+  Check
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -47,6 +49,7 @@ export default function AccountManagementPage() {
   const [userToStatusChange, setUserToStatusStatusChange] = useState<any>(null);
   const [userToReset, setUserToReset] = useState<any>(null);
   const [userToForceReset, setUserToForceReset] = useState<any>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db]);
   const { data: users, loading } = useCollection(usersQuery);
@@ -56,13 +59,29 @@ export default function AccountManagementPage() {
     return users.filter(u => 
       u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.uid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.id?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
 
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+    toast({ title: "تم النسخ", description: "معرف المستخدم جاهز للصق." });
+  };
+
   const handleForcePasswordReset = async () => {
     if (!userToForceReset) return;
-    const targetUid = userToForceReset.id || userToForceReset.uid;
+    
+    // المعرف الحقيقي للطالب هو UID الموجود في المستند أو معرف المستند نفسه
+    const targetUid = userToForceReset.uid || userToForceReset.id;
+    
+    if (!targetUid) {
+      toast({ variant: "destructive", title: "خطأ", description: "لم يتم العثور على معرف UID لهذا المستخدم." });
+      return;
+    }
+
     setProcessing(targetUid);
     try {
       const result = await resetStudentPassword(targetUid);
@@ -165,7 +184,7 @@ export default function AccountManagementPage() {
           <CardHeader className="bg-muted/30 pb-6 border-b border-border/50">
             <div className="relative w-full md:max-w-md">
               <Input 
-                placeholder="ابحث عن حساب بالاسم أو البريد..." 
+                placeholder="ابحث بالاسم، البريد، أو الـ UID..." 
                 className="pr-12 h-12 rounded-2xl bg-background border-primary/10 shadow-sm text-right"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -185,95 +204,112 @@ export default function AccountManagementPage() {
                   <TableHeader className="bg-muted/20">
                     <TableRow>
                       <TableHead className="text-right font-black py-4">صاحب الحساب</TableHead>
-                      <TableHead className="text-center font-black py-4">أمان كلمة السر</TableHead>
+                      <TableHead className="text-right font-black py-4">معلومات الأمان</TableHead>
+                      <TableHead className="text-center font-black py-4">تغيير السر</TableHead>
                       <TableHead className="text-center font-black py-4">الأجهزة</TableHead>
                       <TableHead className="text-center font-black py-4">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((user: any) => (
-                      <TableRow key={user.id} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
-                              <AvatarImage src={user.photoURL || undefined} className="object-cover" />
-                              <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.name?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="text-right">
-                              <div className="font-bold text-primary text-sm flex items-center gap-2">
-                                {user.name}
-                                {user.status === 'banned' && <Badge variant="destructive" className="h-4 text-[8px] px-1">محظور</Badge>}
+                    {filteredUsers.map((user: any) => {
+                      const userUid = user.uid || user.id;
+                      return (
+                        <TableRow key={user.id} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
+                          <TableCell className="py-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
+                                <AvatarImage src={user.photoURL || undefined} className="object-cover" />
+                                <AvatarFallback className="bg-primary/5 text-primary font-bold">{user.name?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="text-right">
+                                <div className="font-bold text-primary text-sm flex items-center gap-2">
+                                  {user.name}
+                                  {user.status === 'banned' && <Badge variant="destructive" className="h-4 text-[8px] px-1">محظور</Badge>}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground font-mono">{user.email}</div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground font-mono">{user.email}</div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4 text-center">
-                          <div className="flex flex-col items-center gap-1.5">
-                             <Button 
-                                onClick={() => setUserToForceReset(user)}
-                                disabled={processing === (user.id || user.uid)}
+                          </TableCell>
+                          <TableCell className="py-4">
+                             <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2 group cursor-pointer" onClick={() => handleCopyId(userUid)}>
+                                   <span className="text-[9px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded truncate max-w-[80px]">
+                                      UID: {userUid}
+                                   </span>
+                                   {copiedId === userUid ? <Check className="w-2.5 h-2.5 text-green-600" /> : <Copy className="w-2.5 h-2.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />}
+                                </div>
+                                <div className="text-[9px] font-bold text-primary/60">
+                                   الدورات: {user.enrolledCourses?.length || 0} دورة
+                                </div>
+                             </div>
+                          </TableCell>
+                          <TableCell className="py-4 text-center">
+                            <div className="flex flex-col items-center gap-1.5">
+                               <Button 
+                                  onClick={() => setUserToForceReset(user)}
+                                  disabled={processing === userUid}
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 rounded-lg border-primary/20 text-primary font-bold gap-2 text-[10px]"
+                               >
+                                  {user.forcePasswordChange ? <History className="w-3 h-3 text-secondary" /> : <RefreshCw className="w-3 h-3" />}
+                                  {user.forcePasswordChange ? "بانتظار الطالب" : "تصفير كلمة السر"}
+                               </Button>
+                               <span className="text-[8px] text-muted-foreground font-bold">
+                                  {user.forcePasswordChange ? "سيجبر على التغيير فوراً" : "الباسورد: student123"}
+                               </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-4 text-center">
+                             <div className="flex justify-center gap-1">
+                                {[0, 1].map(i => (
+                                  <div key={i} className={`p-1.5 rounded-lg border ${user.deviceIds?.[i] ? 'bg-green-50 border-green-100 text-green-700' : 'bg-muted border-border text-muted-foreground/30'}`}>
+                                    <Smartphone className="w-3 h-3" />
+                                  </div>
+                                ))}
+                             </div>
+                             <p className="text-[8px] mt-1 font-bold text-muted-foreground">{user.deviceIds?.length || 0} / 2 مسجل</p>
+                          </TableCell>
+                          <TableCell className="py-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <Button 
+                                disabled={processing === userUid || (user.deviceIds?.length || 0) === 0}
+                                onClick={() => setUserToReset(user)}
                                 variant="outline"
                                 size="sm"
-                                className="h-8 rounded-lg border-primary/20 text-primary font-bold gap-2 text-[10px]"
-                             >
-                                {user.forcePasswordChange ? <History className="w-3 h-3 text-secondary" /> : <RefreshCw className="w-3 h-3" />}
-                                {user.forcePasswordChange ? "بانتظار تغيير الطالب" : "تصفير كلمة السر"}
-                             </Button>
-                             <span className="text-[8px] text-muted-foreground font-bold">
-                                {user.forcePasswordChange ? "سيجبر على التغيير فور دخوله" : "سيعين السر لـ: student123"}
-                             </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4 text-center">
-                           <div className="flex justify-center gap-1">
-                              {[0, 1].map(i => (
-                                <div key={i} className={`p-1.5 rounded-lg border ${user.deviceIds?.[i] ? 'bg-green-50 border-green-100 text-green-700' : 'bg-muted border-border text-muted-foreground/30'}`}>
-                                  <Smartphone className="w-3 h-3" />
-                                </div>
-                              ))}
-                           </div>
-                           <p className="text-[8px] mt-1 font-bold text-muted-foreground">{user.deviceIds?.length || 0} / 2 مسجل</p>
-                        </TableCell>
-                        <TableCell className="py-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <Button 
-                              disabled={processing === (user.id || user.uid) || (user.deviceIds?.length || 0) === 0}
-                              onClick={() => setUserToReset(user)}
-                              variant="outline"
-                              size="sm"
-                              className="h-8 rounded-lg border-amber-200 text-amber-700 font-bold gap-1 text-[10px] hover:bg-amber-50"
-                              title="تصفير الأجهزة المسجلة"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              أجهزة
-                            </Button>
-                            
-                            <Button 
-                              disabled={processing === (user.id || user.uid)}
-                              onClick={() => setUserToStatusStatusChange(user)}
-                              variant="ghost"
-                              size="icon"
-                              className={`h-8 w-8 rounded-lg ${user.status === 'banned' ? 'text-green-600 hover:bg-green-50' : 'text-orange-600 hover:bg-orange-50'}`}
-                              title={user.status === 'banned' ? 'إلغاء الحظر' : 'حظر الحساب'}
-                            >
-                              {user.status === 'banned' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
-                            </Button>
+                                className="h-8 rounded-lg border-amber-200 text-amber-700 font-bold gap-1 text-[10px] hover:bg-amber-50"
+                                title="تصفير الأجهزة المسجلة"
+                              >
+                                <RefreshCw className="w-3 h-3" />
+                                أجهزة
+                              </Button>
+                              
+                              <Button 
+                                disabled={processing === userUid}
+                                onClick={() => setUserToStatusStatusChange(user)}
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 rounded-lg ${user.status === 'banned' ? 'text-green-600 hover:bg-green-50' : 'text-orange-600 hover:bg-orange-50'}`}
+                                title={user.status === 'banned' ? 'إلغاء الحظر' : 'حظر الحساب'}
+                              >
+                                {user.status === 'banned' ? <UserCheck className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                              </Button>
 
-                            <Button 
-                              disabled={processing === (user.id || user.uid)}
-                              onClick={() => setUserToDelete(user)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg text-destructive hover:bg-red-50"
-                              title="حذف الحساب نهائياً"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              <Button 
+                                disabled={processing === userUid}
+                                onClick={() => setUserToDelete(user)}
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg text-destructive hover:bg-red-50"
+                                title="حذف الحساب نهائياً"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

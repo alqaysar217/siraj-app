@@ -98,7 +98,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. تسجيل الدخول
+      // 1. تسجيل الدخول - فحص البيانات مع خادم Firebase
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const user = userCredential.user;
 
@@ -126,6 +126,7 @@ export default function LoginPage() {
           forcePasswordChange: userData.forcePasswordChange || isDefaultPass
         });
       } else {
+        // دعم الحسابات القديمة التي ليس لها ملف Firestore
         await setDoc(userDocRef, {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
@@ -143,12 +144,14 @@ export default function LoginPage() {
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
-      // 5. تصفير الحظر
+      // 5. تصفير الحظر تماماً عند النجاح
       localStorage.removeItem('login_attempts');
       localStorage.removeItem('login_lock_until');
+      setFailedAttempts(0);
 
-      // 6. التوجيه
-      if (isDefaultPass || userSnap.data()?.forcePasswordChange) {
+      // 6. التوجيه بناءً على حالة كلمة السر
+      const finalUserSnap = await getDoc(userDocRef);
+      if (isDefaultPass || finalUserSnap.data()?.forcePasswordChange) {
         router.push("/auth/change-password");
       } else {
         router.push("/dashboard");
@@ -157,21 +160,25 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error("Login Error:", error);
       
+      // معالجة خطأ بيانات الدخول غير الصحيحة (invalid-credential)
+      const isCredentialError = error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found';
+      
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
       localStorage.setItem('login_attempts', newAttempts.toString());
       
       let title = "خطأ في الدخول";
-      let desc = "البريد أو كلمة السر غير صحيحة.";
+      let desc = isCredentialError ? "البريد أو كلمة السر غير صحيحة." : "حدث خطأ غير متوقع في الاتصال بالخادم.";
 
+      // نظام الحظر التصاعدي
       if (newAttempts >= 5) {
         const lockMinutes = newAttempts - 4; 
         const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
         localStorage.setItem('login_lock_until', lockUntil.toString());
         setLockRemaining(lockMinutes * 60);
         title = "تم تقييد الجهاز";
-        desc = `تجاوزت المحاولات. تم حظرك لمدة ${lockMinutes} دقيقة.`;
-      } else {
+        desc = `تجاوزت المحاولات المسموحة. تم حظرك لمدة ${lockMinutes} دقيقة.`;
+      } else if (isCredentialError) {
         desc = `كلمة السر غير صحيحة. متبقي لك ${5 - newAttempts} محاولات قبل الحظر المؤقت.`;
       }
       
