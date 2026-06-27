@@ -71,7 +71,6 @@ export default function RegisterPage() {
       localStorage.setItem('siraj_session_id', initialSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
-      // الالتزام ببيانات متوافقة مع Security Rules لمنع الرفض
       const profileData = {
         uid: user.uid,
         name: name.trim(),
@@ -142,21 +141,21 @@ export default function RegisterPage() {
               <Label htmlFor="name" className="font-bold flex items-center gap-2 mr-1 mb-1">
                 <User className="w-4 h-4 text-secondary" /> الاسم الكامل
               </Label>
-              <Input id="name" placeholder="مثال: محمود الحساني" className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input id="name" placeholder="مثال: محمود الحساني" className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6 transition-all text-right" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
 
             <div className="space-y-2 text-right">
               <Label htmlFor="email" className="font-bold flex items-center gap-2 mr-1 mb-1">
                 <Mail className="w-4 h-4 text-secondary" /> البريد الإلكتروني
               </Label>
-              <Input id="email" type="email" placeholder="example@gmail.com" className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input id="email" type="email" placeholder="example@gmail.com" className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6 transition-all text-right" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
 
             <div className="space-y-2 text-right">
               <Label htmlFor="password" className="font-bold flex items-center gap-2 mr-1 mb-1">
                 <Lock className="w-4 h-4 text-secondary" /> كلمة المرور
               </Label>
-              <Input id="password" type="password" placeholder="••••••••" className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white transition-all text-right" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input id="password" type="password" placeholder="••••••••" className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6 transition-all text-right" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             
             <Button disabled={loading || !auth} onClick={handleRegister} className="w-full h-14 rounded-2xl bg-secondary text-white hover:bg-secondary/90 font-black text-xl shadow-xl shadow-secondary/10 mt-4 transition-transform active:scale-95">

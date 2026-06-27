@@ -99,7 +99,6 @@ export default function LoginPage() {
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}`;
       
-      // حفظ محلي أولاً لمنع الطرد التلقائي
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
@@ -116,7 +115,6 @@ export default function LoginPage() {
           deviceIds: arrayUnion(deviceId)
         });
       } else {
-        // إنشاء ملف آمن في حال لم يكن موجوداً (للدخول الاجتماعي مستقبلاً)
         const profileData = {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
@@ -202,7 +200,7 @@ export default function LoginPage() {
                 id="email" 
                 type="email" 
                 placeholder="example@gmail.com" 
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white" 
+                className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
                 disabled={loading || lockRemaining > 0} 
@@ -217,7 +215,7 @@ export default function LoginPage() {
                 id="password" 
                 type="password" 
                 placeholder="••••••••" 
-                className="h-12 rounded-2xl bg-muted/30 border-primary/5 focus:bg-white" 
+                className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
                 disabled={loading || lockRemaining > 0} 
