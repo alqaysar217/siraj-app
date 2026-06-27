@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/navbar";
@@ -119,7 +118,6 @@ export default function PublicLeaderboardPage() {
                       <TableRow>
                         <TableHead className="text-center font-black py-4 w-12 md:w-24 px-2">#</TableHead>
                         <TableHead className="text-right font-black py-4 px-2">الطالب</TableHead>
-                        <TableHead className="text-center font-black py-4 hidden sm:table-cell">الإنجاز</TableHead>
                         <TableHead className="text-center font-black py-4 w-20 md:w-32 px-2">النقاط</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -160,12 +158,6 @@ export default function PublicLeaderboardPage() {
                                   {index === 0 ? "البطل الذهبي" : index === 1 ? "المنافس الفضي" : index === 2 ? "المثابر البرونزي" : "طالب سراج"}
                                 </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center hidden sm:table-cell">
-                            <div className="inline-flex flex-col items-center">
-                               <div className="text-sm md:text-lg font-black text-primary" dir="ltr">{mounted ? student.totalCompletedLessons : '0'}</div>
-                               <div className="text-[8px] text-muted-foreground font-black uppercase">درس مكتمل</div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center px-1 md:px-2">
