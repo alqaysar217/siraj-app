@@ -28,8 +28,12 @@ service cloud.firestore {
     }
 
     // التحقق من أن المستخدم لم يغير الحقول الحساسة أثناء التحديث
+    // تم إضافة 'deviceIds', 'progress', 'points' للقائمة لضمان عدم تلاعب الطالب بها
     function isNotModifyingSensitiveFields() {
-      let sensitiveFields = ['role', 'status', 'enrolledCourses', 'progress', 'enrollmentDetails', 'uid', 'email'];
+      let sensitiveFields = [
+        'role', 'status', 'enrolledCourses', 'progress', 
+        'enrollmentDetails', 'uid', 'email', 'deviceIds', 'points'
+      ];
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
     }
 
@@ -37,15 +41,16 @@ service cloud.firestore {
 
     match /users/{userId} {
       // القراءة: المدير يرى الكل، المسجل يرى نفسه. 
-      // لوحة الشرف: تسمح فقط للمسجلين برؤية من وافق على الظهور، مع حماية البيانات الحساسة.
+      // لوحة الشرف: تسمح فقط للمسجلين برؤية من وافق على الظهور.
       allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (isAuthenticated() && resource.data.showInLeaderboard == true);
       
       // الإنشاء: يجب أن يكون المستخدم مسجلاً وأن يلتزم بشروط "المستخدم الجديد الصالح"
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
       
-      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته غير الحساسة
+      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته الشخصية البسيطة (اسم، صورة، هاتف، حالة الظهور)
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
       
+      // الحذف: المدير فقط من يملك حق حذف الحسابات لضمان بقاء سجلات الاشتراكات المالية
       allow delete: if isAdmin();
     }
 
@@ -81,12 +86,12 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // سد الثغرة الثانية: التحقق من الهوية الحقيقية والاشتراك الفعلي قبل السماح بالكتابة
+      // التحقق من الهوية الحقيقية والاشتراك الفعلي قبل السماح بالكتابة (سد الثغرة الثانية)
       allow create: if isAuthenticated() 
         && request.resource.data.userId == request.auth.uid
         && getUserData().enrolledCourses.hasAny([request.resource.data.courseId]);
       
-      // منع التلاعب بالتقييمات بعد نشرها - الحذف للمدير فقط
+      // منع التلاعب بالتقييمات بعد نشرها
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }

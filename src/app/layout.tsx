@@ -32,7 +32,7 @@ export const metadata: Metadata = {
     siteName: 'منصة سراج التعليمية',
     images: [
       {
-        url: '/logo.png', // سيتم سحب اللوجو من مجلد public
+        url: '/logo.png', 
         width: 800,
         height: 800,
         alt: 'شعار منصة سراج التعليمية',
