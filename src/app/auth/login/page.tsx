@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, Clock, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const WHATSAPP_NUMBER = "+967775258830";
+const WHATSAPP_NUMBER = "+967735952927";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -164,7 +164,7 @@ export default function LoginPage() {
   };
 
   const getWhatsAppResetUrl = () => {
-    const message = `أهلاً محمود، نسيت كلمة السر لحسابي ببريد (${email || "________"}) في منصة سراج، يرجى إرسال رابط استعادة لي.`;
+    const message = `أهلاً سراج، نسيت كلمة السر لحسابي ببريد (${email || "________"}) في منصة سراج، يرجى إرسال رابط استعادة لي.`;
     return `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
 

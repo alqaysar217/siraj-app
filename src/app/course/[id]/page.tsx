@@ -59,7 +59,7 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const WHATSAPP_NUMBER = "+967775258830";
+const WHATSAPP_NUMBER = "+967735952927";
 
 // Helper Functions
 const getLevelName = (level: string) => {

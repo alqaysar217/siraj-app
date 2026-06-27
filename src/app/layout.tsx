@@ -1,3 +1,4 @@
+
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -5,7 +6,7 @@ import { FirebaseProvider } from "@/firebase/provider";
 
 /**
  * إعدادات الهوية البصرية والرقمية للمنصة (Open Graph / SEO)
- * هذه الإعدادات هي المسؤولة عن ظهور اللوجو والنص عند مشاركة الرابط في واتساب
+ * تم ضبطها لتظهر باحترافية عند مشاركة الرابط في واتساب
  */
 export const metadata: Metadata = {
   metadataBase: new URL('https://siraj-app.vercel.app'),

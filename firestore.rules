@@ -17,7 +17,7 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
-    // التحقق من صحة هيكل بيانات المستخدم الجديد
+    // التحقق من صحة هيكل بيانات المستخدم الجديد (ثغرة 1)
     function isValidNewUser() {
       let data = request.resource.data;
       return data.role == 'student' 
@@ -27,7 +27,7 @@ service cloud.firestore {
         && data.uid == request.auth.uid;
     }
 
-    // التحقق من عدم المساس بالحقول الحساسة (توسيع القائمة)
+    // التحقق من عدم المساس بالحقول الحساسة (ثغرة 3 و 4)
     function isNotModifyingSensitiveFields() {
       let sensitiveFields = [
         'role', 'status', 'enrolledCourses', 'progress', 
@@ -36,7 +36,7 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
     }
 
-    // التحقق من صحة بيانات المراجعة
+    // التحقق من صحة بيانات المراجعة (ثغرة 2)
     function isValidReview() {
       let data = request.resource.data;
       return data.userId == request.auth.uid
@@ -102,7 +102,7 @@ service cloud.firestore {
 
     match /subscriptions/{subId} {
       allow read: if isAdmin();
-      allow create: if isAdmin(); // تفعيل يدوي من المدير فقط
+      allow create: if isAdmin(); 
     }
 
     match /trash/{trashId} {
