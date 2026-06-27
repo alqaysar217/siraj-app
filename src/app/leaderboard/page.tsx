@@ -32,16 +32,19 @@ export default function PublicLeaderboardPage() {
     setMounted(true);
   }, []);
   
-  // استعلام متوافق مع قواعد الحماية للظهور العام
+  /**
+   * استعلام محسّن متوافق مع قواعد الحماية للظهور العام.
+   * الفلتر 'showInLeaderboard == true' هو المفتاح للسماح للزوار بالقراءة.
+   */
   const usersQuery = useMemoFirebase(() => 
     db ? query(
       collection(db, "users"), 
-      where("showInLeaderboard", "==", true), // هذا الفلتر أساسي ليوافق الخادم على الطلب
-      limit(100) 
+      where("showInLeaderboard", "==", true),
+      limit(50) 
     ) : null
   , [db]);
   
-  const { data: users, loading } = useCollection(usersQuery);
+  const { data: users, loading, error } = useCollection(usersQuery);
 
   const leaderboard = useMemo(() => {
     if (!users) return [];
@@ -95,6 +98,10 @@ export default function PublicLeaderboardPage() {
             <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4 opacity-50" />
             <p className="text-muted-foreground font-bold">جاري تحديث لوحة الشرف...</p>
           </div>
+        ) : error ? (
+           <div className="py-20 text-center bg-red-50 rounded-3xl border border-red-100">
+              <p className="text-red-600 font-bold">عذراً، فشل الاتصال بسجل المتصدرين. يرجى المحاولة لاحقاً.</p>
+           </div>
         ) : leaderboard.length > 0 ? (
           <div className="space-y-8">
             <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">

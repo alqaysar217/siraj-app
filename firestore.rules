@@ -10,33 +10,34 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // التحقق من أن المستخدم مسجل أولاً لمنع أخطاء القواعد
+      // التأكد من أن المستخدم مسجل قبل محاولة جلب بياناته لمنع انهيار القاعدة للزوار
       return isLoggedIn() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // --- قواعد المجموعات ---
+    // --- قواعد مجموعات المستخدمين ---
 
     match /users/{userId} {
-      // 1. القراءة العامة: للوحة المتصدرين (متاحة للجميع: زوار ومسجلين)
-      // ملاحظة: يجب أن يحتوي الاستعلام على فلتر (showInLeaderboard == true)
-      allow read: if resource.data.showInLeaderboard == true;
+      // 1. القراءة العامة: مسموح لأي شخص (زائر أو مسجل) رؤية الطلاب الذين وافقوا على الظهور
+      // هذا الشرط مستقل تماماً لضمان عمل قائمة المتصدرين للجميع
+      allow get, list: if resource.data.showInLeaderboard == true;
       
-      // 2. القراءة الخاصة: صاحب الحساب أو المدير يقرأ الملف كاملاً
+      // 2. القراءة الخاصة: صاحب الحساب أو المدير يقرأ الملف كاملاً (بما في ذلك الحقول السرية)
       allow read: if isLoggedIn() && (request.auth.uid == userId || isAdmin());
       
-      // 3. إنشاء الحساب: حماية ضد ثغرة المدير المتخفي
+      // 3. إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص
       allow create: if isLoggedIn() && request.auth.uid == userId 
                     && request.resource.data.role == 'student'
                     && request.resource.data.status == 'active'
                     && request.resource.data.enrolledCourses.size() == 0;
       
-      // 4. التحديث: منع الطالب من تعديل الحقول الحساسة (الأمان والمالية)
+      // 4. التحديث: منع الطلاب من تعديل الحقول الحساسة
       allow update: if isAdmin() 
                   || (isLoggedIn() && request.auth.uid == userId 
                       && !(request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status', 'email'])));
+                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'points', 'status', 'email', 'progress'])));
       
+      // 5. الحذف: للمدير فقط (لحماية سجلات الاشتراكات)
       allow delete: if isAdmin();
     }
 
@@ -72,13 +73,11 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      // منع انتحال الهوية: يجب أن يطابق الـ userId معرف الشخص المسجل حالياً
-      // ويجب أن يكون الطالب مشتركاً فعلياً في الدورة ليسمح له بالتقييم
+      // السماح بكتابة مراجعة فقط إذا كان الشخص هو صاحب الهوية الحقيقية ومشترك في الدورة
       allow create: if isLoggedIn() 
                     && request.resource.data.userId == request.auth.uid
                     && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.enrolledCourses.hasAny([request.resource.data.courseId]);
       
-      // المراجعات لا تعدل لضمان المصداقية، تحذف فقط بواسطة المدير
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
