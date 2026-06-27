@@ -478,6 +478,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
+  // بناء رسالة الواتساب الاحترافية الموجهة للموظف
+  const whatsappMessage = `مرحبا منصة سراج،، انا ${profile?.name || 'طالب جديد'} وبريدي هو (${profile?.email || 'لم يتم تسجيله بعد'}) اريد منك تفعيل كورس (${course?.title}) وسوف اقوم بايداع الرسوم الان في حسابكم وارسال السند اليكم`;
+
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
       <Navbar />
@@ -602,9 +605,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
                       <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-4 md:gap-6 text-right" dir="rtl">
+                        {/* شعار البنك على اليمين */}
                         <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden border border-border/50">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
+                        {/* بيانات البنك تليها */}
                         <div className="flex-1 overflow-hidden space-y-1">
                           <h4 className="font-black text-base md:text-lg text-primary leading-tight">{bank.bankName}</h4>
                           <p className="text-[10px] md:text-xs text-muted-foreground truncate font-bold">{bank.accountHolder}</p>
@@ -626,7 +631,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <p className="text-xs md:text-sm text-muted-foreground font-bold px-4">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
                     <div className="flex justify-center w-full px-2">
                       <Button asChild className="w-full max-w-full md:max-w-md h-14 md:h-16 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-2xl font-black shadow-xl shadow-green-600/20 transition-all active:scale-95">
-                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أود تفعيل دورة ${course?.title}`} target="_blank" className="flex items-center justify-center gap-2 px-2">
+                        <a 
+                          href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=${encodeURIComponent(whatsappMessage)}`} 
+                          target="_blank" 
+                          className="flex items-center justify-center gap-2 px-2"
+                        >
                           <MessageCircle className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
                           <span className="text-sm md:text-lg truncate">تواصل عبر واتساب لإرسال السند</span>
                         </a>
@@ -647,10 +656,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       reviews.map((r: any, i: number) => (
                         <div key={i} className="bg-card p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow space-y-4 text-right flex flex-col">
                           <div className="flex flex-row items-center gap-4" dir="rtl">
+                            {/* صورة الطالب على اليمين */}
                             <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-sm shrink-0">
                               <AvatarImage src={r.userPhoto} className="object-cover" />
                               <AvatarFallback className="bg-primary text-white font-black">{r.userName?.charAt(0)}</AvatarFallback>
                             </Avatar>
+                            {/* اسم الطالب والتقييم */}
                             <div className="text-right overflow-hidden">
                               <div className="font-black text-sm md:text-base text-primary truncate">{r.userName}</div>
                               <div className="flex gap-0.5 mt-0.5">
