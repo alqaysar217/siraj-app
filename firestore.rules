@@ -2,10 +2,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // --- وظائف الحماية الأساسية ---
+    
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // جلب بيانات المستخدم من قاعدة البيانات للتحقق من دوره
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -14,10 +18,25 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
+    // التحقق من أن المستخدم لم يغير الحقول الحساسة
+    function isNotModifyingSensitiveFields() {
+      let sensitiveFields = ['role', 'status', 'enrolledCourses', 'progress', 'enrollmentDetails', 'uid', 'email'];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
+    }
+
+    // --- القواعد المخصصة للمجموعات ---
+
     match /users/{userId} {
-      // السماح بالقراءة للمسجلين دائماً، وللزوار فقط إذا كان المستخدم قد وافق على الظهور في لوحة الشرف
-      allow read: if isAuthenticated() || (resource != null && resource.data.showInLeaderboard == true);
-      allow write: if request.auth.uid == userId || isAdmin();
+      // القراءة: المدير يرى الكل، المسجل يرى نفسه، والزوار يرون فقط الاسم والنقاط (للوحة الشرف)
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (resource != null && resource.data.showInLeaderboard == true);
+      
+      // الإنشاء: فقط عند التسجيل الأول
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // التحديث: المدير يعدل كل شيء، الطالب يعدل فقط بياناته غير الحساسة
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
+      
+      allow delete: if isAdmin();
     }
 
     match /courses/{courseId} {
@@ -52,7 +71,8 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isAuthenticated();
+      // لا يسمح بكتابة مراجعة إلا للمشتركين فعلياً في الدورة (إجراء إضافي للأمان)
+      allow create: if isAuthenticated() && getUserData().enrolledCourses.hasAny([request.resource.data.courseId]);
       allow delete: if isAdmin();
       allow update: if isAdmin();
     }
@@ -64,7 +84,7 @@ service cloud.firestore {
 
     match /subscriptions/{subId} {
       allow read: if isAdmin();
-      allow create: if isAdmin();
+      allow create: if isAdmin(); // تفعيل الاشتراك حصراً من جهة المدير
     }
 
     match /trash/{trashId} {
