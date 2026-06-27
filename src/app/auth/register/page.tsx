@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -79,6 +80,7 @@ export default function RegisterPage() {
       
       localStorage.setItem('siraj_session_id', initialSessionId);
 
+      // أمن: لا نقوم بتخزين plainPassword أبداً في قاعدة البيانات
       const profileData = {
         uid: user.uid,
         name,
@@ -86,9 +88,9 @@ export default function RegisterPage() {
         phone: "",
         photoURL: "",
         role: "student",
-        plainPassword: password,
         enrolledCourses: [],
         showInLeaderboard: true,
+        forcePasswordChange: false, 
         lastSessionId: initialSessionId,
         deviceIds: [deviceId],
         createdAt: new Date().toISOString()

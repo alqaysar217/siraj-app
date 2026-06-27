@@ -7,13 +7,16 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '../provider';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, ShieldAlert } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
 
 const WHATSAPP_NUMBER = "+967775258830";
 
 export function useUser() {
   const auth = useAuth();
   const db = useFirestore();
+  const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   
   const [user, setUser] = useState<User | null>(null);
@@ -51,59 +54,36 @@ export function useUser() {
           const data = docSnap.data();
           setProfile(data);
 
-          // منطق الحماية الصارم
-          if (data.role === 'student' && !isKickingRef.current) {
+          // أمن: فحص حالة التغيير الإجباري لكلمة السر
+          if (data.forcePasswordChange && !isKickingRef.current) {
+            const isChangePassPage = pathname === '/auth/change-password';
+            const isAuthFlow = pathname.includes('/auth/');
             
-            // 1. تحقق من الحظر الفوري
+            if (!isChangePassPage && !isAuthFlow) {
+              router.replace('/auth/change-password');
+              return;
+            }
+          }
+
+          if (data.role === 'student' && !isKickingRef.current) {
             if (data.status === 'banned') {
               isKickingRef.current = true;
               signOut(auth).then(() => {
-                toast({
-                  variant: "destructive",
-                  duration: 10000,
-                  title: "تنبيه أمني: تم حظر الحساب",
-                  description: "عذراً، لقد تم إيقاف صلاحية دخولك للمنصة فوراً لمخالفة شروط الاستخدام.",
-                  action: (
-                    <Button variant="outline" size="sm" asChild className="border-white/20 bg-primary/20 text-white font-bold">
-                      <a href={`https://wa.me/${WHATSAPP_NUMBER.replace('+', '')}?text=أهلاً محمود، تم إخراجي وحظر حسابي (${user.email}). أرجو التوضيح.`}>
-                        <MessageCircle className="w-4 h-4" /> تواصل مع الإدارة
-                      </a>
-                    </Button>
-                  )
-                });
-                setTimeout(() => { isKickingRef.current = false; }, 5000);
+                toast({ variant: "destructive", title: "الحساب محظور", description: "تم إيقاف صلاحية دخولك فوراً." });
               });
               return;
             }
 
-            // 2. تحقق من الدخول المتعدد (Session ID)
             if (docSnap.metadata.hasPendingWrites) return;
-            const isAuthPage = typeof window !== 'undefined' && window.location.pathname.includes('/auth/');
+            const isAuthPage = pathname.includes('/auth/');
             if (isAuthPage) return;
 
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
-            
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId) {
               isKickingRef.current = true;
-              
               signOut(auth).then(() => {
-                if (typeof window !== 'undefined') {
-                  localStorage.removeItem('siraj_session_id');
-                }
-                toast({
-                  variant: "destructive",
-                  duration: 10000,
-                  title: "تنبيه أمني: رصد جلسة نشطة أخرى",
-                  description: "تم تسجيل الدخول لهذا الحساب من جهاز آخر. تم إنهاء جلستك الحالية لضمان أمان محتواك التعليمي.",
-                  action: (
-                    <Button variant="outline" size="sm" asChild className="border-white/20 bg-primary/20 text-white font-bold">
-                      <a href={`https://wa.me/${WHATSAPP_NUMBER.replace('+', '')}?text=تنبيه أمني: تم إخراجي من حسابي (${user.email}) بسبب رصد جلسة أخرى.`}>
-                        <MessageCircle className="w-4 h-4" /> مراسلة الإدارة
-                      </a>
-                    </Button>
-                  )
-                });
-                setTimeout(() => { isKickingRef.current = false; }, 5000);
+                if (typeof window !== 'undefined') localStorage.removeItem('siraj_session_id');
+                toast({ variant: "destructive", title: "جلسة أخرى نشطة", description: "تم تسجيل الدخول من جهاز آخر." });
               });
             }
           }
@@ -116,7 +96,7 @@ export function useUser() {
     );
 
     return () => unsubscribeProfile();
-  }, [db, user, auth, toast, mounted]);
+  }, [db, user, auth, toast, mounted, pathname, router]);
 
   return { 
     user, 

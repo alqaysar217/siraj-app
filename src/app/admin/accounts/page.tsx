@@ -9,8 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
   Search, 
-  Eye, 
-  EyeOff, 
   Loader2, 
   RefreshCw,
   ShieldCheck,
@@ -18,10 +16,9 @@ import {
   Trash2,
   Ban,
   UserCheck,
-  AlertTriangle,
-  X,
   ShieldAlert,
-  ShieldX
+  KeyRound,
+  History
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -45,11 +42,11 @@ export default function AccountManagementPage() {
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState("");
-  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [processing, setProcessing] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<any>(null);
   const [userToStatusChange, setUserToStatusStatusChange] = useState<any>(null);
   const [userToReset, setUserToReset] = useState<any>(null);
+  const [userToForceReset, setUserToForceReset] = useState<any>(null);
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db]);
   const { data: users, loading } = useCollection(usersQuery);
@@ -62,8 +59,24 @@ export default function AccountManagementPage() {
     );
   }, [users, searchTerm]);
 
-  const togglePasswordVisibility = (uid: string) => {
-    setShowPasswords(prev => ({ ...prev, [uid]: !prev[uid] }));
+  const handleForcePasswordReset = async () => {
+    if (!db || !userToForceReset) return;
+    setProcessing(userToForceReset.uid);
+    try {
+      // أمن: نقوم بوضع علامة "إجبارية التغيير" في الدخول القادم
+      await updateDoc(doc(db, "users", userToForceReset.uid), {
+        forcePasswordChange: true
+      });
+      toast({ 
+        title: "تم جدولة إعادة التعيين", 
+        description: `عند دخول "${userToForceReset.name}" القادم، سيُجبر على تغيير كلمة سره فوراً.` 
+      });
+    } catch (error) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تفعيل طلب إعادة التعيين." });
+    } finally {
+      setProcessing(null);
+      setUserToForceReset(null);
+    }
   };
 
   const handleResetDevices = async () => {
@@ -134,7 +147,7 @@ export default function AccountManagementPage() {
       <div className="container mx-auto px-4 py-10 max-w-7xl text-right">
         <header className="mb-10">
           <h1 className="text-3xl font-bold font-headline text-primary mb-2">إدارة الحسابات والأمان</h1>
-          <p className="text-muted-foreground">تحكم كامل في كلمات السر، الأجهزة، وحظر الحسابات لمخالفي الشروط.</p>
+          <p className="text-muted-foreground">تحكم في صلاحيات الدخول، حظر الأجهزة، وفرض تغيير كلمات السر للطلاب.</p>
         </header>
 
         <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
@@ -161,9 +174,8 @@ export default function AccountManagementPage() {
                   <TableHeader className="bg-muted/20">
                     <TableRow>
                       <TableHead className="text-right font-black py-4">صاحب الحساب</TableHead>
-                      <TableHead className="text-right font-black py-4">كلمة المرور</TableHead>
-                      <TableHead className="text-center font-black py-4">الجهاز 1</TableHead>
-                      <TableHead className="text-center font-black py-4">الجهاز 2</TableHead>
+                      <TableHead className="text-center font-black py-4">أمان كلمة السر</TableHead>
+                      <TableHead className="text-center font-black py-4">الأجهزة</TableHead>
                       <TableHead className="text-center font-black py-4">الإجراءات</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -185,31 +197,32 @@ export default function AccountManagementPage() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-2" dir="ltr">
-                            <code className="text-[12px] bg-muted px-3 py-1.5 rounded-lg font-mono font-bold text-secondary min-w-[100px] text-center">
-                              {showPasswords[user.uid] ? (user.plainPassword || "---") : "••••••••"}
-                            </code>
-                            <button className="text-primary hover:text-secondary p-1" onClick={() => togglePasswordVisibility(user.uid)}>
-                              {showPasswords[user.uid] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
+                        <TableCell className="py-4 text-center">
+                          <div className="flex flex-col items-center gap-1.5">
+                             <Button 
+                                onClick={() => setUserToForceReset(user)}
+                                disabled={processing === user.uid || user.forcePasswordChange}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 rounded-lg border-primary/20 text-primary font-bold gap-2 text-[10px]"
+                             >
+                                {user.forcePasswordChange ? <History className="w-3 h-3 text-secondary" /> : <KeyRound className="w-3 h-3" />}
+                                {user.forcePasswordChange ? "في انتظار التغيير" : "طلب تغيير السر"}
+                             </Button>
+                             <span className="text-[8px] text-muted-foreground font-bold">
+                                {user.forcePasswordChange ? "سيطلب منه التغيير فور دخوله" : "أمن: كلمة السر مشفرة ولا تظهر للمدير"}
+                             </span>
                           </div>
                         </TableCell>
                         <TableCell className="py-4 text-center">
-                           {user.deviceIds?.[0] ? (
-                             <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 rounded-lg border border-green-100">
-                               <Smartphone className="w-3 h-3" />
-                               <span className="text-[9px] font-black truncate max-w-[80px]">{user.deviceIds[0].split('-')[0]}</span>
-                             </div>
-                           ) : <span className="text-[10px] text-muted-foreground">فارغ</span>}
-                        </TableCell>
-                        <TableCell className="py-4 text-center">
-                           {user.deviceIds?.[1] ? (
-                             <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 rounded-lg border border-green-100">
-                               <Smartphone className="w-3 h-3" />
-                               <span className="text-[9px] font-black truncate max-w-[80px]">{user.deviceIds[1].split('-')[0]}</span>
-                             </div>
-                           ) : <span className="text-[10px] text-muted-foreground">فارغ</span>}
+                           <div className="flex justify-center gap-1">
+                              {[0, 1].map(i => (
+                                <div key={i} className={`p-1.5 rounded-lg border ${user.deviceIds?.[i] ? 'bg-green-50 border-green-100 text-green-700' : 'bg-muted border-border text-muted-foreground/30'}`}>
+                                  <Smartphone className="w-3 h-3" />
+                                </div>
+                              ))}
+                           </div>
+                           <p className="text-[8px] mt-1 font-bold text-muted-foreground">{user.deviceIds?.length || 0} / 2 مسجل</p>
                         </TableCell>
                         <TableCell className="py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
@@ -261,6 +274,34 @@ export default function AccountManagementPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* حوار تأكيد طلب تغيير كلمة السر */}
+        <AlertDialog open={!!userToForceReset} onOpenChange={(open) => !open && setUserToForceReset(null)}>
+          <AlertDialogContent dir="rtl" className="rounded-[2.5rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-primary/5 rounded-full flex items-center justify-center mb-6">
+                <KeyRound className="w-10 h-10 text-primary" />
+              </div>
+              <AlertDialogHeader className="space-y-3 p-0">
+                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">فرض تغيير كلمة السر؟</AlertDialogTitle>
+                <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
+                  سيقوم النظام بإجبار <span className="text-primary font-bold">"{userToForceReset?.name}"</span> على تعيين كلمة سر جديدة فور دخوله القادم للمنصة. لن يتمكن من تصفح أي دروس حتى يتم التغيير.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+            <AlertDialogFooter className="flex flex-row gap-3 mt-8">
+              <AlertDialogAction 
+                onClick={handleForcePasswordReset}
+                className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90"
+              >
+                تأكيد الفرض
+              </AlertDialogAction>
+              <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">
+                إلغاء
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* حوار تأكيد الحظر/التنشيط */}
         <AlertDialog open={!!userToStatusChange} onOpenChange={(open) => !open && setUserToStatusStatusChange(null)}>
