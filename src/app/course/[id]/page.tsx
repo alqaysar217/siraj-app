@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, use, useEffect, useMemo, useRef, useCallback, Suspense } from "react";
+import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
 import Navbar from "@/components/navbar";
 import VideoPlayer from "@/components/video-player";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   PlayCircle, 
   BookOpen, 
@@ -22,7 +22,6 @@ import {
   XCircle,
   RotateCcw,
   ChevronLeft,
-  ChevronRight,
   Users,
   Star,
   Award,
@@ -36,12 +35,10 @@ import {
   ListVideo,
   AlertCircle,
   PartyPopper,
-  Send,
-  CreditCard,
   Building2,
   Check,
   X,
-  Languages
+  Share2
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { doc, collection, query, orderBy, updateDoc, arrayUnion, addDoc, serverTimestamp, where } from "firebase/firestore";
@@ -58,7 +55,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 const WHATSAPP_NUMBER = "+967775258830";
 
@@ -566,79 +562,106 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
           {currentLessonIndex === 0 && !isFinishing && (
             <div ref={paymentTabRef} className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <Card className="rounded-[2.5rem] border-none luxury-shadow p-8 bg-white space-y-8">
+              <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
                 <div className="text-right space-y-3">
-                  <h1 className="text-3xl md:text-4xl font-black text-primary">{course?.title}</h1>
-                  <p className="text-lg text-muted-foreground leading-relaxed">{course?.description}</p>
+                  <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{course?.title}</h1>
+                  <p className="text-base md:text-lg text-muted-foreground leading-relaxed">{course?.description}</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                   {[
                     { label: "الطلاب", val: course?.studentsCount, icon: Users },
                     { label: "التقييم", val: course?.rating, icon: Star },
                     { label: "المستوى", val: getLevelName(course?.level || "beginner"), icon: Layers },
                     { label: "الشهادة", val: course?.hasCertificate ? "متاحة" : "غير متوفرة", icon: Award },
                   ].map((s, i) => (
-                    <div key={i} className="bg-muted/30 p-4 rounded-2xl flex items-center gap-3">
-                      <div className="p-2 bg-white rounded-xl shadow-sm"><s.icon className="w-5 h-5 text-secondary" /></div>
+                    <div key={i} className="bg-muted/30 p-3 md:p-4 rounded-2xl flex items-center gap-3">
+                      <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-4 h-4 md:w-5 md:h-5 text-secondary" /></div>
                       <div className="text-right overflow-hidden">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
-                        <p className="text-xs font-bold text-primary truncate">{s.val}</p>
+                        <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
+                        <p className="text-[10px] md:text-xs font-bold text-primary truncate">{s.val}</p>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="flex items-center justify-between border-t pt-8">
                   <p className="text-2xl md:text-4xl font-black text-secondary">{course?.price} <small className="text-sm">ريال</small></p>
-                  <Badge variant="outline" className="h-10 px-6 rounded-xl bg-primary/5 text-primary border-primary/10 font-black">
+                  <Badge variant="outline" className="h-9 px-4 md:px-6 rounded-xl bg-primary/5 text-primary border-primary/10 font-black text-[10px] md:text-xs">
                     {getCategoryName(course?.category || "general")}
                   </Badge>
                 </div>
               </Card>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2.5rem] border luxury-shadow overflow-hidden">
-                <TabsList className="w-full flex h-16 bg-muted/30 p-1.5 border-b">
-                  <TabsTrigger value="payment" className="flex-1 font-black text-lg rounded-2xl">تفعيل الدورة</TabsTrigger>
-                  <TabsTrigger value="curriculum" className="flex-1 font-black text-lg rounded-2xl">المنهج</TabsTrigger>
-                  <TabsTrigger value="reviews" className="flex-1 font-black text-lg rounded-2xl">التقييمات</TabsTrigger>
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] md:rounded-[2.5rem] border luxury-shadow overflow-hidden">
+                <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b">
+                  <TabsTrigger value="payment" className="flex-1 font-black text-sm md:text-lg rounded-xl md:rounded-2xl">تفعيل الدورة</TabsTrigger>
+                  <TabsTrigger value="curriculum" className="flex-1 font-black text-sm md:text-lg rounded-xl md:rounded-2xl">المنهج</TabsTrigger>
+                  <TabsTrigger value="reviews" className="flex-1 font-black text-sm md:text-lg rounded-xl md:rounded-2xl">التقييمات</TabsTrigger>
                 </TabsList>
-                <TabsContent value="payment" className="p-8 md:p-12 space-y-8 text-right">
-                  <h3 className="text-2xl md:text-4xl font-black text-primary">خطوات التفعيل</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right">
+                  <h3 className="text-xl md:text-3xl font-black text-primary">خطوات التفعيل</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
-                      <div key={idx} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow flex items-center gap-6">
-                        <div className="w-16 h-16 relative bg-muted rounded-xl shrink-0">
+                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex items-start gap-4 md:gap-6 text-right">
+                        <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden border border-border/50">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
-                        <div className="flex-1 overflow-hidden">
-                          <h4 className="font-black text-lg text-primary">{bank.bankName}</h4>
-                          <p className="text-xs text-muted-foreground truncate">{bank.accountHolder}</p>
-                          <div className="flex items-center justify-between bg-muted/40 p-3 rounded-xl mt-2">
-                            <code className="text-sm font-black font-mono">{bank.accountNumber}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }}><Copy className="w-5 h-5 text-secondary" /></button>
+                        <div className="flex-1 overflow-hidden space-y-1">
+                          <h4 className="font-black text-base md:text-lg text-primary">{bank.bankName}</h4>
+                          <p className="text-[10px] md:text-xs text-muted-foreground truncate font-bold">{bank.accountHolder}</p>
+                          <div className="flex items-center justify-between bg-muted/40 p-2 md:p-3 rounded-xl mt-2 border border-primary/5">
+                            <code className="text-xs md:text-sm font-black font-mono text-secondary truncate ml-2" dir="ltr">{bank.accountNumber}</code>
+                            <button 
+                              onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }}
+                              className="p-1.5 bg-white rounded-lg text-primary hover:text-secondary transition-colors shadow-sm"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
-                  <div className="bg-primary/5 p-8 rounded-[2rem] text-center space-y-6">
-                    <p className="font-black text-xl">جاهز للبدء؟ أرسل صورة السند الآن</p>
-                    <Button asChild className="bg-[#25D366] text-white rounded-2xl h-16 px-12 font-black text-xl shadow-xl">
-                      <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أود تفعيل دورة ${course?.title}`} target="_blank"><MessageCircle className="w-7 h-7 ml-3" /> واتساب الإدارة</a>
+                  <div className="bg-primary/5 p-6 md:p-10 rounded-[2rem] text-center space-y-6 border border-dashed border-primary/10">
+                    <p className="font-black text-lg md:text-2xl text-primary leading-tight">جاهز للبدء؟ أرسل صورة السند الآن</p>
+                    <p className="text-xs md:text-sm text-muted-foreground font-bold">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
+                    <Button asChild className="w-full sm:w-auto min-w-[240px] h-14 md:h-16 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-2xl font-black text-base md:text-xl shadow-xl shadow-green-600/20 transition-all active:scale-95">
+                      <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أود تفعيل دورة ${course?.title}`} target="_blank">
+                        <MessageCircle className="w-6 h-6 md:w-7 md:h-7 ml-3" /> واتساب الإدارة
+                      </a>
                     </Button>
                   </div>
                 </TabsContent>
-                <TabsContent value="curriculum" className="p-8"><CurriculumContent /></TabsContent>
-                <TabsContent value="reviews" className="p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {reviews.length === 0 ? <p className="text-center py-10 text-muted-foreground font-bold">لا توجد تقييمات بعد.</p> : reviews.map((r: any, i: number) => (
-                      <div key={i} className="bg-card p-6 rounded-3xl border luxury-shadow space-y-4">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-12 w-12"><AvatarImage src={r.userPhoto} className="object-cover" /><AvatarFallback>{r.userName?.charAt(0)}</AvatarFallback></Avatar>
-                          <div className="text-right"><div className="font-black text-primary">{r.userName}</div><div className="flex gap-0.5">{[...Array(5)].map((_, s) => <Star key={s} className={cn("w-3 h-3", s < r.rating ? "text-secondary fill-secondary" : "text-muted")} />)}</div></div>
+
+                <TabsContent value="curriculum" className="p-6 md:p-8">
+                  <CurriculumContent />
+                </TabsContent>
+
+                <TabsContent value="reviews" className="p-6 md:p-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    {reviews.length === 0 ? (
+                      <p className="text-center py-10 text-muted-foreground font-bold col-span-full">لا توجد تقييمات لهذه الدورة بعد.</p>
+                    ) : (
+                      reviews.map((r: any, i: number) => (
+                        <div key={i} className="bg-card p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow space-y-4 text-right">
+                          <div className="flex items-center gap-4">
+                            <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-sm shrink-0">
+                              <AvatarImage src={r.userPhoto} className="object-cover" />
+                              <AvatarFallback className="bg-primary text-white font-black">{r.userName?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="text-right overflow-hidden">
+                              <div className="font-black text-sm md:text-base text-primary truncate">{r.userName}</div>
+                              <div className="flex gap-0.5 mt-0.5">
+                                {[...Array(5)].map((_, s) => (
+                                  <Star key={s} className={cn("w-3 h-3 md:w-3.5 md:h-3.5", s < r.rating ? "text-secondary fill-secondary" : "text-muted")} />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs md:text-sm text-muted-foreground font-bold italic leading-relaxed">"{r.comment}"</p>
                         </div>
-                        <p className="text-sm text-muted-foreground font-bold italic">"{r.comment}"</p>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>
