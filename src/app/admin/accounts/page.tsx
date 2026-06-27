@@ -76,12 +76,22 @@ export default function AccountManagementPage() {
 
   const handleSendResetEmail = async () => {
     if (!auth || !userToSendReset?.email) return;
-    setProcessing(userToSendReset.id);
+    const targetEmail = userToSendReset.email.trim().toLowerCase();
+    const targetUid = userToSendReset.id;
+    
+    setProcessing(targetUid);
     try {
-      await sendPasswordResetEmail(auth, userToSendReset.email);
-      toast({ title: "تم إرسال الرابط", description: `تم إرسال بريد استعادة كلمة السر إلى ${userToSendReset.email}.` });
-    } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إرسال البريد. تأكد من صحة العنوان." });
+      await sendPasswordResetEmail(auth, targetEmail);
+      toast({ 
+        title: "تم إرسال الرابط", 
+        description: `تم إرسال بريد استعادة كلمة السر إلى ${targetEmail} بنجاح.` 
+      });
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "فشل الإرسال", 
+        description: "تأكد من تفعيل موفر البريد في Firebase Console وصحة العنوان." 
+      });
     } finally {
       setProcessing(null);
       setUserToSendReset(null);
@@ -155,7 +165,7 @@ export default function AccountManagementPage() {
       <div className="container mx-auto px-4 py-10 max-w-7xl text-right">
         <header className="mb-10">
           <h1 className="text-3xl font-bold font-headline text-primary mb-2">إدارة الحسابات والأمان</h1>
-          <p className="text-muted-foreground text-sm">تحكم في صلاحيات الدخول، حظر الأجهزة، وإرسال روابط استعادة كلمة السر.</p>
+          <p className="text-muted-foreground text-sm">تحكم في صلاحيات الدخول، حظر الأجهزة، وإرسال روابط استعادة كلمة السر الرسمية.</p>
         </header>
 
         <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">

@@ -13,7 +13,7 @@ import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -151,9 +151,8 @@ export default function LoginPage() {
           localStorage.setItem('login_lock_until', lockUntil.toString());
           setLockRemaining(lockMinutes * 60);
           desc = `تجاوزت المحاولات. تم حظر الجهاز لـ ${lockMinutes} دقيقة.`;
-        } else {
-          desc = `بيانات خاطئة. متبقي ${5 - newAttempts} محاولات قبل الحظر.`;
         }
+        
         toast({ variant: "destructive", title: "فشل الدخول", description: desc });
       }
       setLoading(false);
@@ -197,12 +196,15 @@ export default function LoginPage() {
                     <CheckCircle2 className="w-10 h-10 text-green-600" />
                   </div>
                   <p className="text-sm font-bold text-primary">تم إرسال رابط التغيير لبريدك بنجاح.</p>
-                  <Button variant="outline" onClick={() => setShowResetView(false)} className="w-full rounded-xl">العودة للدخول</Button>
+                  <p className="text-[10px] text-muted-foreground font-bold leading-relaxed">
+                    ملاحظة: إذا لم تجد الرسالة في صندوق الوارد، يرجى التحقق من مجلد "الرسائل المزعجة" (Spam).
+                  </p>
+                  <Button variant="outline" onClick={() => setShowResetView(false)} className="w-full rounded-xl h-12">العودة للدخول</Button>
                 </div>
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Label className="font-bold mr-1">بريدك الإلكتروني</Label>
+                    <Label className="font-bold mr-1">بريدك الإلكتروني المسجل</Label>
                     <Input 
                       type="email" 
                       placeholder="example@gmail.com" 
@@ -290,7 +292,7 @@ export default function LoginPage() {
 
             <div className="text-center pt-2">
               <button onClick={() => setShowResetView(true)} className="text-xs text-muted-foreground font-bold hover:text-secondary">
-                نسيت كلمة المرور؟ استعدها برابط آمن
+                نسيت كلمة المرور؟ استعدها برابط آمن عبر بريدك
               </button>
             </div>
           </CardContent>
