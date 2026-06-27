@@ -17,6 +17,7 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'admin';
     }
 
+    // فحص صحة بيانات المستخدم الجديد عند التسجيل (منع ترقية الرتبة ذاتياً)
     function isValidNewUser() {
       let data = request.resource.data;
       return data.role == 'student' 
@@ -26,31 +27,41 @@ service cloud.firestore {
         && data.uid == request.auth.uid;
     }
 
+    // منع الطالب من تعديل الحقول الحساسة (الرتبة، النقاط، الأجهزة، الكورسات)
     function isNotModifyingSensitiveFields() {
+      let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
       let sensitiveFields = [
         'role', 'status', 'enrolledCourses', 'progress', 
         'enrollmentDetails', 'uid', 'email', 'deviceIds', 'createdAt', 'points'
       ];
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(sensitiveFields);
+      return !affectedKeys.hasAny(sensitiveFields);
     }
 
+    // فحص صحة المراجعة: يجب أن يكون مشتركاً ويكتب باسمه الحقيقي
     function isValidReview() {
       let data = request.resource.data;
+      let user = getUserData();
       return data.userId == request.auth.uid
         && data.rating is number
         && data.rating >= 1 && data.rating <= 5
-        && getUserData().enrolledCourses.hasAny([data.courseId]);
+        && user.enrolledCourses.hasAny([data.courseId]);
     }
 
     // --- القواعد المخصصة للمجموعات ---
 
     match /users/{userId} {
-      // القراءة: المدير يرى الكل، المسجل يرى نفسه. 
-      // لوحة الشرف: تسمح للجميع (بمن فيهم الزوار غير المسجلين) برؤية من وافق على الظهور العام لتحفيزهم على الانضمام
-      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == userId) || (resource.data.showInLeaderboard == true);
+      // السماح بالقراءة (get/list) إذا كان الحساب عاماً للجميع (للتحفيز) 
+      // أو إذا كان الشخص مديراً أو صاحب الحساب
+      allow read: if (resource.data.showInLeaderboard == true) 
+                  || isAdmin() 
+                  || (isAuthenticated() && request.auth.uid == userId);
       
       allow create: if isAuthenticated() && request.auth.uid == userId && isValidNewUser();
-      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
+      
+      // التعديل: المدير يعدل كل شيء، الطالب يعدل بياناته الشخصية فقط بشرط عدم لمس الحقول الحساسة
+      allow update: if isAdmin() 
+                  || (isAuthenticated() && request.auth.uid == userId && isNotModifyingSensitiveFields());
+      
       allow delete: if isAdmin();
     }
 
@@ -86,9 +97,10 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
+      // الطالب يضيف مراجعة فقط ولا يعدلها (للمصداقية)
       allow create: if isAuthenticated() && isValidReview();
-      allow delete: if isAdmin();
       allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /bankAccounts/{accountId} {
@@ -97,7 +109,7 @@ service cloud.firestore {
     }
 
     match /subscriptions/{subId} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create: if isAdmin();
     }
 

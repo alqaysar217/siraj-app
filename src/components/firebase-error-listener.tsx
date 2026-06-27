@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -11,10 +12,14 @@ export function FirebaseErrorListener() {
 
   useEffect(() => {
     const handleError = (error: any) => {
+      // رسالة احترافية للمدير تساعده على اكتشاف مكان الرفض الأمني
+      const operation = error.context?.operation || 'غير معروفة';
+      const path = error.context?.path || 'مسار غير معروف';
+      
       toast({
         variant: 'destructive',
-        title: 'تنبيه النظام',
-        description: `لم يظهر شي`,
+        title: 'تنبيه أمني من الخادم',
+        description: `تم رفض عملية (${operation}) على المسار (${path}). يرجى التأكد من صلاحيات المستخدم وقواعد Firestore.`,
       });
     };
 
