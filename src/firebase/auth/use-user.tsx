@@ -63,7 +63,9 @@ export function useUser() {
             // 2. فحص تعدد الأجهزة مع مهلة حماية ممتدة لضمان المزامنة
             const localSessionId = typeof window !== 'undefined' ? localStorage.getItem('siraj_session_id') : null;
             const sessionTimestamp = typeof window !== 'undefined' ? parseInt(localStorage.getItem('siraj_session_timestamp') || '0') : 0;
-            const isVeryRecent = Date.now() - sessionTimestamp < 10000; // 10 ثوانٍ حماية
+            
+            // مهلة حماية 10 ثوانٍ لمنع الطرد الوهمي عند أول دخول
+            const isVeryRecent = Date.now() - sessionTimestamp < 10000; 
 
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId && !isVeryRecent) {
               isKickingRef.current = true;
@@ -84,6 +86,7 @@ export function useUser() {
             }
           }
         } else {
+          // إذا كان المستخدم مسجلاً في Auth ولكن ليس له ملف Firestore بعد (حالة نادرة للمستخدمين القدامى)
           setProfile(null);
         }
         setLoading(false);

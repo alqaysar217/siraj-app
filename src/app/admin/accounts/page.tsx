@@ -61,11 +61,12 @@ export default function AccountManagementPage() {
     return users.filter(u => 
       u.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.uid?.toLowerCase().includes(searchTerm.toLowerCase())
+      u.id?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [users, searchTerm]);
 
   const handleCopy = (text: string, type: string) => {
+    if (!text) return;
     navigator.clipboard.writeText(text);
     setCopiedId(text);
     setTimeout(() => setCopiedId(null), 2000);
@@ -74,7 +75,7 @@ export default function AccountManagementPage() {
 
   const handleForcePasswordReset = async () => {
     if (!userToForceReset) return;
-    const targetUid = userToForceReset.uid;
+    const targetUid = userToForceReset.id; // نستخدم ID المستند كونه يطابق UID نظام الحماية
     
     if (!targetUid) {
       toast({ variant: "destructive", title: "خطأ", description: "معرف UID مفقود لهذا الحساب." });
@@ -107,7 +108,7 @@ export default function AccountManagementPage() {
 
   const handleResetDevices = async () => {
     if (!db || !userToReset) return;
-    const targetUid = userToReset.uid;
+    const targetUid = userToReset.id;
     setProcessing(targetUid);
     try {
       await updateDoc(doc(db, "users", targetUid), {
@@ -125,13 +126,13 @@ export default function AccountManagementPage() {
 
   const confirmToggleStatus = async () => {
     if (!db || !userToStatusChange) return;
-    const targetUid = userToStatusChange.uid;
+    const targetUid = userToStatusChange.id;
     setProcessing(targetUid);
     const newStatus = userToStatusChange.status === 'banned' ? 'active' : 'banned';
     try {
       await updateDoc(doc(db, "users", targetUid), { 
         status: newStatus,
-        lastSessionId: newStatus === 'banned' ? 'banned_' + Date.now() : userToStatusChange.lastSessionId
+        lastSessionId: newStatus === 'banned' ? 'banned_' + Date.now() : (userToStatusChange.lastSessionId || "")
       });
       toast({ 
         title: newStatus === 'active' ? "تم التنشيط" : "تم الحظر", 
@@ -147,7 +148,7 @@ export default function AccountManagementPage() {
 
   const handleDeleteUser = async () => {
     if (!db || !userToDelete) return;
-    const targetUid = userToDelete.uid;
+    const targetUid = userToDelete.id;
     setProcessing(targetUid);
     try {
       const trashRef = doc(collection(db, "trash"));
@@ -211,9 +212,9 @@ export default function AccountManagementPage() {
                   </TableHeader>
                   <TableBody>
                     {filteredUsers.map((user: any) => {
-                      const userUid = user.uid;
+                      const userUid = user.id;
                       return (
-                        <TableRow key={user.uid} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
+                        <TableRow key={user.id} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
                           <TableCell className="py-4">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">

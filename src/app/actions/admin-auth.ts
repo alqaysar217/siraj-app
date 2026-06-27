@@ -19,7 +19,7 @@ if (!admin.apps.length) {
 
 /**
  * دالة لتصفير كلمة سر طالب معين برمجياً من جهة الخادم
- * @param uid - المعرف الفريد للطالب في Firebase Auth
+ * @param uid - المعرف الفريد للطالب في Firebase Auth (يجب أن يطابق معرف المستند)
  */
 export async function resetStudentPassword(uid: string) {
   if (!uid) return { success: false, error: "معرف المستخدم (UID) مفقود" };
@@ -29,6 +29,7 @@ export async function resetStudentPassword(uid: string) {
     const db = admin.firestore();
 
     // 1. تحديث كلمة السر في نظام الحماية الأساسي (Auth)
+    // نستخدم student123 ككلمة مؤقتة
     await auth.updateUser(uid, {
       password: 'student123',
     });
@@ -47,7 +48,7 @@ export async function resetStudentPassword(uid: string) {
     
     let userFriendlyError = "حدث خطأ أثناء محاولة تصفير كلمة السر. تأكد من وجود صلاحيات كافية.";
     if (error.code === 'auth/user-not-found') {
-      userFriendlyError = "لم يتم العثور على هذا المستخدم في نظام الحماية.";
+      userFriendlyError = "لم يتم العثور على هذا المستخدم في نظام الحماية (Auth).";
     }
 
     return { success: false, error: userFriendlyError };

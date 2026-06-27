@@ -88,6 +88,7 @@ export default function LoginPage() {
       return;
     }
 
+    // تنظيف صارم للمدخلات لمنع خطأ invalid-credential الناتج عن المسافات
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
@@ -108,7 +109,7 @@ export default function LoginPage() {
       const newSessionId = `sess_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       const isDefaultPass = cleanPassword === 'student123';
 
-      // 3. هام جداً: حفظ الجلسة محلياً قبل تحديث قاعدة البيانات لمنع الطرد التلقائي
+      // 3. هام جداً: حفظ الجلسة محلياً فوراً لمنع تعارض المزامنة
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
@@ -134,6 +135,7 @@ export default function LoginPage() {
           forcePasswordChange: forceChange
         });
       } else {
+        // دعم الحسابات القديمة التي لا تملك ملف Firestore
         await setDoc(userDocRef, {
           uid: user.uid,
           name: user.displayName || "طالب سراج",
@@ -147,7 +149,7 @@ export default function LoginPage() {
         });
       }
 
-      // 4. تصفير الحظر
+      // 4. تصفير الحظر عند النجاح
       localStorage.removeItem('login_attempts');
       localStorage.removeItem('login_lock_until');
       setFailedAttempts(0);
@@ -159,7 +161,7 @@ export default function LoginPage() {
       }
 
     } catch (error: any) {
-      console.error("Login Error:", error);
+      console.error("Login Error Details:", error);
       
       const newAttempts = failedAttempts + 1;
       setFailedAttempts(newAttempts);
@@ -168,15 +170,19 @@ export default function LoginPage() {
       let title = "خطأ في الدخول";
       let desc = "البريد أو كلمة السر غير صحيحة.";
 
-      if (newAttempts >= 5) {
-        const lockMinutes = newAttempts - 4;
-        const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
-        localStorage.setItem('login_lock_until', lockUntil.toString());
-        setLockRemaining(lockMinutes * 60);
-        title = "تقييد مؤقت";
-        desc = `تجاوزت المحاولات. تم حظر الجهاز لمدة ${lockMinutes} دقيقة.`;
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        if (newAttempts >= 5) {
+          const lockMinutes = newAttempts - 4;
+          const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
+          localStorage.setItem('login_lock_until', lockUntil.toString());
+          setLockRemaining(lockMinutes * 60);
+          title = "تقييد مؤقت";
+          desc = `تجاوزت المحاولات. تم حظر الجهاز لمدة ${lockMinutes} دقيقة.`;
+        } else {
+          desc = `بيانات الدخول خاطئة. متبقي ${5 - newAttempts} محاولات قبل الحظر.`;
+        }
       } else {
-        desc = `بيانات الدخول خاطئة. متبقي ${5 - newAttempts} محاولات.`;
+        desc = "حدث خطأ غير متوقع في نظام الحماية. حاول ثانية.";
       }
       
       toast({ variant: "destructive", title, description: desc });
@@ -199,7 +205,7 @@ export default function LoginPage() {
           <CardContent className="space-y-6 px-8">
             
             {lockRemaining > 0 && (
-              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800">
+              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-in fade-in zoom-in duration-300">
                 <Clock className="w-6 h-6 shrink-0" />
                 <div className="text-right">
                   <p className="text-[10px] font-black uppercase">محظور مؤقتاً</p>
@@ -243,7 +249,7 @@ export default function LoginPage() {
             <Button 
               disabled={loading || lockRemaining > 0} 
               onClick={handleLogin} 
-              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2"
+              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95"
             >
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "دخول المنصة"}
             </Button>
