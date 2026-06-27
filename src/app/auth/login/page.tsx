@@ -13,7 +13,7 @@ import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, ArrowRight, MessageCircle } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, ArrowRight, MessageCircle, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -224,14 +224,15 @@ export default function LoginPage() {
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "دخول المنصة"}
             </Button>
 
-            <div className="text-center pt-2">
-              <a 
+            <div className="bg-primary/5 p-4 rounded-2xl border border-dashed border-primary/10 text-center space-y-2">
+               <p className="text-[10px] text-muted-foreground font-bold">نسيت بياناتك؟</p>
+               <a 
                 href={getWhatsAppResetUrl()} 
                 target="_blank" 
-                className="text-xs text-muted-foreground font-bold hover:text-secondary flex items-center justify-center gap-1.5 transition-colors"
+                className="text-xs text-secondary font-black hover:underline flex items-center justify-center gap-1.5 transition-colors"
               >
-                <MessageCircle className="w-3.5 h-3.5" />
-                نسيت كلمة المرور؟ اطلب رابط الاستعادة عبر واتساب
+                <MessageCircle className="w-4 h-4" />
+                اطلب رابط الاستعادة عبر واتساب
               </a>
             </div>
           </CardContent>

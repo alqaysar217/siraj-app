@@ -21,7 +21,8 @@ import {
   Copy,
   Check,
   Mail,
-  Send
+  Send,
+  MessageCircle
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useAuth } from "@/firebase";
 import { collection, doc, updateDoc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
