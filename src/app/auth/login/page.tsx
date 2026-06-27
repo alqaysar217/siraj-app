@@ -10,10 +10,10 @@ import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/navbar";
 import { useAuth, useFirestore } from "@/firebase/provider";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, ArrowRight, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Mail, Lock, Clock, ArrowRight, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967775258830";
@@ -22,9 +22,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
-  const [showResetView, setShowResetView] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
   
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockRemaining, setLockRemaining] = useState(0);
@@ -102,7 +99,6 @@ export default function LoginPage() {
       const deviceId = getDeviceFingerprint();
       const newSessionId = `sess_${Date.now()}`;
       
-      // حفظ الجلسة محلياً قبل Firestore لضمان المزامنة
       localStorage.setItem('siraj_session_id', newSessionId);
       localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
@@ -159,72 +155,10 @@ export default function LoginPage() {
     }
   };
 
-  const handlePasswordReset = async () => {
-    if (!auth || !email) {
-      toast({ variant: "destructive", title: "تنبيه", description: "يرجى كتابة بريدك الإلكتروني أولاً." });
-      return;
-    }
-    setResetLoading(true);
-    try {
-      await sendPasswordResetEmail(auth, email.trim().toLowerCase());
-      setResetSent(true);
-      toast({ title: "تم الإرسال", description: "تحقق من بريدك الإلكتروني (بما في ذلك الجنك/سبام)." });
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "فشل الإرسال", description: "تأكد من صحة البريد أو حاول لاحقاً." });
-    } finally {
-      setResetLoading(false);
-    }
+  const getWhatsAppResetUrl = () => {
+    const message = `أهلاً محمود، نسيت كلمة السر لحسابي ببريد (${email || "________"}) في منصة سراج، يرجى إرسال رابط استعادة لي.`;
+    return `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
-
-  if (showResetView) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background" dir="rtl">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md luxury-shadow border-none rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="text-center pt-10 pb-6">
-              <div className="mx-auto w-16 h-16 bg-primary/5 rounded-full flex items-center justify-center mb-4">
-                <Lock className="w-8 h-8 text-primary" />
-              </div>
-              <CardTitle className="text-2xl font-black text-primary font-headline">استعادة كلمة السر</CardTitle>
-              <CardDescription className="font-bold">أدخل بريدك وسنرسل لك رابطاً آمناً</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 px-8">
-              {resetSent ? (
-                <div className="text-center py-6 space-y-4 animate-in fade-in zoom-in">
-                  <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-10 h-10 text-green-600" />
-                  </div>
-                  <p className="text-sm font-bold text-primary">تم إرسال رابط التغيير لبريدك بنجاح.</p>
-                  <p className="text-[10px] text-muted-foreground font-bold leading-relaxed">
-                    ملاحظة: إذا لم تجد الرسالة في صندوق الوارد، يرجى التحقق من مجلد "الرسائل المزعجة" (Spam).
-                  </p>
-                  <Button variant="outline" onClick={() => setShowResetView(false)} className="w-full rounded-xl h-12">العودة للدخول</Button>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label className="font-bold mr-1">بريدك الإلكتروني المسجل</Label>
-                    <Input 
-                      type="email" 
-                      placeholder="example@gmail.com" 
-                      className="h-12 rounded-2xl bg-muted/30 border-primary/5"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <Button disabled={resetLoading} onClick={handlePasswordReset} className="w-full h-14 rounded-2xl bg-primary text-white font-black shadow-lg">
-                    {resetLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "إرسال رابط الاستعادة"}
-                  </Button>
-                  <button onClick={() => setShowResetView(false)} className="w-full text-xs font-bold text-muted-foreground hover:text-primary">إلغاء والعودة</button>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background" dir="rtl">
@@ -291,9 +225,14 @@ export default function LoginPage() {
             </Button>
 
             <div className="text-center pt-2">
-              <button onClick={() => setShowResetView(true)} className="text-xs text-muted-foreground font-bold hover:text-secondary">
-                نسيت كلمة المرور؟ استعدها برابط آمن عبر بريدك
-              </button>
+              <a 
+                href={getWhatsAppResetUrl()} 
+                target="_blank" 
+                className="text-xs text-muted-foreground font-bold hover:text-secondary flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <MessageCircle className="w-3.5 h-3.5" />
+                نسيت كلمة المرور؟ اطلب رابط الاستعادة عبر واتساب
+              </a>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 pb-10">
