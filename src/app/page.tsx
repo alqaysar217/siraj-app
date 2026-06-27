@@ -201,7 +201,7 @@ export default function Home() {
               <div className="absolute -inset-4 bg-secondary/20 rounded-[3rem] blur-2xl group-hover:bg-secondary/30 transition-all" />
               <div className="relative aspect-video rounded-[3rem] overflow-hidden border-8 border-white/10 backdrop-blur-sm luxury-shadow rotate-2 group-hover:rotate-0 transition-transform duration-700">
                 <img 
-                  src="https://picsum.photos/seed/siraj_interface/800/600" 
+                  src="/main.png" 
                   alt="Siraj Learning Interface" 
                   className="w-full h-full object-cover"
                 />
