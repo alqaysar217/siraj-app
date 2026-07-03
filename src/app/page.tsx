@@ -179,8 +179,8 @@ export default function Home() {
                 المنصة التعليمية التقنية الأولى
               </Badge>
               <h1 className="text-3xl md:text-6xl lg:text-7xl font-black font-headline leading-tight text-white drop-shadow-lg">
-                بناء مستقبل مهني <br />
-                <span className="text-secondary">حقيقي بأسلوب عصري</span>
+                منصة كل المبدعين <br />
+                <span className="text-secondary">تعلم بثقة،  تطور بذكاء</span>
               </h1>
               <p className="text-white/80 text-base md:text-xl max-w-xl leading-relaxed font-medium">
                 منصة سراج هي منصة تعليمية تقنية يمنية تهدف لتقديم تعليم بسيط يساعد الشباب العربي على التفوق في سوق العمل العالمي. اكتسب مهارات الغد مع خبراء الصناعة في بيئة تعليمية فاخرة وحديثة، من حضرموت إلى العالم.

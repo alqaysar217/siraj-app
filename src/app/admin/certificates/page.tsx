@@ -86,7 +86,7 @@ export default function CertificatesManagementPage() {
   };
 
   const getVerificationUrl = (cert: any) => {
-    const base = cert.baseUrl || "https://sira.vercel.app";
+    const base = cert.baseUrl || "https://siraj-app.vercel.app";
     return `${base}/verify-certificate?id=${cert.certificateId}`;
   };
 

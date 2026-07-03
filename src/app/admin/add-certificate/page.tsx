@@ -45,7 +45,7 @@ function AddCertificateForm() {
     studentNameAr: "",
     courseId: "",
     issueDate: new Date().toISOString().split('T')[0],
-    baseUrl: "https://sira.vercel.app"
+    baseUrl: "https://siraj-app.vercel.app"
   });
 
   const [customUrl, setCustomUrl] = useState("");
@@ -65,7 +65,7 @@ function AddCertificateForm() {
             studentNameAr: data.studentNameAr || "",
             courseId: data.courseId || "",
             issueDate: data.issueDate || new Date().toISOString().split('T')[0],
-            baseUrl: data.baseUrl || "https://sira.vercel.app"
+            baseUrl: data.baseUrl || "https://siraj-app.vercel.app"
           });
         }
       } catch (error) {
@@ -202,7 +202,7 @@ function AddCertificateForm() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent dir="ltr">
-                        <SelectItem value="https://sira.vercel.app">https://sira.vercel.app (الأساسي)</SelectItem>
+                        <SelectItem value="https://siraj-app.vercel.app">https://siraj-app.vercel.app (الأساسي)</SelectItem>
                         <SelectItem value="custom">إضافة رابط موقع جديد...</SelectItem>
                       </SelectContent>
                     </Select>
