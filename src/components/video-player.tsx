@@ -106,7 +106,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
               } else if (event.data === window.YT.PlayerState.PAUSED) {
                 setIsPlaying(false);
               } else if (event.data === window.YT.PlayerState.ENDED) {
-                // نعتمد فقط على حدث انتهاء الفيديو الحقيقي لضمان عدم قطع الشرح
                 if (onCompleteRef.current && !completionTriggeredRef.current) {
                   completionTriggeredRef.current = true;
                   onCompleteRef.current();
@@ -140,7 +139,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         const total = playerRef.current.getDuration();
         if (total > 0) {
           setDuration(total);
-          // أزلنا شرط الـ 95% من هنا لضمان استمرار الفيديو حتى نهايته الطبيعية
         }
       }
     }, 500);
@@ -189,13 +187,23 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     try {
       if (!document.fullscreenElement) {
         await containerRef.current.requestFullscreen();
-        if (window.screen?.orientation?.lock) {
-          await window.screen.orientation.lock('landscape').catch(() => {});
+        // محاولة قفل الاتجاه مع حماية ضد أخطاء الأمان
+        try {
+          if (window.screen?.orientation?.lock) {
+            await (window.screen.orientation as any).lock('landscape').catch(() => {});
+          }
+        } catch (e) {
+          console.warn("Screen orientation lock is not supported or permitted.");
         }
       } else {
         await document.exitFullscreen();
-        if (window.screen?.orientation?.unlock) {
-          window.screen.orientation.unlock();
+        // محاولة فك قفل الاتجاه مع حماية ضد أخطاء الأمان
+        try {
+          if (window.screen?.orientation?.unlock) {
+            window.screen.orientation.unlock();
+          }
+        } catch (e) {
+          // تجاهل الخطأ في حال لم يسمح المتصفح بفك القفل
         }
       }
     } catch (err) {
