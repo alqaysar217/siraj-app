@@ -12,7 +12,7 @@ import {
   ShieldCheck, 
   Menu, 
   Home, 
-  ChevronUp,
+  ChevronUp, 
   ChevronDown,
   Users,
   TrendingUp,
@@ -28,7 +28,8 @@ import {
   SearchCheck,
   Trophy,
   Settings2,
-  Share2
+  Share2,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -85,6 +86,7 @@ export default function Navbar() {
     { name: "الحسابات البنكية", href: "/admin/bank-accounts", icon: CreditCard },
     { name: "التقارير المالية", href: "/admin/reports", icon: BarChart3 },
     { name: "تقدم المتصدرين", href: "/admin/progress", icon: TrendingUp },
+    { name: "سلة المهملات", href: "/admin/trash", icon: Trash2 },
   ];
 
   return (
