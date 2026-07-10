@@ -407,7 +407,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updates[`progress.${id}.points`] = (userProgress.points || 0) + (score * 5);
     }
     if (Object.keys(updates).length > 0) await updateDoc(userRef, updates);
-    if (currentLesson.type === "video") setTimeout(goToNext, 1000);
+    // زيادة المهلة لـ 2.5 ثانية لجعل الانتقال طبيعياً بعد نهاية الفيديو تماماً
+    if (currentLesson.type === "video") setTimeout(goToNext, 2500);
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile]);
 
   const handleReviewSubmit = async () => {

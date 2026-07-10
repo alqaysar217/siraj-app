@@ -106,6 +106,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
               } else if (event.data === window.YT.PlayerState.PAUSED) {
                 setIsPlaying(false);
               } else if (event.data === window.YT.PlayerState.ENDED) {
+                // نعتمد فقط على حدث انتهاء الفيديو الحقيقي لضمان عدم قطع الشرح
                 if (onCompleteRef.current && !completionTriggeredRef.current) {
                   completionTriggeredRef.current = true;
                   onCompleteRef.current();
@@ -139,10 +140,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         const total = playerRef.current.getDuration();
         if (total > 0) {
           setDuration(total);
-          if (onCompleteRef.current && !completionTriggeredRef.current && time > (total * 0.95)) {
-            completionTriggeredRef.current = true;
-            onCompleteRef.current();
-          }
+          // أزلنا شرط الـ 95% من هنا لضمان استمرار الفيديو حتى نهايته الطبيعية
         }
       }
     }, 500);
@@ -191,11 +189,8 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     try {
       if (!document.fullscreenElement) {
         await containerRef.current.requestFullscreen();
-        // محاولة تدوير الشاشة للوضع الأفقي عند التكبير (Landscape)
         if (window.screen?.orientation?.lock) {
-          await window.screen.orientation.lock('landscape').catch(() => {
-            // تجاهل الخطأ إذا كان المتصفح لا يدعم القفل (مثل المكتبي)
-          });
+          await window.screen.orientation.lock('landscape').catch(() => {});
         }
       } else {
         await document.exitFullscreen();
