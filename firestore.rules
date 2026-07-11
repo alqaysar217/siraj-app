@@ -9,18 +9,19 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // التحقق من الرتبة بشكل مباشر لتجنب التعقيد والدوران
+    // التحقق من الرتبة بشكل مباشر لتجنب التعقيد والدوران البرمجي
     function isAdmin() {
       return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // السماح للطالب بتغيير بيانات التعلم فقط (التقدم، النقاط، الهاتف، الصورة)
-    // ومنعه من تغيير الحقول السيادية (الرتبة، الحالة، الاشتراك، الايميل)
+    // ومنعه من تغيير الحقول السيادية (الرتبة، الحالة، الاشتراك، الايميل، المعرف)
     function isNotModifyingAdminFields() {
       let adminFields = [
         'role', 'status', 'enrolledCourses', 'uid', 'email', 'createdAt'
       ];
+      // diff(resource.data).affectedKeys() تضمن أننا نفحص فقط الحقول التي تغيرت
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(adminFields);
     }
 

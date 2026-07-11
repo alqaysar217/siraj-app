@@ -293,15 +293,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // المزامنة الحقيقية: الانتظار حتى اكتمال تحميل البروفايل قبل تحديد الدرس
+  // المزامنة الحقيقية: الانتظار حتى اكتمال تحميل البروفايل من السيرفر قبل تحديد أي شيء
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
-      const savedData = profile?.progress?.[id];
-      const lastId = savedData?.lastLessonId;
+      const savedProgress = profile.progress?.[id] || {};
+      const lastId = savedProgress.lastLessonId;
+      
+      // نبدأ من آخر درس شاهده الطالب أو من الدرس الأول
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
       
       setSelectedLessonId(startId);
-      setLocalCompleted(savedData?.completedLessons || []);
+      setLocalCompleted(savedProgress.completedLessons || []);
       hasInitializedRef.current = true;
     }
   }, [lessons, profile, id, userLoading]);
@@ -318,6 +320,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
     if (!isEnrolled) return true;
+    // الدرس مقفل إذا لم يكتمل الدرس السابق له
     return !allCompletedIds.includes(lessons?.[index - 1]?.id);
   }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
 
@@ -351,30 +354,41 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
+    // تحديث الحالة المحلية فوراً
     if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
+    // تحديث قاعدة البيانات
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
-    const currentPoints = Number(profile.points || 0);
+    const currentTotalPoints = Number(profile.points || 0);
     const currentCoursePoints = Number(userProgress.points || 0);
     
+    // 1. تسجيل إكمال الدرس (10 نقاط)
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
-      updates[`points`] = currentPoints + 10;
+      updates[`points`] = currentTotalPoints + 10;
       updates[`progress.${id}.points`] = currentCoursePoints + 10;
     }
     
+    // 2. تسجيل درجة الاختبار (إذا وجد)
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       const bonus = score * 5;
-      updates[`points`] = (Number(updates.points || currentPoints) || 0) + bonus;
-      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints) || 0) + bonus;
+      const runningTotal = Number(updates.points || currentTotalPoints);
+      const runningCourseTotal = Number(updates[`progress.${id}.points`] || currentCoursePoints);
+      
+      updates[`points`] = runningTotal + bonus;
+      updates[`progress.${id}.points`] = runningCourseTotal + bonus;
     }
     
     if (Object.keys(updates).length > 0) {
-      updateDoc(userRef, updates).catch(() => {});
+      try {
+        await updateDoc(userRef, updates);
+      } catch (err) {
+        console.error("Failed to save progress to server:", err);
+      }
     }
     
     if (currentLesson.type === "video") {
