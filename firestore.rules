@@ -15,8 +15,8 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // التحقق من أن الحقول "السيادية" لم يتم المساس بها
-    // يسمح للطالب بتغيير: التقدم، النقاط، الهاتف، الاسم، الصورة، تفاصيل الجلسة
+    // السماح للطالب بتغيير بيانات التعلم فقط (التقدم، النقاط، الهاتف، الصورة)
+    // ومنعه من تغيير الحقول السيادية (الرتبة، الحالة، الاشتراك، الايميل)
     function isNotModifyingAdminFields() {
       let adminFields = [
         'role', 'status', 'enrolledCourses', 'uid', 'email', 'createdAt'
@@ -35,7 +35,7 @@ service cloud.firestore {
       
       allow create: if isAuthenticated() && request.auth.uid == userId;
       
-      // التحديث: المدير يغير كل شيء، الطالب يغير بياناته غير السيادية فقط
+      // التحديث: المدير يغير كل شيء، الطالب يغير بياناته التعليمية والشخصية فقط
       allow update: if isAdmin() || (
         isAuthenticated() && 
         request.auth.uid == userId && 
