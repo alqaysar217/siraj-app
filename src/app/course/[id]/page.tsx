@@ -297,6 +297,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [showCertForm, setShowCertForm] = useState(false);
   const [certNameAr, setCertNameAr] = useState("");
   const [certNameEn, setCertNameEn] = useState("");
+  
+  // تتبع الدروس المكتملة "لحظياً" لفتح شريط التقديم فوراً
+  const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
@@ -321,12 +324,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
-    return profile?.enrolledCourses?.includes(id) && profile?.enrollmentDetails?.[id]?.status !== 'blocked';
+    return Array.isArray(profile?.enrolledCourses) && profile.enrolledCourses.includes(id);
   }, [profile, id, isAdmin]);
 
   const userProgress = useMemo(() => profile?.progress?.[id] || { completedLessons: [], points: 0, quizScores: {}, lastLessonId: null }, [profile, id]);
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
+
+  // دمج الدروس المكتملة في السيرفر مع المكتملة لحظياً في المتصفح
+  const allCompletedIds = useMemo(() => {
+    return Array.from(new Set([...(userProgress.completedLessons || []), ...localCompleted]));
+  }, [userProgress.completedLessons, localCompleted]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -335,11 +343,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       const userRef = doc(db, "users", user.uid);
       updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId })
         .catch(err => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: { [`progress.${id}.lastLessonId`]: lessonId }
-          }));
+          // خطأ صامت في الخلفية لتجنب إزعاج الطالب
         });
     }
   }, [db, user, isEnrolled, id]);
@@ -368,10 +372,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
     if (!isEnrolled) return true;
-    return !userProgress.completedLessons?.includes(lessons?.[index - 1]?.id);
-  }, [isAdmin, isEnrolled, userProgress.completedLessons, lessons]);
+    return !allCompletedIds.includes(lessons?.[index - 1]?.id);
+  }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
 
-  const isAllLessonsCompleted = useMemo(() => lessons?.length > 0 && userProgress.completedLessons?.length === lessons.length, [lessons, userProgress.completedLessons]);
+  const isAllLessonsCompleted = useMemo(() => lessons?.length > 0 && allCompletedIds.length >= lessons.length, [lessons, allCompletedIds]);
 
   const goToNext = useCallback(() => {
     if (!isEnrolled && currentLessonIndex === 0) {
@@ -400,25 +404,40 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
   const handleLessonComplete = useCallback(async (score?: number) => {
     if (!db || !user || !currentLesson || !isEnrolled) return;
+    
+    // فتح شريط التقديم لحظياً في المتصفح
+    if (!allCompletedIds.includes(currentLesson.id)) {
+      setLocalCompleted(prev => [...prev, currentLesson.id]);
+    }
+
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
     
     if (!userProgress.completedLessons?.includes(currentLesson.id)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(currentLesson.id);
-      updates[`points`] = (profile?.points || 0) + 10;
-      updates[`progress.${id}.points`] = (userProgress.points || 0) + 10;
+      
+      const currentPoints = Number(profile?.points) || 0;
+      const coursePoints = Number(userProgress.points) || 0;
+      
+      updates[`points`] = currentPoints + 10;
+      updates[`progress.${id}.points`] = coursePoints + 10;
     }
     
     if (score !== undefined && !userProgress.quizScores?.[currentLesson.id]) {
       updates[`progress.${id}.quizScores.${currentLesson.id}`] = score;
-      updates[`points`] = (updates[`points`] || profile?.points || 0) + (score * 5);
-      updates[`progress.${id}.points`] = (updates[`progress.${id}.points`] || userProgress.points || 0) + (score * 5);
+      
+      const pTotal = Number(updates[`points`] || profile?.points) || 0;
+      const pCourse = Number(updates[`progress.${id}.points`] || userProgress.points) || 0;
+      
+      updates[`points`] = pTotal + (score * 5);
+      updates[`progress.${id}.points`] = pCourse + (score * 5);
     }
     
     if (Object.keys(updates).length > 0) {
       updateDoc(userRef, updates)
         .catch(err => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
+           console.error("Progress Sync Error:", err);
+           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: userRef.path,
             operation: 'update',
             requestResourceData: updates
@@ -426,8 +445,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
         });
     }
     
-    if (currentLesson.type === "video") setTimeout(goToNext, 2000);
-  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile]);
+    if (currentLesson.type === "video") setTimeout(goToNext, 2500);
+  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, allCompletedIds]);
 
   const handleReviewSubmit = async () => {
     if (!db || !user || rating === 0) {
@@ -476,6 +495,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 const gIndex = lessons?.findIndex(l => l.id === lesson.id) ?? 0;
                 const isLocked = isLessonLocked(lesson, gIndex);
                 const isActive = selectedLessonId === lesson.id;
+                const isDone = allCompletedIds.includes(lesson.id);
                 return (
                   <button key={lesson.id} disabled={isLocked} onClick={() => { selectLesson(lesson.id); setIsCurriculumOpen(false); }}
                     className={cn("w-full text-right p-4 rounded-xl flex items-center justify-between transition-all", isActive ? "bg-secondary text-white shadow-lg scale-[1.02]" : "hover:bg-primary/5", isLocked && "opacity-40")}>
@@ -486,7 +506,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         <div className="text-[10px] opacity-70 flex items-center gap-1 mt-1 font-bold"><Clock className="w-3.5 h-3.5" /> {lesson.duration} دقيقة</div>
                       </div>
                     </div>
-                    <div className="shrink-0">{isLocked ? <Lock className="w-4 h-4 opacity-50" /> : userProgress.completedLessons?.includes(lesson.id) ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <PlayCircle className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />}</div>
+                    <div className="shrink-0">{isLocked ? <Lock className="w-4 h-4 opacity-50" /> : isDone ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <PlayCircle className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />}</div>
                   </button>
                 );
               })}
@@ -515,8 +535,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             <div className="w-full bg-white/95 backdrop-blur-xl border border-primary/10 p-4 rounded-2xl shadow-sm flex items-center gap-4">
                <div className="p-2 bg-secondary/10 rounded-lg shrink-0"><ShieldCheck className="w-5 h-5 text-secondary" /></div>
                <div className="flex-1 space-y-1.5">
-                  <div className="flex justify-between items-center text-[10px] font-black text-primary"><span>تقدمك الحالي</span><span className="text-secondary">{Math.round((userProgress.completedLessons?.length || 0) / (lessons?.length || 1) * 100)}%</span></div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${(userProgress.completedLessons?.length || 0) / (lessons?.length || 1) * 100}%` }} /></div>
+                  <div className="flex justify-between items-center text-[10px] font-black text-primary"><span>تقدمك الحالي</span><span className="text-secondary">{Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%</span></div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%` }} /></div>
                </div>
             </div>
           )}
@@ -559,7 +579,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <QuizPlayer quizData={currentLesson.quizData || []} alreadyAnswered={!!userProgress.quizScores?.[currentLesson.id]} onComplete={handleLessonComplete} />
                 ) : (
                   <div className="rounded-2xl overflow-hidden border border-border luxury-shadow bg-black aspect-video">
-                    <VideoPlayer videoId={currentLesson.youtubeId} onComplete={handleLessonComplete} canSeek={isAdmin || userProgress.completedLessons?.includes(currentLesson.id)} key={currentLesson.id} />
+                    <VideoPlayer videoId={currentLesson.youtubeId} onComplete={handleLessonComplete} canSeek={isAdmin || allCompletedIds.includes(currentLesson.id)} key={currentLesson.id} />
                   </div>
                 )}
                 <div className="space-y-4">

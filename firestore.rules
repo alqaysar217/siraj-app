@@ -28,12 +28,13 @@ service cloud.firestore {
       allow create: if isLoggedIn() && request.auth.uid == userId 
                     && request.resource.data.get('role', 'student') == 'student';
       
-      // التحديث: السماح للطالب بتحديث نقاطه وتقدمه وإعدادات الملف الشخصي
-      // الحقول الممنوع تعديلها هي الرتبة، الكورسات المشترك بها (إلا من المدير)، الحالة، والبريد
+      // التحديث: السماح للطالب بتحديث النقاط، التقدم، الإعدادات الشخصية، وصورة الملف
+      // الحقول الممنوع تعديلها نهائياً هي الرتبة (role)، الحالة (status)، والبريد (email)
       allow update: if isAdmin() 
                   || (isLoggedIn() && request.auth.uid == userId 
-                      && !(request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny(['role', 'enrolledCourses', 'status', 'email'])));
+                      && request.resource.data.role == resource.data.role
+                      && request.resource.data.status == resource.data.status
+                      && request.resource.data.email == resource.data.email);
       
       // الحذف: للمدير فقط
       allow delete: if isAdmin();
