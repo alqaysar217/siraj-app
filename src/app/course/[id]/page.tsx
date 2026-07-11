@@ -298,7 +298,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [certNameAr, setCertNameAr] = useState("");
   const [certNameEn, setCertNameEn] = useState("");
   
-  // تتبع الدروس المكتملة "لحظياً" لفتح شريط التقديم فوراً
+  // تتبع الدروس المكتملة "لحظياً" لفتح شريط التقديم فوراً وبثقة
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
@@ -343,7 +343,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       const userRef = doc(db, "users", user.uid);
       updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId })
         .catch(err => {
-          // خطأ صامت في الخلفية لتجنب إزعاج الطالب
+          // خطأ صامت في الخلفية
         });
     }
   }, [db, user, isEnrolled, id]);
@@ -405,47 +405,54 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const handleLessonComplete = useCallback(async (score?: number) => {
     if (!db || !user || !currentLesson || !isEnrolled) return;
     
-    // فتح شريط التقديم لحظياً في المتصفح
-    if (!allCompletedIds.includes(currentLesson.id)) {
-      setLocalCompleted(prev => [...prev, currentLesson.id]);
+    const lessonId = currentLesson.id;
+
+    // 1. التحديث اللحظي للواجهة (فتح شريط التقديم وعلامة الصح فوراً)
+    if (!allCompletedIds.includes(lessonId)) {
+      setLocalCompleted(prev => [...prev, lessonId]);
     }
 
+    // 2. تحديث السيرفر
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
     
-    if (!userProgress.completedLessons?.includes(currentLesson.id)) {
-      updates[`progress.${id}.completedLessons`] = arrayUnion(currentLesson.id);
+    if (!userProgress.completedLessons?.includes(lessonId)) {
+      updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
       
-      const currentPoints = Number(profile?.points) || 0;
-      const coursePoints = Number(userProgress.points) || 0;
+      const currentPoints = Number(profile?.points || 0);
+      const coursePoints = Number(userProgress.points || 0);
       
       updates[`points`] = currentPoints + 10;
       updates[`progress.${id}.points`] = coursePoints + 10;
     }
     
-    if (score !== undefined && !userProgress.quizScores?.[currentLesson.id]) {
-      updates[`progress.${id}.quizScores.${currentLesson.id}`] = score;
+    if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
+      updates[`progress.${id}.quizScores.${lessonId}`] = score;
       
-      const pTotal = Number(updates[`points`] || profile?.points) || 0;
-      const pCourse = Number(updates[`progress.${id}.points`] || userProgress.points) || 0;
+      const pTotal = Number(updates[`points`] || profile?.points || 0);
+      const pCourse = Number(updates[`progress.${id}.points`] || userProgress.points || 0);
       
       updates[`points`] = pTotal + (score * 5);
       updates[`progress.${id}.points`] = pCourse + (score * 5);
     }
     
     if (Object.keys(updates).length > 0) {
-      updateDoc(userRef, updates)
-        .catch(err => {
-           console.error("Progress Sync Error:", err);
-           errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: updates
-          }));
-        });
+      try {
+        await updateDoc(userRef, updates);
+      } catch (err: any) {
+        console.error("Firestore Update Error:", err);
+        // في حال فشل السيرفر، نظهر خطأ توضيحي ولكن نحافظ على الحالة المحلية مفتوحة
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'update',
+          requestResourceData: updates
+        }));
+      }
     }
     
-    if (currentLesson.type === "video") setTimeout(goToNext, 2500);
+    if (currentLesson.type === "video") {
+      setTimeout(goToNext, 2500);
+    }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, allCompletedIds]);
 
   const handleReviewSubmit = async () => {
@@ -520,11 +527,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   if (courseLoading || lessonsLoading) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
-
-  const studentName = profile?.name || 'طالب جديد';
-  const studentEmail = profile?.email || 'لم يتم تسجيله بعد';
-  const courseTitle = course?.title || 'الدورة';
-  const whatsappMessage = `مرحبا منصة سراج،، انا ${studentName} وبريدي هو (${studentEmail}) اريد منك تفعيل كورس (${courseTitle}) وسوف اقوم بايداع الرسوم الان في حسابكم وارسال السند اليكم`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -681,22 +683,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         </div>
                       </div>
                     ))}
-                  </div>
-                  <div className="bg-primary/5 p-6 md:p-10 rounded-[2rem] text-center space-y-6 border border-dashed border-primary/10">
-                    <p className="font-black text-lg md:text-2xl text-primary leading-tight px-2">جاهز للبدء؟ أرسل صورة السند الآن</p>
-                    <p className="text-xs md:sm text-muted-foreground font-bold px-4">بمجرد إرسال السند، سيقوم فريق الدعم بتفعيل الدورة لك فوراً.</p>
-                    <div className="flex justify-center w-full px-2">
-                      <Button asChild className="w-full max-w-full md:max-w-md h-14 md:h-16 bg-[#25D366] hover:bg-[#25D366]/90 text-white rounded-2xl font-black shadow-xl shadow-green-600/20 transition-all active:scale-95">
-                        <a 
-                          href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=${encodeURIComponent(whatsappMessage)}`} 
-                          target="_blank" 
-                          className="flex items-center justify-center gap-2 px-2"
-                        >
-                          <MessageCircle className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
-                          <span className="text-sm md:text-lg truncate">تواصل عبر واتساب لإرسال السند</span>
-                        </a>
-                      </Button>
-                    </div>
                   </div>
                 </TabsContent>
 
