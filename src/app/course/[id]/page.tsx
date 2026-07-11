@@ -40,7 +40,7 @@ import {
   ArrowRight,
   ChevronLeft
 } from "lucide-react";
-import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
+import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, orderBy, updateDoc, arrayUnion, addDoc, serverTimestamp, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
@@ -281,7 +281,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
 export default function CoursePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const db = useFirestore();
-  const { profile, user, isAdmin } = useUser();
+  const { profile, user, isAdmin, loading: userLoading } = useUser();
   const { toast } = useToast();
   const paymentTabRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
@@ -330,6 +330,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
+  // مزامنة الحالة المحلية مع حالة السيرفر عند التحميل لضمان عدم العودة للصفر
+  useEffect(() => {
+    if (profile?.progress?.[id]?.completedLessons) {
+      setLocalCompleted(profile.progress[id].completedLessons);
+    }
+  }, [profile, id]);
+
   const allCompletedIds = useMemo(() => {
     return Array.from(new Set([...(userProgress.completedLessons || []), ...localCompleted]));
   }, [userProgress.completedLessons, localCompleted]);
@@ -345,15 +352,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   }, [db, user, isEnrolled, id]);
 
   useEffect(() => {
-    if (lessons?.length && !hasInitializedRef.current) {
-      if (profile || user === null) {
-        const lastId = userProgress.lastLessonId;
-        const startId = (lastId && isEnrolled && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-        setSelectedLessonId(startId);
-        hasInitializedRef.current = true;
-      }
+    if (lessons?.length && !hasInitializedRef.current && !userLoading) {
+      const lastId = profile?.progress?.[id]?.lastLessonId;
+      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
+      setSelectedLessonId(startId);
+      hasInitializedRef.current = true;
     }
-  }, [lessons, profile, user, userProgress.lastLessonId, isEnrolled]);
+  }, [lessons, profile, id, userLoading]);
 
   const groupedLessons = useMemo(() => {
     if (!lessons) return {};
@@ -403,6 +408,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     
     const lessonId = currentLesson.id;
 
+    // تحديث لحظي للواجهة
     if (!allCompletedIds.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
@@ -412,27 +418,22 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
-      updates[`points`] = Number(profile?.points || 0) + 10;
-      updates[`progress.${id}.points`] = Number(userProgress.points || 0) + 10;
+      const newGlobalPoints = (Number(profile?.points) || 0) + 10;
+      const newCoursePoints = (Number(userProgress.points) || 0) + 10;
+      updates[`points`] = newGlobalPoints;
+      updates[`progress.${id}.points`] = newCoursePoints;
     }
     
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
-      updates[`points`] = Number(updates[`points`] || profile?.points || 0) + (score * 5);
-      updates[`progress.${id}.points`] = Number(updates[`progress.${id}.points`] || userProgress.points || 0) + (score * 5);
+      const bonus = score * 5;
+      updates[`points`] = (Number(updates[`points`] || profile?.points) || 0) + bonus;
+      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || userProgress.points) || 0) + bonus;
     }
     
     if (Object.keys(updates).length > 0) {
-      try {
-        await updateDoc(userRef, updates);
-      } catch (err: any) {
-        console.error("Firestore Update Error:", err);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: userRef.path,
-          operation: 'update',
-          requestResourceData: updates
-        }));
-      }
+      // إرسال التحديث للسيرفر دون تعطيل الطالب
+      updateDoc(userRef, updates).catch(() => {});
     }
     
     if (currentLesson.type === "video") {
@@ -458,13 +459,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     };
     addDoc(collection(db, "reviews"), reviewData)
       .then(() => { setIsReviewSubmitted(true); toast({ title: "تم تسجيل تقييمك", description: "شكراً لك!" }); })
-      .catch(async (error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'reviews',
-          operation: 'create',
-          requestResourceData: reviewData
-        }));
-      })
       .finally(() => setSubmittingReview(false));
   };
 

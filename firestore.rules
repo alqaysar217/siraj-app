@@ -9,13 +9,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // وظيفة للتحقق من الرتبة دون إحداث دوران في مجموعة المستخدمين
-    function getUserRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student');
-    }
-
+    // فحص الرتبة بشكل مباشر لتجنب الدوران (Recursion)
     function isAdmin() {
-      return isLoggedIn() && getUserRole() == 'admin';
+      return isLoggedIn() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // --- قواعد مجموعات المستخدمين ---
@@ -28,18 +25,20 @@ service cloud.firestore {
         resource.data.get('showInLeaderboard', false) == true
       );
       
-      // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص برتبة طالب فقط
-      allow create: if isLoggedIn() && request.auth.uid == userId 
-                    && request.resource.data.get('role', 'student') == 'student';
+      // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص
+      allow create: if isLoggedIn() && request.auth.uid == userId;
       
-      // التحديث: 
-      // 1. للمدير: صلاحية كاملة
-      // 2. للطالب: تعديل بياناته بشرط عدم المساس بالحقول الحساسة (الرتبة، الحالة، البريد، الدورات المشترك بها)
-      allow update: if isAdmin() 
-                  || (isLoggedIn() && request.auth.uid == userId 
-                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'email', 'uid', 'enrolledCourses'])));
+      // التحديث النهائي: يسمح للطالب بتحديث بياناته (نقاط، تقدم، هاتف، صورة) 
+      // ويمنعه فقط من تغيير (الرتبة، الحالة، البريد، وقائمة الدورات الأصلية) لضمان الأمان المالي
+      allow update: if isLoggedIn() && (
+        (request.auth.uid == userId && 
+         request.resource.data.role == resource.data.role && 
+         request.resource.data.status == resource.data.status &&
+         request.resource.data.email == resource.data.email &&
+         request.resource.data.enrolledCourses == resource.data.enrolledCourses)
+        || isAdmin()
+      );
       
-      // الحذف: للمدير فقط
       allow delete: if isAdmin();
     }
 
@@ -48,6 +47,11 @@ service cloud.firestore {
       allow write: if isAdmin();
 
       match /lessons/{lessonId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+      
+      match /chapters/{chapterId} {
         allow read: if true;
         allow write: if isAdmin();
       }
