@@ -40,7 +40,7 @@ import {
   ArrowRight,
   ChevronLeft
 } from "lucide-react";
-import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
+import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { doc, collection, query, orderBy, updateDoc, arrayUnion, addDoc, serverTimestamp, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
@@ -172,27 +172,6 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
                 <p className="text-2xl font-black text-secondary">{pointsEarned}</p>
              </div>
           </div>
-          <div className="bg-muted/30 p-6 rounded-2xl text-right space-y-4">
-             <h4 className="font-black text-primary flex items-center gap-2 border-b border-primary/5 pb-2">
-                <ListVideo className="w-4 h-4 text-secondary" /> ملخص الأداء:
-             </h4>
-             <div className="grid gap-2">
-                {quizData.map((q, idx) => {
-                  const isCorrect = answers[idx] === q.correctAnswer;
-                  return (
-                    <div key={idx} className="flex items-center justify-between bg-white/80 p-3 rounded-xl border border-primary/5 shadow-sm">
-                       <span className="text-xs font-bold text-primary">السؤال رقم {idx + 1}</span>
-                       <div className={cn(
-                         "flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black",
-                         isCorrect ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                       )}>
-                          {isCorrect ? <><Check className="w-3.5 h-3.5" /> صحيح</> : <><X className="w-3.5 h-3.5" /> خاطئ</>}
-                       </div>
-                    </div>
-                  );
-                })}
-             </div>
-          </div>
           {alreadyAnswered && (
             <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex items-center gap-3 text-right">
               <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
@@ -308,18 +287,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   , [db, id]);
   const { data: lessons, loading: lessonsLoading } = useCollection(lessonsQuery);
 
-  const reviewsQuery = useMemoFirebase(() => 
-    db ? query(collection(db, "reviews"), where("courseId", "==", id)) : null
-  , [db, id]);
-  const { data: reviewsData } = useCollection(reviewsQuery);
-
   const bankQuery = useMemoFirebase(() => db ? query(collection(db, "bankAccounts"), orderBy("createdAt", "desc")) : null, [db]);
   const { data: bankAccounts } = useCollection(bankQuery);
-
-  const reviews = useMemo(() => {
-    if (!reviewsData) return [];
-    return [...reviewsData].sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-  }, [reviewsData]);
 
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
@@ -327,49 +296,34 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   }, [profile, id, isAdmin]);
 
   const userProgress = useMemo(() => profile?.progress?.[id] || { completedLessons: [], points: 0, quizScores: {}, lastLessonId: null }, [profile, id]);
-  const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
-  const currentLesson = lessons?.[currentLessonIndex];
-
-  // مزامنة الحالة المحلية مع حالة السيرفر عند التحميل لضمان عدم العودة للصفر
-  useEffect(() => {
-    if (profile?.progress?.[id]?.completedLessons) {
-      setLocalCompleted(profile.progress[id].completedLessons);
-    }
-  }, [profile, id]);
-
+  
   const allCompletedIds = useMemo(() => {
     return Array.from(new Set([...(userProgress.completedLessons || []), ...localCompleted]));
   }, [userProgress.completedLessons, localCompleted]);
+
+  const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
+  const currentLesson = lessons?.[currentLessonIndex];
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
     setSelectedLessonId(lessonId);
     if (db && user && isEnrolled) {
       const userRef = doc(db, "users", user.uid);
-      updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId })
-        .catch(() => {});
+      updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId }).catch(() => {});
     }
   }, [db, user, isEnrolled, id]);
 
+  // مزامنة الحالة والبداية من حيث انتهى الطالب
   useEffect(() => {
-    if (lessons?.length && !hasInitializedRef.current && !userLoading) {
+    if (lessons?.length && profile && !hasInitializedRef.current && !userLoading) {
       const lastId = profile?.progress?.[id]?.lastLessonId;
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
       setSelectedLessonId(startId);
+      setLocalCompleted(profile.progress?.[id]?.completedLessons || []);
       hasInitializedRef.current = true;
     }
   }, [lessons, profile, id, userLoading]);
 
-  const groupedLessons = useMemo(() => {
-    if (!lessons) return {};
-    return lessons.reduce((acc: any, lesson: any) => {
-      const unit = lesson.unitTitle || "مقدمة المنهج";
-      if (!acc[unit]) acc[unit] = [];
-      acc[unit].push(lesson);
-      return acc;
-    }, {});
-  }, [lessons]);
-  
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
     if (!isEnrolled) return true;
@@ -407,33 +361,36 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled) return;
     
     const lessonId = currentLesson.id;
-
-    // تحديث لحظي للواجهة
     if (!allCompletedIds.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
+    const currentPoints = Number(profile?.points || 0);
+    const currentCoursePoints = Number(userProgress.points || 0);
     
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
-      const newGlobalPoints = (Number(profile?.points) || 0) + 10;
-      const newCoursePoints = (Number(userProgress.points) || 0) + 10;
-      updates[`points`] = newGlobalPoints;
-      updates[`progress.${id}.points`] = newCoursePoints;
+      updates[`points`] = currentPoints + 10;
+      updates[`progress.${id}.points`] = currentCoursePoints + 10;
     }
     
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       const bonus = score * 5;
-      updates[`points`] = (Number(updates[`points`] || profile?.points) || 0) + bonus;
-      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || userProgress.points) || 0) + bonus;
+      updates[`points`] = (Number(updates[`points`] || currentPoints) || 0) + bonus;
+      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints) || 0) + bonus;
     }
     
     if (Object.keys(updates).length > 0) {
-      // إرسال التحديث للسيرفر دون تعطيل الطالب
-      updateDoc(userRef, updates).catch(() => {});
+      updateDoc(userRef, updates).catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: userRef.path,
+          operation: 'update',
+          requestResourceData: updates
+        }));
+      });
     }
     
     if (currentLesson.type === "video") {
@@ -441,31 +398,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, allCompletedIds]);
 
-  const handleReviewSubmit = async () => {
-    if (!db || !user || rating === 0) {
-      toast({ variant: "destructive", title: "تنبيه", description: "يرجى اختيار تقييم النجوم أولاً." });
-      return;
-    }
-    setSubmittingReview(true);
-    const reviewData = { 
-      courseId: id, 
-      courseTitle: course?.title || "دورة سراج", 
-      userId: user.uid, 
-      userName: profile?.name || "طالب مجهول", 
-      userPhoto: profile?.photoURL || "", 
-      rating, 
-      comment: reviewComment, 
-      createdAt: serverTimestamp() 
-    };
-    addDoc(collection(db, "reviews"), reviewData)
-      .then(() => { setIsReviewSubmitted(true); toast({ title: "تم تسجيل تقييمك", description: "شكراً لك!" }); })
-      .finally(() => setSubmittingReview(false));
-  };
-
   const CurriculumContent = () => (
     <div className="space-y-6" dir="rtl">
       <Accordion type="single" collapsible className="space-y-4">
-        {Object.entries(groupedLessons).map(([unitTitle, unitLessons]: [string, any], uIdx) => (
+        {lessons && lessons.length > 0 && Object.entries(
+          lessons.reduce((acc: any, lesson: any) => {
+            const unit = lesson.unitTitle || "مقدمة المنهج";
+            if (!acc[unit]) acc[unit] = [];
+            acc[unit].push(lesson);
+            return acc;
+          }, {})
+        ).map(([unitTitle, unitLessons]: [string, any], uIdx) => (
           <AccordionItem key={unitTitle} value={`unit-${uIdx}`} className="border rounded-2xl overflow-hidden bg-card border-primary/5">
             <AccordionTrigger className="hover:no-underline py-5 px-5 bg-muted/20 text-right [&[data-state=open]>svg]:rotate-180">
               <div className="flex items-center gap-4 text-right flex-row">
@@ -503,7 +446,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  if (courseLoading || lessonsLoading) {
+  if (courseLoading || lessonsLoading || userLoading) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
@@ -516,7 +459,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             <div className="w-full bg-white/95 backdrop-blur-xl border border-primary/10 p-4 rounded-2xl shadow-sm flex items-center gap-4">
                <div className="p-2 bg-secondary/10 rounded-lg shrink-0"><ShieldCheck className="w-5 h-5 text-secondary" /></div>
                <div className="flex-1 space-y-1.5">
-                  <div className="flex justify-between items-center text-[10px] font-black text-primary"><span>تقدمك الحالي</span><span className="text-secondary">{Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%</span></div>
+                  <div className="flex justify-between items-center text-[10px] font-black text-primary"><span>تقدمك الدراسي</span><span className="text-secondary">{Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%</span></div>
                   <div className="h-2 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%` }} /></div>
                </div>
             </div>
@@ -527,31 +470,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               <div className="bg-white p-6 md:p-16 rounded-[2rem] border-4 border-green-500/10 text-center space-y-8 luxury-shadow animate-in zoom-in duration-500">
                 <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto"><PartyPopper className="w-12 h-12 text-green-600" /></div>
                 <h2 className="text-3xl md:text-5xl font-black text-green-800 font-headline">مبارك لك الإنجاز!</h2>
-                {!isReviewSubmitted ? (
-                  <div className="bg-primary/5 p-6 rounded-[2rem] max-w-2xl mx-auto space-y-6">
-                      <p className="font-black text-lg text-primary">يرجى تقييم الدورة لنتمكن من إصدار الشهادة</p>
-                      <div className="flex justify-center gap-2">{[1, 2, 3, 4, 5].map(s => <button key={s} onClick={() => setRating(s)}><Star className={cn("w-10 h-10", s <= rating ? "text-secondary fill-secondary" : "text-muted")} /></button>)}</div>
-                      <Textarea placeholder="رأيك يهمنا..." className="rounded-2xl" value={reviewComment} onChange={e => setReviewComment(e.target.value)} />
-                      <Button disabled={submittingReview} onClick={handleReviewSubmit} className="w-full h-14 bg-primary text-white rounded-2xl font-bold">إرسال التقييم</Button>
-                  </div>
-                ) : (
-                  <div className="bg-primary/5 p-8 rounded-[2rem] max-w-2xl mx-auto space-y-6">
-                      {!showCertForm ? (
-                        <Button onClick={() => setShowCertForm(true)} className="bg-green-600 text-white h-16 rounded-2xl px-12 font-black text-lg shadow-xl"><Award className="w-6 h-6 ml-2" /> إصدار الشهادة والتوثيق</Button>
-                      ) : (
-                        <div className="space-y-6 text-right">
-                          <Label className="font-black">الاسم الرباعي (بالعربية)</Label>
-                          <Input placeholder="الاسم كما في الهوية..." className="h-14 rounded-xl" value={certNameAr} onChange={e => setCertNameAr(e.target.value)} />
-                          <Label className="font-black">Full Name (English)</Label>
-                          <Input placeholder="In English..." className="h-14 rounded-xl text-left" dir="ltr" value={certNameEn} onChange={e => setCertNameEn(e.target.value)} />
-                          <Button onClick={() => {
-                            const msg = `طلب شهادة: ${certNameAr} (${certNameEn}) لـ ${course?.title}`;
-                            window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`);
-                          }} className="w-full h-16 bg-[#25D366] text-white rounded-2xl font-black"><MessageCircle className="w-6 h-6 ml-2" /> تأكيد وإرسال واتساب</Button>
-                        </div>
-                      )}
-                  </div>
-                )}
+                <div className="bg-primary/5 p-8 rounded-[2.5rem] max-w-2xl mx-auto space-y-6">
+                   <p className="font-bold text-primary">لقد أتممت كافة دروس الدورة بنجاح. تواصل معنا لإصدار شهادتك الموثقة.</p>
+                   <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أتممت دورة ${course?.title} وأرغب في الشهادة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black"><MessageCircle className="w-6 h-6 ml-2" /> طلب الشهادة عبر واتساب</Button>
+                </div>
                 <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground">العودة للدرس الأخير</Button>
               </div>
             ) : currentLesson && (isAdmin || currentLessonIndex === 0 || isEnrolled) ? (
@@ -566,17 +488,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 <div className="space-y-4">
                   <div className="flex gap-4 w-full">
                     <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
-                      {!isEnrolled && currentLessonIndex === 0 ? (
-                        <>
-                          <Lock className="w-5 h-5 ml-1" />
-                          <span>اشترك لفتح البقية</span>
-                        </>
-                      ) : (
-                        <>
-                          <ArrowRight className="w-5 h-5 ml-1" />
-                          <span>الدرس التالي</span>
-                        </>
-                      )}
+                      <ArrowRight className="w-5 h-5 ml-1" />
+                      <span>{(!isEnrolled && currentLessonIndex === 0) ? "اشترك لفتح البقية" : "الدرس التالي"}</span>
                     </Button>
                     <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg gap-2">
                        <ArrowLeft className="w-5 h-5 ml-1" />
@@ -632,70 +545,32 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 </div>
               </Card>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] md:rounded-[2.5rem] border luxury-shadow overflow-hidden">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
                 <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b">
-                  <TabsTrigger value="payment" className="flex-1 font-black text-sm md:text-lg rounded-xl md:rounded-2xl">تفعيل الدورة</TabsTrigger>
-                  <TabsTrigger value="curriculum" className="flex-1 font-black text-sm md:text-lg rounded-xl md:rounded-2xl">المنهج</TabsTrigger>
-                  <TabsTrigger value="reviews" className="flex-1 font-black text-sm md:text-lg rounded-xl md:rounded-2xl">التقييمات</TabsTrigger>
+                  <TabsTrigger value="payment" className="flex-1 font-black text-sm md:text-lg rounded-xl">تفعيل الدورة</TabsTrigger>
+                  <TabsTrigger value="curriculum" className="flex-1 font-black text-sm md:text-lg rounded-xl">المنهج</TabsTrigger>
                 </TabsList>
-                
                 <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right">
-                  <h3 className="text-xl md:text-3xl font-black text-primary">خطوات التفعيل</h3>
+                  <h3 className="text-xl md:text-3xl font-black text-primary">الحسابات البنكية المعتمدة</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
                       <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-4 md:gap-6 text-right" dir="rtl">
-                        <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden border border-border/50">
+                        <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
                         <div className="flex-1 overflow-hidden space-y-1">
-                          <h4 className="font-black text-base md:text-lg text-primary leading-tight">{bank.bankName}</h4>
+                          <h4 className="font-black text-base md:text-lg text-primary truncate">{bank.bankName}</h4>
                           <p className="text-[10px] md:text-xs text-muted-foreground truncate font-bold">{bank.accountHolder}</p>
-                          <div className="flex items-center justify-between bg-muted/40 p-2 md:p-3 rounded-xl mt-2 border border-primary/5">
+                          <div className="flex items-center justify-between bg-muted/40 p-2 md:p-3 rounded-xl mt-2">
                             <code className="text-[10px] md:sm font-black font-mono text-secondary truncate ml-2" dir="ltr">{bank.accountNumber}</code>
-                            <button 
-                              onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }}
-                              className="p-1.5 bg-white rounded-lg text-primary hover:text-secondary transition-colors shadow-sm shrink-0"
-                            >
-                              <Copy className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                            </button>
+                            <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }} className="p-1.5 bg-white rounded-lg shadow-sm"><Copy className="w-3.5 h-3.5" /></button>
                           </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 </TabsContent>
-
-                <TabsContent value="curriculum" className="p-6 md:p-8">
-                  <CurriculumContent />
-                </TabsContent>
-
-                <TabsContent value="reviews" className="p-6 md:p-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    {reviews.length === 0 ? (
-                      <p className="text-center py-10 text-muted-foreground font-bold col-span-full">لا توجد تقييمات لهذه الدورة بعد.</p>
-                    ) : (
-                      reviews.map((r: any, i: number) => (
-                        <div key={i} className="bg-card p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow space-y-4 text-right flex flex-col">
-                          <div className="flex flex-row items-center gap-4" dir="rtl">
-                            <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-sm shrink-0">
-                              <AvatarImage src={r.userPhoto} className="object-cover" />
-                              <AvatarFallback className="bg-primary text-white font-black">{r.userName?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="text-right overflow-hidden">
-                              <div className="font-black text-sm md:text-base text-primary truncate">{r.userName}</div>
-                              <div className="flex gap-0.5 mt-0.5">
-                                {[...Array(5)].map((_, s) => (
-                                  <Star key={s} className={cn("w-3 h-3 md:w-3.5 md:h-3.5", s < r.rating ? "text-secondary fill-secondary" : "text-muted")} />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-xs md:text-sm text-muted-foreground font-bold italic leading-relaxed">"{r.comment}"</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </TabsContent>
+                <TabsContent value="curriculum" className="p-6 md:p-8"><CurriculumContent /></TabsContent>
               </Tabs>
             </div>
           )}

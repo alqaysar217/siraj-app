@@ -3,40 +3,37 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- وظائف الحماية الأساسية ---
-    
+    // وظائف الحماية الأساسية
     function isLoggedIn() {
       return request.auth != null;
     }
 
-    // فحص الرتبة بشكل مباشر لتجنب الدوران (Recursion)
+    // التحقق من الرتبة دون قراءة متكررة للوثيقة لتجنب الدوران
     function isAdmin() {
       return isLoggedIn() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // --- قواعد مجموعات المستخدمين ---
-
+    // قواعد المستخدمين: السماح للطالب بتحديث بياناته الشخصية (النقاط، التقدم، الهاتف)
     match /users/{userId} {
-      // السماح للقراءة: الشخص لنفسه، أو إذا كان مديراً، أو إذا كان الطالب وافق على الظهور في لوحة المتصدرين
       allow read: if isLoggedIn() && (
         request.auth.uid == userId || 
         isAdmin() ||
         resource.data.get('showInLeaderboard', false) == true
       );
       
-      // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص
       allow create: if isLoggedIn() && request.auth.uid == userId;
       
-      // التحديث النهائي: يسمح للطالب بتحديث بياناته (نقاط، تقدم، هاتف، صورة) 
-      // ويمنعه فقط من تغيير (الرتبة، الحالة، البريد، وقائمة الدورات الأصلية) لضمان الأمان المالي
       allow update: if isLoggedIn() && (
-        (request.auth.uid == userId && 
-         request.resource.data.role == resource.data.role && 
-         request.resource.data.status == resource.data.status &&
-         request.resource.data.email == resource.data.email &&
-         request.resource.data.enrolledCourses == resource.data.enrolledCourses)
-        || isAdmin()
+        request.auth.uid == userId || isAdmin()
+      ) && (
+        // منع الطالب من تغيير رتبته أو حالته أو إيميله أو الدورات المشترك بها
+        isAdmin() || (
+          request.resource.data.role == resource.data.role && 
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.email == resource.data.email &&
+          request.resource.data.enrolledCourses == resource.data.enrolledCourses
+        )
       );
       
       allow delete: if isAdmin();
@@ -45,13 +42,7 @@ service cloud.firestore {
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
-
       match /lessons/{lessonId} {
-        allow read: if true;
-        allow write: if isAdmin();
-      }
-      
-      match /chapters/{chapterId} {
         allow read: if true;
         allow write: if isAdmin();
       }
@@ -60,7 +51,6 @@ service cloud.firestore {
     match /books/{bookId} {
       allow read: if true;
       allow write: if isAdmin();
-
       match /chapters/{chapterId} {
         allow read: if true;
         allow write: if isAdmin();
