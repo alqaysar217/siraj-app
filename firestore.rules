@@ -9,27 +9,32 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // وظيفة للتحقق من الرتبة دون إحداث دوران في مجموعة المستخدمين
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student');
+    }
+
     function isAdmin() {
-      return isLoggedIn() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'student') == 'admin';
+      return isLoggedIn() && getUserRole() == 'admin';
     }
 
     // --- قواعد مجموعات المستخدمين ---
 
     match /users/{userId} {
-      // السماح للقراءة فقط للمسجلين أو المدير
+      // السماح للقراءة: الشخص لنفسه، أو إذا كان مديراً، أو إذا كان الطالب وافق على الظهور في لوحة المتصدرين
       allow read: if isLoggedIn() && (
         request.auth.uid == userId || 
-        isAdmin() || 
+        isAdmin() ||
         resource.data.get('showInLeaderboard', false) == true
       );
       
-      // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص
+      // إنشاء الحساب: مسموح للمسجلين الجدد بإنشاء ملفهم الخاص برتبة طالب فقط
       allow create: if isLoggedIn() && request.auth.uid == userId 
                     && request.resource.data.get('role', 'student') == 'student';
       
-      // التحديث: السماح للطالب بتحديث النقاط، التقدم، الإعدادات الشخصية، وصورة الملف
-      // نمنع الطالب من تغيير الرتبة (role) أو الحالة (status) أو البريد (email) أو المعرف (uid)
+      // التحديث: 
+      // 1. للمدير: صلاحية كاملة
+      // 2. للطالب: تعديل بياناته بشرط عدم المساس بالحقول الحساسة (الرتبة، الحالة، البريد، الدورات المشترك بها)
       allow update: if isAdmin() 
                   || (isLoggedIn() && request.auth.uid == userId 
                       && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'email', 'uid', 'enrolledCourses'])));

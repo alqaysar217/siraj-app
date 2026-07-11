@@ -271,7 +271,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         onClick={next} 
         className="w-full h-14 md:h-16 bg-primary text-white rounded-2xl text-lg md:text-xl font-black shadow-xl shadow-primary/10 transition-transform active:scale-95"
       >
-        <ChevronLeft className="ml-3 w-5 h-5 md:w-6 md:h-6" />
+        <ArrowRight className="ml-3 w-5 h-5 md:w-6 md:h-6" />
         {currentStep === quizData.length - 1 ? "إنهاء واستعراض النتيجة" : "تأكيد الإجابة والانتقال"}
       </Button>
     </div>
@@ -298,7 +298,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [certNameAr, setCertNameAr] = useState("");
   const [certNameEn, setCertNameEn] = useState("");
   
-  // تتبع الدروس المكتملة "لحظياً" لفتح شريط التقديم فوراً وبثقة
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
@@ -331,7 +330,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // دمج الدروس المكتملة في السيرفر مع المكتملة لحظياً في المتصفح
   const allCompletedIds = useMemo(() => {
     return Array.from(new Set([...(userProgress.completedLessons || []), ...localCompleted]));
   }, [userProgress.completedLessons, localCompleted]);
@@ -342,9 +340,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (db && user && isEnrolled) {
       const userRef = doc(db, "users", user.uid);
       updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId })
-        .catch(err => {
-          // خطأ صامت في الخلفية
-        });
+        .catch(() => {});
     }
   }, [db, user, isEnrolled, id]);
 
@@ -407,33 +403,23 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     
     const lessonId = currentLesson.id;
 
-    // 1. التحديث اللحظي للواجهة (فتح شريط التقديم وعلامة الصح فوراً)
     if (!allCompletedIds.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
-    // 2. تحديث السيرفر
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
     
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
-      
-      const currentPoints = Number(profile?.points || 0);
-      const coursePoints = Number(userProgress.points || 0);
-      
-      updates[`points`] = currentPoints + 10;
-      updates[`progress.${id}.points`] = coursePoints + 10;
+      updates[`points`] = Number(profile?.points || 0) + 10;
+      updates[`progress.${id}.points`] = Number(userProgress.points || 0) + 10;
     }
     
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
-      
-      const pTotal = Number(updates[`points`] || profile?.points || 0);
-      const pCourse = Number(updates[`progress.${id}.points`] || userProgress.points || 0);
-      
-      updates[`points`] = pTotal + (score * 5);
-      updates[`progress.${id}.points`] = pCourse + (score * 5);
+      updates[`points`] = Number(updates[`points`] || profile?.points || 0) + (score * 5);
+      updates[`progress.${id}.points`] = Number(updates[`progress.${id}.points`] || userProgress.points || 0) + (score * 5);
     }
     
     if (Object.keys(updates).length > 0) {
@@ -441,7 +427,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
         await updateDoc(userRef, updates);
       } catch (err: any) {
         console.error("Firestore Update Error:", err);
-        // في حال فشل السيرفر، نظهر خطأ توضيحي ولكن نحافظ على الحالة المحلية مفتوحة
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: userRef.path,
           operation: 'update',
