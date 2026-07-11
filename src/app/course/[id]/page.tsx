@@ -292,13 +292,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // مزامنة الحالة والبداية من حيث انتهى الطالب عند اكتمال تحميل البروفايل
+  // مزامنة الحالة والبداية من حيث انتهى الطالب عند اكتمال تحميل البروفايل حصراً
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
-      const lastId = profile?.progress?.[id]?.lastLessonId;
+      const savedData = profile?.progress?.[id];
+      const lastId = savedData?.lastLessonId;
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
+      
       setSelectedLessonId(startId);
-      setLocalCompleted(profile.progress?.[id]?.completedLessons || []);
+      setLocalCompleted(savedData?.completedLessons || []);
       hasInitializedRef.current = true;
     }
   }, [lessons, profile, id, userLoading]);
@@ -346,17 +348,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   };
 
   const handleLessonComplete = useCallback(async (score?: number) => {
-    if (!db || !user || !currentLesson || !isEnrolled) return;
+    if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
-    // تحديث محلي فوري لفتح شريط التقديم
+    // تحديث محلي فوري لضمان تجربة سلسة
     if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
-    const currentPoints = Number(profile?.points || 0);
+    const currentPoints = Number(profile.points || 0);
     const currentCoursePoints = Number(userProgress.points || 0);
     
     // تسجيل إكمال الدرس
@@ -370,19 +372,16 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       const bonus = score * 5;
-      updates[`points`] = (Number(updates[`points`] || (currentPoints + (updates.points ? 10 : 0))) || 0) + bonus;
-      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || (currentCoursePoints + (updates[`progress.${id}.points`] ? 10 : 0))) || 0) + bonus;
+      updates[`points`] = (Number(updates.points || currentPoints) || 0) + bonus;
+      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints) || 0) + bonus;
     }
     
     if (Object.keys(updates).length > 0) {
-      updateDoc(userRef, updates).catch((err) => {
-        console.error("Firestore Update Error:", err);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: userRef.path,
-          operation: 'update',
-          requestResourceData: updates
-        }));
-      });
+      try {
+        await updateDoc(userRef, updates);
+      } catch (err) {
+        console.error("Firestore Save Error:", err);
+      }
     }
     
     if (currentLesson.type === "video") {
@@ -438,7 +437,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  if (courseLoading || lessonsLoading || userLoading || !selectedLessonId && !isFinishing) {
+  if (courseLoading || lessonsLoading || userLoading || (!selectedLessonId && !isFinishing)) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
@@ -523,7 +522,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <div key={i} className="bg-muted/30 p-3 md:p-4 rounded-2xl flex items-center gap-3">
                       <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-4 h-4 md:w-5 md:h-5 text-secondary" /></div>
                       <div className="text-right overflow-hidden">
-                        <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
+                        <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase"> {s.label}</p>
                         <p className="text-[10px] md:text-xs font-bold text-primary truncate">{s.val}</p>
                       </div>
                     </div>
