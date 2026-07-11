@@ -36,8 +36,8 @@ import {
   ArrowRight,
   ChevronLeft
 } from "lucide-react";
-import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { doc, collection, query, orderBy, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
+import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
+import { doc, collection, query, orderBy, updateDoc, arrayUnion } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -50,6 +50,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
+  SheetClose
 } from "@/components/ui/sheet";
 
 const WHATSAPP_NUMBER = "+967735952927";
@@ -156,7 +157,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
             <h2 className="text-2xl md:text-4xl font-black text-primary font-headline">
               {isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة، يمكنك التحسن"}
             </h2>
-            <p className="text-muted-foreground font-bold">{isSuccess ? "لقد اجتزت هذا التقويم بنجاح متميز" : "ننصحك بمراجعة محتوى الوحدة مرة أخرى لتعزيز فهمك"}</p>
+            <p className="text-muted-foreground font-bold">{isSuccess ? "لقد اجتزت هذا التقويم بنجاح متميز" : "نصيحة: راجع محتوى الوحدة مرة أخرى لتعزيز فهمك"}</p>
           </div>
           <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
              <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
@@ -172,7 +173,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
             <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex items-center gap-3 text-right">
               <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
               <p className="text-[10px] text-orange-800 font-bold leading-relaxed">
-                تنبيه: هذه النتيجة للمراجعة فقط. لم يتم إضافة نقاط جديدة لرصيدك لأنك أتممت هذا التقويم مسبقاً.
+                تنبيه: هذه النتيجة للمراجعة فقط. لم يتم إضافة نقاط جديدة لأنك أتممت التقويم مسبقاً.
               </p>
             </div>
           )}
@@ -292,7 +293,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // مزامنة الحالة والبداية من حيث انتهى الطالب عند اكتمال تحميل البروفايل حصراً
+  // المزامنة الحقيقية: الانتظار حتى اكتمال تحميل البروفايل قبل تحديد الدرس
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
       const savedData = profile?.progress?.[id];
@@ -326,7 +327,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!isEnrolled && currentLessonIndex === 0) {
       setActiveTab("payment");
       paymentTabRef.current?.scrollIntoView({ behavior: "smooth" });
-      toast({ title: "محتوى مقفل", description: "يرجى الاشتراك لتتمكن من إكمال الدورة." });
       return;
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
@@ -336,7 +336,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
-  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted, toast]);
+  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted]);
 
   const goToPrev = () => {
     if (isFinishing) {
@@ -351,7 +351,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
-    // تحديث محلي فوري لضمان تجربة سلسة
     if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
@@ -361,14 +360,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     const currentPoints = Number(profile.points || 0);
     const currentCoursePoints = Number(userProgress.points || 0);
     
-    // تسجيل إكمال الدرس
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
       updates[`points`] = currentPoints + 10;
       updates[`progress.${id}.points`] = currentCoursePoints + 10;
     }
     
-    // تسجيل نتيجة الاختبار إن وجدت
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       const bonus = score * 5;
@@ -377,11 +374,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
     
     if (Object.keys(updates).length > 0) {
-      try {
-        await updateDoc(userRef, updates);
-      } catch (err) {
-        console.error("Firestore Save Error:", err);
-      }
+      updateDoc(userRef, updates).catch(() => {});
     }
     
     if (currentLesson.type === "video") {
@@ -490,7 +483,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <Sheet open={isCurriculumOpen} onOpenChange={setIsCurriculumOpen}>
                     <SheetTrigger asChild><Button variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> المنهج الدراسي</Button></SheetTrigger>
                     <SheetContent side="right" className="w-[90%] sm:max-w-md p-0 overflow-y-auto" dir="rtl">
-                      <SheetHeader className="p-8 border-b text-right bg-muted/10"><SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle></SheetHeader>
+                      <SheetHeader className="p-8 border-b text-right bg-muted/10">
+                        <div className="flex items-center justify-between">
+                          <SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle>
+                          <SheetClose asChild className="p-2 hover:bg-primary/5 rounded-lg cursor-pointer"><XCircle className="w-6 h-6" /></SheetClose>
+                        </div>
+                      </SheetHeader>
                       <div className="p-6"><CurriculumContent /></div>
                     </SheetContent>
                   </Sheet>

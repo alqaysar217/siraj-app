@@ -3,36 +3,43 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // وظائف الحماية الأساسية
-    function isLoggedIn() {
+    // --- وظائف الحماية الأساسية ---
+    
+    function isAuthenticated() {
       return request.auth != null;
     }
 
-    // التحقق من الرتبة بشكل مباشر وبسيط لمنع الدوران
+    // التحقق من الرتبة بشكل مباشر لتجنب التعقيد والدوران
     function isAdmin() {
-      return isLoggedIn() && 
+      return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // قواعد المستخدمين: السماح للطالب بتحديث بياناته الشخصية (النقاط، التقدم، الهاتف)
+    // التحقق من أن الحقول "السيادية" لم يتم المساس بها
+    // يسمح للطالب بتغيير: التقدم، النقاط، الهاتف، الاسم، الصورة، تفاصيل الجلسة
+    function isNotModifyingAdminFields() {
+      let adminFields = [
+        'role', 'status', 'enrolledCourses', 'uid', 'email', 'createdAt'
+      ];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(adminFields);
+    }
+
+    // --- القواعد المخصصة للمجموعات ---
+
     match /users/{userId} {
-      allow read: if isLoggedIn() && (
+      allow read: if isAuthenticated() && (
         request.auth.uid == userId || 
-        isAdmin() ||
-        resource.data.get('showInLeaderboard', false) == true
+        isAdmin() || 
+        resource.data.showInLeaderboard == true
       );
       
-      allow create: if isLoggedIn() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
       
-      allow update: if isLoggedIn() && (request.auth.uid == userId || isAdmin()) && (
-        isAdmin() || (
-          // ضمان عدم المساس بالحقول الحساسة أثناء تحديث الطالب لنقاطه أو تقدمه
-          request.resource.data.role == resource.data.role &&
-          request.resource.data.status == resource.data.status &&
-          request.resource.data.email == resource.data.email &&
-          request.resource.data.enrolledCourses == resource.data.enrolledCourses &&
-          request.resource.data.uid == resource.data.uid
-        )
+      // التحديث: المدير يغير كل شيء، الطالب يغير بياناته غير السيادية فقط
+      allow update: if isAdmin() || (
+        isAuthenticated() && 
+        request.auth.uid == userId && 
+        isNotModifyingAdminFields()
       );
       
       allow delete: if isAdmin();
@@ -68,7 +75,7 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isLoggedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
 
@@ -78,8 +85,7 @@ service cloud.firestore {
     }
 
     match /subscriptions/{subId} {
-      allow read: if isAdmin() || (isLoggedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /trash/{trashId} {
