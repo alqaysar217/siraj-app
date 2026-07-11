@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { 
   PlayCircle, 
   BookOpen, 
@@ -30,14 +30,12 @@ import {
   Trophy,
   Layers,
   ShieldCheck,
-  User,
   ListVideo,
   AlertCircle,
   PartyPopper,
   Building2,
   Check,
   X,
-  Share2,
   ArrowLeft,
   ArrowRight,
   ChevronLeft
@@ -321,14 +319,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return [...reviewsData].sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [reviewsData]);
 
-  // تبسيط منطق التحقق من الاشتراك ليكون أكثر مرونة مع الحسابات التي لم تُفعل بياناتها التفصيلية بالكامل
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
-    const enrolledInArray = profile?.enrolledCourses?.includes(id);
-    const enrollmentDetails = profile?.enrollmentDetails?.[id];
-    
-    // إذا كان الطالب موجوداً في المصفوفة، نعتبره مشتركاً إلا إذا كان هناك تفصيل صريح يقول أنه محظور
-    return enrolledInArray && enrollmentDetails?.status !== 'blocked';
+    return profile?.enrolledCourses?.includes(id) && profile?.enrollmentDetails?.[id]?.status !== 'blocked';
   }, [profile, id, isAdmin]);
 
   const userProgress = useMemo(() => profile?.progress?.[id] || { completedLessons: [], points: 0, quizScores: {}, lastLessonId: null }, [profile, id]);
@@ -339,7 +332,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     setIsFinishing(false);
     setSelectedLessonId(lessonId);
     if (db && user && isEnrolled) {
-      updateDoc(doc(db, "users", user.uid), { [`progress.${id}.lastLessonId`]: lessonId });
+      const userRef = doc(db, "users", user.uid);
+      updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId })
+        .catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: { [`progress.${id}.lastLessonId`]: lessonId }
+          }));
+        });
     }
   }, [db, user, isEnrolled, id]);
 
@@ -381,7 +382,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
       const nextLesson = lessons[currentLessonIndex + 1];
-      // السماح بالانتقال حتى لو لم يقم السيرفر بتحديث الحالة فوراً (تجربة مستخدم أسرع)
       selectLesson(nextLesson.id);
     } else if (isAllLessonsCompleted) {
       setIsFinishing(true);
@@ -402,17 +402,30 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled) return;
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
+    
     if (!userProgress.completedLessons?.includes(currentLesson.id)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(currentLesson.id);
       updates[`points`] = (profile?.points || 0) + 10;
       updates[`progress.${id}.points`] = (userProgress.points || 0) + 10;
     }
+    
     if (score !== undefined && !userProgress.quizScores?.[currentLesson.id]) {
       updates[`progress.${id}.quizScores.${currentLesson.id}`] = score;
-      updates[`points`] = (profile?.points || 0) + (score * 5);
-      updates[`progress.${id}.points`] = (userProgress.points || 0) + (score * 5);
+      updates[`points`] = (updates[`points`] || profile?.points || 0) + (score * 5);
+      updates[`progress.${id}.points`] = (updates[`progress.${id}.points`] || userProgress.points || 0) + (score * 5);
     }
-    if (Object.keys(updates).length > 0) await updateDoc(userRef, updates);
+    
+    if (Object.keys(updates).length > 0) {
+      updateDoc(userRef, updates)
+        .catch(err => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: updates
+          }));
+        });
+    }
+    
     if (currentLesson.type === "video") setTimeout(goToNext, 2000);
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile]);
 

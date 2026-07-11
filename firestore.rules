@@ -18,7 +18,6 @@ service cloud.firestore {
 
     match /users/{userId} {
       // السماح للقراءة فقط للمسجلين أو المدير
-      // قصر القراءة العامة للوحة المتصدرين من خلال الكود فقط وليس من خلال القواعد العامة المفتوحة
       allow read: if isLoggedIn() && (
         request.auth.uid == userId || 
         isAdmin() || 
@@ -29,12 +28,12 @@ service cloud.firestore {
       allow create: if isLoggedIn() && request.auth.uid == userId 
                     && request.resource.data.get('role', 'student') == 'student';
       
-      // التحديث: السماح للطالب بتحديث نقاطه وتقدمه وإعدادات الظهور
-      // الحقول الممنوع تعديلها هي الرتبة، الكورسات المشترك بها، الحالة، والبريد
+      // التحديث: السماح للطالب بتحديث نقاطه وتقدمه وإعدادات الملف الشخصي
+      // الحقول الممنوع تعديلها هي الرتبة، الكورسات المشترك بها (إلا من المدير)، الحالة، والبريد
       allow update: if isAdmin() 
                   || (isLoggedIn() && request.auth.uid == userId 
                       && !(request.resource.data.diff(resource.data).affectedKeys()
-                      .hasAny(['role', 'enrolledCourses', 'deviceIds', 'status', 'email'])));
+                      .hasAny(['role', 'enrolledCourses', 'status', 'email'])));
       
       // الحذف: للمدير فقط
       allow delete: if isAdmin();
