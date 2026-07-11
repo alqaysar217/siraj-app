@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // التحقق من الرتبة دون قراءة متكررة للوثيقة لتجنب الدوران
+    // التحقق من الرتبة بشكل مباشر لتجنب الدوران
     function isAdmin() {
       return isLoggedIn() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
@@ -27,12 +27,12 @@ service cloud.firestore {
       allow update: if isLoggedIn() && (
         request.auth.uid == userId || isAdmin()
       ) && (
-        // منع الطالب من تغيير رتبته أو حالته أو إيميله أو الدورات المشترك بها
+        // إذا كان المستخدم مديراً، يسمح له بكل شيء
         isAdmin() || (
-          request.resource.data.role == resource.data.role && 
-          request.resource.data.status == resource.data.status &&
-          request.resource.data.email == resource.data.email &&
-          request.resource.data.enrolledCourses == resource.data.enrolledCourses
+          // إذا كان طالباً، يمنع من تغيير الحقول الحساسة فقط
+          // يسمح له بتغيير (points, progress, photoURL, phone, showInLeaderboard, lastSessionId, deviceIds)
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'status', 'email', 'enrolledCourses', 'uid', 'createdAt'])
         )
       );
       

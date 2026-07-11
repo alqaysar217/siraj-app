@@ -8,10 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { 
   PlayCircle, 
   BookOpen, 
@@ -35,13 +32,12 @@ import {
   PartyPopper,
   Building2,
   Check,
-  X,
   ArrowLeft,
   ArrowRight,
   ChevronLeft
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { doc, collection, query, orderBy, updateDoc, arrayUnion, addDoc, serverTimestamp, where } from "firebase/firestore";
+import { doc, collection, query, orderBy, updateDoc, arrayUnion, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -267,16 +263,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
-  const [rating, setRating] = useState(0);
-  const [reviewComment, setReviewComment] = useState("");
-  const [isReviewSubmitted, setIsReviewSubmitted] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
-  const [submittingReview, setSubmittingReview] = useState(false);
   const [activeTab, setActiveTab] = useState("payment");
-  const [showCertForm, setShowCertForm] = useState(false);
-  const [certNameAr, setCertNameAr] = useState("");
-  const [certNameEn, setCertNameEn] = useState("");
-  
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
@@ -304,6 +292,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
+  // مزامنة الحالة والبداية من حيث انتهى الطالب عند اكتمال تحميل البروفايل
+  useEffect(() => {
+    if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
+      const lastId = profile?.progress?.[id]?.lastLessonId;
+      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
+      setSelectedLessonId(startId);
+      setLocalCompleted(profile.progress?.[id]?.completedLessons || []);
+      hasInitializedRef.current = true;
+    }
+  }, [lessons, profile, id, userLoading]);
+
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
     setSelectedLessonId(lessonId);
@@ -312,17 +311,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId }).catch(() => {});
     }
   }, [db, user, isEnrolled, id]);
-
-  // مزامنة الحالة والبداية من حيث انتهى الطالب
-  useEffect(() => {
-    if (lessons?.length && profile && !hasInitializedRef.current && !userLoading) {
-      const lastId = profile?.progress?.[id]?.lastLessonId;
-      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-      setSelectedLessonId(startId);
-      setLocalCompleted(profile.progress?.[id]?.completedLessons || []);
-      hasInitializedRef.current = true;
-    }
-  }, [lessons, profile, id, userLoading]);
 
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
@@ -361,7 +349,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled) return;
     
     const lessonId = currentLesson.id;
-    if (!allCompletedIds.includes(lessonId)) {
+    // تحديث محلي فوري لفتح شريط التقديم
+    if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
@@ -370,21 +359,24 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     const currentPoints = Number(profile?.points || 0);
     const currentCoursePoints = Number(userProgress.points || 0);
     
+    // تسجيل إكمال الدرس
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
       updates[`points`] = currentPoints + 10;
       updates[`progress.${id}.points`] = currentCoursePoints + 10;
     }
     
+    // تسجيل نتيجة الاختبار إن وجدت
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       const bonus = score * 5;
-      updates[`points`] = (Number(updates[`points`] || currentPoints) || 0) + bonus;
-      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints) || 0) + bonus;
+      updates[`points`] = (Number(updates[`points`] || (currentPoints + (updates.points ? 10 : 0))) || 0) + bonus;
+      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || (currentCoursePoints + (updates[`progress.${id}.points`] ? 10 : 0))) || 0) + bonus;
     }
     
     if (Object.keys(updates).length > 0) {
       updateDoc(userRef, updates).catch((err) => {
+        console.error("Firestore Update Error:", err);
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: userRef.path,
           operation: 'update',
@@ -396,7 +388,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (currentLesson.type === "video") {
       setTimeout(goToNext, 2500);
     }
-  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, allCompletedIds]);
+  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
   const CurriculumContent = () => (
     <div className="space-y-6" dir="rtl">
@@ -446,7 +438,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  if (courseLoading || lessonsLoading || userLoading) {
+  if (courseLoading || lessonsLoading || userLoading || !selectedLessonId && !isFinishing) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
