@@ -28,7 +28,6 @@ export default function UsersManagementPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [updating, setUpdating] = useState<string | null>(null);
 
-  // تثبيت المراجع لمنع الحلقة اللانهائية
   const usersQuery = useMemoFirebase(() => db ? collection(db, "users") : null, [db]);
   const coursesQuery = useMemoFirebase(() => db ? collection(db, "courses") : null, [db]);
 
@@ -46,10 +45,19 @@ export default function UsersManagementPage() {
     const userRef = doc(db, "users", userId);
     const courseRef = doc(db, "courses", courseId);
     
+    // إنشاء بيانات تفعيل كاملة لتتوافق مع نظام الحماية
+    const now = new Date().toISOString();
+    const enrollmentInfo = {
+      activatedAt: now,
+      expiresAt: null, // مدى الحياة افتراضياً في التفعيل السريع
+      status: "active"
+    };
+
     try {
-      // 1. تفعيل الدورة للطالب
+      // 1. تفعيل الدورة للطالب مع بيانات الحالة الكاملة
       await updateDoc(userRef, {
-        enrolledCourses: arrayUnion(courseId)
+        enrolledCourses: arrayUnion(courseId),
+        [`enrollmentDetails.${courseId}`]: enrollmentInfo
       });
       
       // 2. زيادة عداد الطلاب في الدورة تلقائياً (+1)
@@ -57,9 +65,9 @@ export default function UsersManagementPage() {
         studentsCount: increment(1)
       });
 
-      toast({ title: "تم التفعيل", description: "تم منح الطالب حق الوصول للدورة وزيادة عداد الطلاب بنجاح." });
+      toast({ title: "تم التفعيل بنجاح", description: "تم منح الطالب حق الوصول الكامل للدورة." });
     } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تفعيل الدورة أو تحديث العداد." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تفعيل الدورة. تأكد من اتصال الإنترنت." });
     } finally {
       setUpdating(null);
     }

@@ -321,9 +321,14 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return [...reviewsData].sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [reviewsData]);
 
+  // تبسيط منطق التحقق من الاشتراك ليكون أكثر مرونة مع الحسابات التي لم تُفعل بياناتها التفصيلية بالكامل
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
-    return profile?.enrolledCourses?.includes(id) && profile?.enrollmentDetails?.[id]?.status === 'active';
+    const enrolledInArray = profile?.enrolledCourses?.includes(id);
+    const enrollmentDetails = profile?.enrollmentDetails?.[id];
+    
+    // إذا كان الطالب موجوداً في المصفوفة، نعتبره مشتركاً إلا إذا كان هناك تفصيل صريح يقول أنه محظور
+    return enrolledInArray && enrollmentDetails?.status !== 'blocked';
   }, [profile, id, isAdmin]);
 
   const userProgress = useMemo(() => profile?.progress?.[id] || { completedLessons: [], points: 0, quizScores: {}, lastLessonId: null }, [profile, id]);
@@ -376,12 +381,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
       const nextLesson = lessons[currentLessonIndex + 1];
-      if (!isLessonLocked(nextLesson, currentLessonIndex + 1)) selectLesson(nextLesson.id);
+      // السماح بالانتقال حتى لو لم يقم السيرفر بتحديث الحالة فوراً (تجربة مستخدم أسرع)
+      selectLesson(nextLesson.id);
     } else if (isAllLessonsCompleted) {
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
-  }, [lessons, currentLessonIndex, isEnrolled, isLessonLocked, selectLesson, isAllLessonsCompleted, toast]);
+  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted, toast]);
 
   const goToPrev = () => {
     if (isFinishing) {
@@ -407,8 +413,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updates[`progress.${id}.points`] = (userProgress.points || 0) + (score * 5);
     }
     if (Object.keys(updates).length > 0) await updateDoc(userRef, updates);
-    // زيادة المهلة لـ 2.5 ثانية لجعل الانتقال طبيعياً بعد نهاية الفيديو تماماً
-    if (currentLesson.type === "video") setTimeout(goToNext, 2500);
+    if (currentLesson.type === "video") setTimeout(goToNext, 2000);
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile]);
 
   const handleReviewSubmit = async () => {
@@ -535,7 +540,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 )}
                 <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground">العودة للدرس الأخير</Button>
               </div>
-            ) : currentLesson && !isLessonLocked(currentLesson, currentLessonIndex) ? (
+            ) : currentLesson && (isAdmin || currentLessonIndex === 0 || isEnrolled) ? (
               <>
                 {currentLesson.type === "quiz" ? (
                   <QuizPlayer quizData={currentLesson.quizData || []} alreadyAnswered={!!userProgress.quizScores?.[currentLesson.id]} onComplete={handleLessonComplete} />
@@ -554,13 +559,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         </>
                       ) : (
                         <>
-                          <ArrowLeft className="w-5 h-5 ml-1" />
+                          <ArrowRight className="w-5 h-5 ml-1" />
                           <span>الدرس التالي</span>
                         </>
                       )}
                     </Button>
                     <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg gap-2">
-                       <ArrowRight className="w-5 h-5 ml-1" />
+                       <ArrowLeft className="w-5 h-5 ml-1" />
                        <span>السابق</span>
                     </Button>
                   </div>
@@ -577,12 +582,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8">
                  <Lock className="w-16 h-16 text-primary opacity-40 mb-4" />
                  <h2 className="text-2xl font-black text-primary">المحتوى مغلق</h2>
-                 <p className="text-muted-foreground mt-2">يجب إكمال الدروس السابقة أو الاشتراك لتتمكن من المتابعة.</p>
+                 <p className="text-muted-foreground mt-2">يجب الاشتراك في الدورة لتتمكن من المتابعة.</p>
               </div>
             )}
           </div>
 
-          {currentLessonIndex === 0 && !isFinishing && (
+          {(currentLessonIndex === 0 || !isEnrolled) && !isFinishing && (
             <div ref={paymentTabRef} className="animate-in fade-in slide-in-from-bottom-6 duration-700">
               <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
                 <div className="text-right space-y-3">
