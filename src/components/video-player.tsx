@@ -33,7 +33,9 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const [playbackRate, setPlaybackRate] = useState("1");
+  
+  // نظام السرعات الثلاثي: 1.0, 1.25, 1.5
+  const [playbackRate, setPlaybackRate] = useState(1);
   
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -100,7 +102,8 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
             onReady: (event: any) => {
               setIsReady(true);
               setDuration(event.target.getDuration());
-              event.target.setPlaybackRate(parseFloat(playbackRate));
+              // ضبط السرعة عند الجاهزية
+              event.target.setPlaybackRate(playbackRate);
             },
             onStateChange: (event: any) => {
               if (event.data === window.YT.PlayerState.PLAYING) {
@@ -158,7 +161,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls]);
+  }, [videoId, showControls, playbackRate]);
 
   const handleTogglePlay = (e?: any) => {
     e?.stopPropagation();
@@ -204,11 +207,16 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     setCurrentTime(time);
   };
 
+  // وظيفة تبديل السرعة الثلاثية
   const toggleSpeed = () => {
-    const nextSpeed = playbackRate === "1" ? "1.5" : "1";
-    setPlaybackRate(nextSpeed);
+    let nextRate = 1;
+    if (playbackRate === 1) nextRate = 1.25;
+    else if (playbackRate === 1.25) nextRate = 1.5;
+    else nextRate = 1;
+
+    setPlaybackRate(nextRate);
     if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
-      playerRef.current.setPlaybackRate(parseFloat(nextSpeed));
+      playerRef.current.setPlaybackRate(nextRate);
     }
   };
 
@@ -285,13 +293,15 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
               </div>
 
               <div className="flex items-center gap-2 md:gap-4">
-                {/* زر السرعة - تبديل مباشر يضمن العمل في وضع ملء الشاشة */}
+                {/* زر السرعة الجديد بثلاث خيارات */}
                 <button 
                   onClick={toggleSpeed}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/5"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5 active:scale-95"
                 >
-                  <Gauge className="w-4 h-4" />
-                  <span className="text-[10px] md:text-xs font-black">{playbackRate}x</span>
+                  <Gauge className="w-4 h-4 text-secondary" />
+                  <span className="text-[10px] md:text-xs font-black min-w-[30px]">
+                    {playbackRate === 1 ? 'عادي' : playbackRate + 'x'}
+                  </span>
                 </button>
 
                 <button className="text-white hover:text-secondary p-1" onClick={handleToggleMute}>

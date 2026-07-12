@@ -3,46 +3,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // --- وظائف الحماية الأساسية ---
-    
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // التحقق من الرتبة بشكل مباشر لتجنب التعقيد والدوران البرمجي
     function isAdmin() {
       return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // السماح للطالب بتغيير بيانات التعلم فقط (التقدم، النقاط، الهاتف، الصورة)
-    // ومنعه من تغيير الحقول السيادية (الرتبة، الحالة، الاشتراك، الايميل، المعرف)
     function isNotModifyingAdminFields() {
-      let adminFields = [
-        'role', 'status', 'enrolledCourses', 'uid', 'email', 'createdAt'
-      ];
-      // diff(resource.data).affectedKeys() تضمن أننا نفحص فقط الحقول التي تغيرت
+      let adminFields = ['role', 'status', 'enrolledCourses', 'uid', 'email', 'createdAt'];
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(adminFields);
     }
 
-    // --- القواعد المخصصة للمجموعات ---
-
     match /users/{userId} {
-      allow read: if isAuthenticated() && (
-        request.auth.uid == userId || 
-        isAdmin() || 
-        resource.data.showInLeaderboard == true
-      );
-      
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || resource.data.showInLeaderboard == true);
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      
-      // التحديث: المدير يغير كل شيء، الطالب يغير بياناته التعليمية والشخصية فقط
-      allow update: if isAdmin() || (
-        isAuthenticated() && 
-        request.auth.uid == userId && 
-        isNotModifyingAdminFields()
-      );
-      
+      // السماح للطالب بتعديل نقاطه وتقدمه (progress) وهاتفه وصورته
+      allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingAdminFields());
       allow delete: if isAdmin();
     }
 
@@ -54,48 +33,13 @@ service cloud.firestore {
         allow write: if isAdmin();
       }
     }
-
-    match /books/{bookId} {
-      allow read: if true;
-      allow write: if isAdmin();
-      match /chapters/{chapterId} {
-        allow read: if true;
-        allow write: if isAdmin();
-      }
-    }
-
-    match /certificates/{certId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /instructors/{instructorId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
-    }
-
-    match /bankAccounts/{accountId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /subscriptions/{subId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /trash/{trashId} {
-      allow read, write: if isAdmin();
-    }
-
-    match /socialLinks/{linkId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
+    
+    match /subscriptions/{subId} { allow read, write: if isAdmin(); }
+    match /bankAccounts/{accountId} { allow read: if true; allow write: if isAdmin(); }
+    match /books/{bookId} { allow read: if true; allow write: if isAdmin(); }
+    match /reviews/{reviewId} { allow read: if true; allow create: if isAuthenticated(); allow update, delete: if isAdmin(); }
+    match /socialLinks/{linkId} { allow read: if true; allow write: if isAdmin(); }
+    match /trash/{trashId} { allow read, write: if isAdmin(); }
+    match /certificates/{certId} { allow read: if true; allow write: if isAdmin(); }
   }
 }
