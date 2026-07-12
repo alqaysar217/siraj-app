@@ -204,7 +204,7 @@ function AddCertificateForm() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent dir="rtl">
-                      <SelectItem value="excellent">امتياز (Excellent)</SelectItem>
+                      <SelectItem value="excellent">ممتاز جداً (Excellent)</SelectItem>
                       <SelectItem value="very_good">جيد جداً (Very Good)</SelectItem>
                       <SelectItem value="good">جيد (Good)</SelectItem>
                       <SelectItem value="pass">مقبول (Pass)</SelectItem>
@@ -244,7 +244,7 @@ function AddCertificateForm() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent dir="ltr">
-                        <SelectItem value="https://siraj-app.vercel.app">https://siraj-app.vercel.app (الأساسي)</SelectItem>
+                        <SelectItem value="https://siraj-app.vercel.app">https://siraj-app.vercel.app</SelectItem>
                         <SelectItem value="custom">إضافة رابط جديد...</SelectItem>
                       </SelectContent>
                     </Select>

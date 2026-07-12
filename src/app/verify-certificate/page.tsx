@@ -92,7 +92,13 @@ function VerificationContent() {
     if (isScanning && typeof window !== 'undefined') {
       const loadScanner = async () => {
         const { Html5QrcodeScanner } = await import("html5-qrcode");
-        scanner = new Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: 220, aspectRatio: 1.0 }, false);
+        // ضبط constraints لتفضيل الكاميرا الخلفية
+        scanner = new Html5QrcodeScanner("qr-reader", { 
+          fps: 15, 
+          qrbox: 220, 
+          aspectRatio: 1.0,
+          videoConstraints: { facingMode: "environment" }
+        }, false);
         scanner.render((decodedText: string) => {
           let finalId = decodedText;
           if (decodedText.includes("?id=")) finalId = decodedText.split("?id=")[1];
@@ -109,7 +115,7 @@ function VerificationContent() {
 
   const getGradeArabic = (grade: string) => {
     const grades: Record<string, string> = {
-      excellent: "ممتاز",
+      excellent: "ممتاز جداً",
       very_good: "جيد جداً",
       good: "جيد",
       pass: "مقبول"
@@ -136,62 +142,64 @@ function VerificationContent() {
     const isExcellence = certificate.certificateType === 'excellence';
     
     return (
-      <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-10 fade-in duration-700 pb-10 px-2">
-        <header className="text-center space-y-4">
-           <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner luxury-shadow border-4 border-white", isExcellence ? "bg-secondary text-white" : "bg-green-50 text-green-600")}>
-              {isExcellence ? <Trophy className="w-12 h-12" /> : <CheckCircle2 className="w-12 h-12" />}
+      <div className="max-w-2xl mx-auto space-y-6 animate-in slide-in-from-bottom-10 fade-in duration-700 pb-10 px-4">
+        <header className="text-center space-y-4 pt-4">
+           <div className={cn("w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center mx-auto shadow-inner luxury-shadow border-4 border-white", isExcellence ? "bg-secondary text-white" : "bg-green-50 text-green-600")}>
+              {isExcellence ? <Trophy className="w-8 h-8 md:w-12 md:h-12" /> : <CheckCircle2 className="w-8 h-8 md:w-12 md:h-12" />}
            </div>
-           <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">إفادة توثيق رقمية معتمدة</h2>
+           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">إفادة توثيق رقمية معتمدة</h2>
         </header>
 
-        <Card className="rounded-[2.5rem] border-none luxury-shadow overflow-hidden bg-white relative">
+        <Card className="rounded-[2rem] md:rounded-[2.5rem] border-none luxury-shadow overflow-hidden bg-white relative">
           <div className={cn("absolute top-0 left-0 right-0 h-2 opacity-80", isExcellence ? "bg-gradient-to-l from-secondary via-yellow-400 to-secondary" : "bg-gradient-to-l from-primary via-secondary to-primary")} />
           
           <CardContent className="p-6 md:p-12 space-y-8">
-            <div className="bg-muted/30 p-6 md:p-10 rounded-[2.5rem] border border-primary/5 text-center relative overflow-hidden">
-               <ShieldCheck className="absolute -bottom-10 -right-10 w-48 h-40 text-primary/5 -rotate-12" />
+            <div className="bg-muted/30 p-5 md:p-10 rounded-[1.5rem] md:rounded-[2.5rem] border border-primary/5 text-center relative overflow-hidden">
+               <ShieldCheck className="absolute -bottom-10 -right-10 w-32 h-28 md:w-48 md:h-40 text-primary/5 -rotate-12" />
                
-               {isExcellence ? (
-                 <p className="text-lg md:text-xl leading-[2] text-primary font-medium relative z-10">
-                    "تمنح منصة سراج التعليمية <span className="text-secondary font-black">وسام التفوق العلمي</span> للطالب/ة <br />
-                    <span className="font-black text-secondary text-3xl block my-3 drop-shadow-sm">{certificate.studentNameAr}</span> 
-                    تقديراً لأدائه/ا الاستثنائي في الدورة التدريبية <br />
-                    <span className="font-black text-primary text-xl md:text-2xl block my-2">{certificate.courseTitle}</span> 
-                    حيث أظهر/ت تميزاً فائقاً في إنهاء المنهج واجتياز التقاويم والتمارين العملية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> بتاريخ <span className="font-black" dir="ltr">{certificate.issueDate}</span>."
-                 </p>
-               ) : (
-                 <p className="text-lg md:text-xl leading-[2] text-primary font-medium relative z-10">
-                    "تشهد منصة سراج التعليمية بأن الطالب/ة <br />
-                    <span className="font-black text-secondary text-3xl block my-3 drop-shadow-sm">{certificate.studentNameAr}</span> 
-                    قد أتم/ت بنجاح كافة متطلبات الدورة التدريبية <br />
-                    <span className="font-black text-primary text-xl md:text-2xl block my-2">{certificate.courseTitle}</span> 
-                    بما في ذلك مشاهدة المحاضرات واجتياز الاختبارات التقويمية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> في تاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>."
-                 </p>
-               )}
+               <div className="space-y-4 md:space-y-6 relative z-10">
+                 {isExcellence ? (
+                   <div className="text-sm md:text-xl leading-relaxed md:leading-[2] text-primary font-medium">
+                      "تمنح منصة سراج التعليمية <span className="text-secondary font-black">وسام التفوق العلمي</span> للطالب/ة <br />
+                      <span className="font-black text-secondary text-2xl md:text-4xl block my-2 md:my-4 drop-shadow-sm">{certificate.studentNameAr}</span> 
+                      تقديراً لأدائه/ا الاستثنائي في الدورة التدريبية <br />
+                      <span className="font-black text-primary text-lg md:text-2xl block my-1 md:my-2">{certificate.courseTitle}</span> 
+                      حيث أظهر/ت تميزاً فائقاً في إنهاء المنهج واجتياز التقاويم والتمارين العملية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> بتاريخ <span className="font-black" dir="ltr">{certificate.issueDate}</span>."
+                   </div>
+                 ) : (
+                   <div className="text-sm md:text-xl leading-relaxed md:leading-[2] text-primary font-medium">
+                      "تشهد منصة سراج التعليمية بأن الطالب/ة <br />
+                      <span className="font-black text-secondary text-2xl md:text-4xl block my-2 md:my-4 drop-shadow-sm">{certificate.studentNameAr}</span> 
+                      قد أتم/ت بنجاح كافة متطلبات الدورة التدريبية <br />
+                      <span className="font-black text-primary text-lg md:text-2xl block my-1 md:my-2">{certificate.courseTitle}</span> 
+                      بما في ذلك مشاهدة المحاضرات واجتياز الاختبارات التقويمية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> في تاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>."
+                   </div>
+                 )}
+               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-               <div className="p-4 bg-primary/5 rounded-2xl border border-primary/5 flex flex-col items-center justify-center text-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Hash className="w-4 h-4" /></div>
+               <div className="p-3 md:p-4 bg-primary/5 rounded-2xl border border-primary/5 flex flex-col items-center justify-center text-center gap-2">
+                  <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Hash className="w-3.5 h-3.5 md:w-4 md:h-4" /></div>
                   <div>
-                     <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">رقم السجل</p>
-                     <p className="text-[10px] md:text-xs font-black text-primary">{certificate.certificateId}</p>
+                     <p className="text-[7px] md:text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">رقم السجل</p>
+                     <p className="text-[9px] md:text-xs font-black text-primary truncate max-w-[100px]">{certificate.certificateId}</p>
                   </div>
                </div>
-               <div className="p-4 bg-primary/5 rounded-2xl border border-primary/5 flex flex-col items-center justify-center text-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Star className="w-4 h-4" /></div>
+               <div className="p-3 md:p-4 bg-primary/5 rounded-2xl border border-primary/5 flex flex-col items-center justify-center text-center gap-2">
+                  <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Star className="w-3.5 h-3.5 md:w-4 md:h-4" /></div>
                   <div>
-                     <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">التقدير العام</p>
-                     <p className="text-[10px] md:text-xs font-black text-primary">{getGradeArabic(certificate.grade)}</p>
+                     <p className="text-[7px] md:text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">التقدير العام</p>
+                     <p className="text-[9px] md:text-xs font-black text-primary">{getGradeArabic(certificate.grade)}</p>
                   </div>
                </div>
             </div>
             
             <div className="flex flex-col items-center gap-3 pt-6 border-t border-primary/5">
-               <div className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-full text-[10px] font-black shadow-xl">
-                  <BadgeCheck className="w-4 h-4 text-secondary" /> سجل رقمي موثق ومعتمد
+               <div className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-full text-[9px] md:text-[10px] font-black shadow-xl">
+                  <BadgeCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-secondary" /> سجل رقمي موثق ومعتمد
                </div>
-               <p className="text-[9px] text-muted-foreground font-bold text-center">تعتبر هذه الوثيقة رسمية وصادرة إلكترونياً من نظام التوثيق في سراج</p>
+               <p className="text-[8px] md:text-[9px] text-muted-foreground font-bold text-center">تعتبر هذه الوثيقة رسمية وصادرة إلكترونياً من نظام التوثيق في سراج</p>
             </div>
           </CardContent>
         </Card>
