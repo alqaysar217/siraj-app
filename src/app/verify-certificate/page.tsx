@@ -149,7 +149,7 @@ function VerificationContent() {
            <h2 className="text-xl md:text-3xl font-black text-primary font-headline uppercase tracking-tight">إفادة توثيق رقمية معتمدة</h2>
         </header>
 
-        <Card className="rounded-[2.5rem] md:rounded-[3rem] border-none luxury-shadow overflow-hidden bg-white relative">
+        <Card className="rounded-[2.5rem] md:rounded-[3rem] border-none luxury-shadow overflow-hidden bg-white relative text-right" dir="rtl">
           <div className={cn("absolute top-0 left-0 right-0 h-2 opacity-80", isExcellence ? "bg-gradient-to-l from-secondary via-yellow-400 to-secondary" : "bg-gradient-to-l from-primary via-secondary to-primary")} />
           
           <CardContent className="p-6 md:p-14 space-y-8">
@@ -158,22 +158,22 @@ function VerificationContent() {
                
                <div className="space-y-6 md:space-y-8 relative z-10">
                  {isExcellence ? (
-                   <div className="text-sm md:text-xl leading-loose md:leading-[2.2] text-primary font-medium">
-                      "تمنح منصة سراج التعليمية <span className="text-secondary font-black">وسام التفوق العلمي</span> للطالب/ة: <br />
-                      <span className="font-black text-secondary text-2xl md:text-4xl block my-4 md:my-6 drop-shadow-sm">{certificate.studentNameAr}</span> 
+                   <div className="text-sm md:text-xl leading-relaxed md:leading-[2.2] text-primary font-medium">
+                      تمنح منصة سراج التعليمية <span className="text-secondary font-black">وسام التفوق العلمي</span> للطالب/ة: <br />
+                      <span className="font-black text-secondary text-xl md:text-4xl block my-3 md:my-6 drop-shadow-sm leading-tight px-2">{certificate.studentNameAr}</span> 
                       تقديراً لتميزه/ا الاستثنائي في الدورة التدريبية: <br />
-                      <span className="font-black text-primary text-xl md:text-3xl block my-3 md:my-4">{certificate.courseTitle}</span> 
+                      <span className="font-black text-primary text-lg md:text-3xl block my-2 md:my-4 leading-tight">{certificate.courseTitle}</span> 
                       حيث أظهر/ت كفاءة فائقة في إنهاء المنهج واجتياز التطبيقات العملية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> <br /> 
-                      بتاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>."
+                      بتاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>
                    </div>
                  ) : (
-                   <div className="text-sm md:text-xl leading-loose md:leading-[2.2] text-primary font-medium">
-                      "تشهد منصة سراج التعليمية بأن الطالب/ة: <br />
-                      <span className="font-black text-secondary text-2xl md:text-4xl block my-4 md:my-6 drop-shadow-sm">{certificate.studentNameAr}</span> 
+                   <div className="text-sm md:text-xl leading-relaxed md:leading-[2.2] text-primary font-medium">
+                      تشهد منصة سراج التعليمية بأن الطالب/ة: <br />
+                      <span className="font-black text-secondary text-xl md:text-4xl block my-3 md:my-6 drop-shadow-sm leading-tight px-2">{certificate.studentNameAr}</span> 
                       قد أتم/ت بنجاح كافة متطلبات الدورة التدريبية: <br />
-                      <span className="font-black text-primary text-xl md:text-3xl block my-3 md:my-4">{certificate.courseTitle}</span> 
+                      <span className="font-black text-primary text-lg md:text-3xl block my-2 md:my-4 leading-tight">{certificate.courseTitle}</span> 
                       بما في ذلك مشاهدة المحاضرات واجتياز الاختبارات التقويمية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> <br /> 
-                      بتاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>."
+                      بتاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>
                    </div>
                  )}
                </div>
