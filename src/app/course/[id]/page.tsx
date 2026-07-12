@@ -33,8 +33,7 @@ import {
   Building2,
   Check,
   ArrowLeft,
-  ArrowRight,
-  ChevronLeft
+  ArrowRight
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, orderBy, updateDoc, arrayUnion } from "firebase/firestore";
@@ -133,7 +132,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         <div className="space-y-2">
           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">تقويم الوحدة التعليمية</h2>
           <p className="text-muted-foreground text-sm md:text-lg leading-relaxed max-w-lg mx-auto">
-            تنبيه: يتم احتساب نقاط هذا تقويم من أول محاولة إجابة فقط. يمكنك إعادة التقويم لاحقاً للمراجعة، ولكن لن تمنح نقاطاً إضافية.
+            تنبيه: يتم احتساب نقاط هذا تقويم من أول محاولة إجابة فقط.
           </p>
         </div>
         <Button onClick={() => setStarted(true)} className="h-14 px-12 rounded-2xl bg-primary text-white font-bold text-lg shadow-lg">
@@ -155,9 +154,8 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         <div className="space-y-4">
           <div className="space-y-1">
             <h2 className="text-2xl md:text-4xl font-black text-primary font-headline">
-              {isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة، يمكنك التحسن"}
+              {isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة"}
             </h2>
-            <p className="text-muted-foreground font-bold">{isSuccess ? "لقد اجتزت هذا التقويم بنجاح متميز" : "نصيحة: راجع محتوى الوحدة مرة أخرى لتعزيز فهمك"}</p>
           </div>
           <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
              <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
@@ -169,20 +167,10 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
                 <p className="text-2xl font-black text-secondary">{pointsEarned}</p>
              </div>
           </div>
-          {alreadyAnswered && (
-            <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex items-center gap-3 text-right">
-              <AlertCircle className="w-5 h-5 text-orange-600 shrink-0" />
-              <p className="text-[10px] text-orange-800 font-bold leading-relaxed">
-                تنبيه: هذه النتيجة للمراجعة فقط. لم يتم إضافة نقاط جديدة لأنك أتممت التقويم مسبقاً.
-              </p>
-            </div>
-          )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <Button onClick={reset} variant="outline" className="gap-2 rounded-2xl h-14 px-10 font-black border-primary/10 hover:bg-primary/5">
-            <RotateCcw className="w-5 h-5" /> مراجعة التقويم ثانية
-          </Button>
-        </div>
+        <Button onClick={reset} variant="outline" className="gap-2 rounded-2xl h-14 px-10 font-black border-primary/10">
+          <RotateCcw className="w-5 h-5" /> مراجعة التقويم ثانية
+        </Button>
       </div>
     );
   }
@@ -190,15 +178,10 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
   const q = quizData[currentStep];
 
   return (
-    <div className="bg-card p-5 md:p-12 rounded-[2rem] border border-border luxury-shadow space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="bg-card p-5 md:p-12 rounded-[2rem] border border-border luxury-shadow space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center border-b border-border/50 pb-6">
-        <div className="flex items-center gap-3 text-right" dir="rtl">
-          <div className="p-3 bg-secondary/10 rounded-xl text-secondary">
-            <ClipboardList className="w-6 h-6" />
-          </div>
-          <span className="text-lg md:text-2xl font-black text-primary font-headline">تقويم الوحدة التعليمية</span>
-        </div>
-        <span className="text-[10px] md:text-xs font-black bg-primary/5 text-primary px-3 md:px-4 py-1.5 rounded-full">سؤال {currentStep + 1} من {quizData.length}</span>
+        <span className="text-lg md:text-2xl font-black text-primary font-headline">تقويم الوحدة</span>
+        <span className="text-[10px] font-black bg-primary/5 text-primary px-3 py-1.5 rounded-full">سؤال {currentStep + 1} من {quizData.length}</span>
       </div>
       <div className="space-y-8 text-right" dir="rtl">
         <h3 className="text-lg md:text-3xl font-black text-primary leading-tight">{q.question}</h3>
@@ -210,45 +193,18 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
                 key={i} 
                 onClick={() => handleAnswer(opt)}
                 className={cn(
-                  "flex items-center justify-between p-4 md:p-6 rounded-2xl border-2 transition-all duration-300 text-right group",
-                  isSelected 
-                  ? "border-secondary bg-secondary/5 shadow-md scale-[1.01]" 
-                  : "border-muted hover:border-secondary/20 hover:bg-muted/20"
+                  "flex items-center justify-between p-4 md:p-6 rounded-2xl border-2 transition-all duration-300 text-right",
+                  isSelected ? "border-secondary bg-secondary/5 shadow-md" : "border-muted hover:border-secondary/20"
                 )}>
-                <div className="flex items-center gap-4 flex-1">
-                  <div className={cn(
-                    "w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-all",
-                    isSelected ? "bg-secondary text-white shadow-lg" : "bg-muted text-muted-foreground group-hover:bg-primary/5"
-                  )}>
-                    {q.type === "true-false" ? (
-                      opt === "صح" ? <CheckCircle2 className="w-6 h-6" /> : <XCircle className="w-6 h-6" />
-                    ) : (
-                      <span className="font-black text-xs md:text-sm">{String.fromCharCode(65 + i)}</span>
-                    )}
-                  </div>
-                  <span className={cn(
-                    "text-sm md:text-xl font-bold transition-colors",
-                    isSelected ? "text-primary" : "text-muted-foreground"
-                  )}>{opt}</span>
-                </div>
-                <div className={cn(
-                  "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                  isSelected ? "border-secondary bg-secondary" : "border-muted"
-                )}>
-                   {isSelected && <Check className="w-4 h-4 text-white stroke-[4]" />}
-                </div>
+                <span className={cn("text-sm md:text-xl font-bold", isSelected ? "text-primary" : "text-muted-foreground")}>{opt}</span>
+                <div className={cn("w-6 h-6 rounded-full border-2", isSelected ? "border-secondary bg-secondary" : "border-muted")} />
               </button>
             );
           })}
         </div>
       </div>
-      <Button 
-        disabled={!answers[currentStep]} 
-        onClick={next} 
-        className="w-full h-14 md:h-16 bg-primary text-white rounded-2xl text-lg md:text-xl font-black shadow-xl shadow-primary/10 transition-transform active:scale-95"
-      >
-        <ArrowRight className="ml-3 w-5 h-5 md:w-6 md:h-6" />
-        {currentStep === quizData.length - 1 ? "إنهاء واستعراض النتيجة" : "تأكيد الإجابة والانتقال"}
+      <Button disabled={!answers[currentStep]} onClick={next} className="w-full h-14 bg-primary text-white rounded-2xl text-lg font-black">
+        {currentStep === quizData.length - 1 ? "إنهاء النتيجة" : "التالي"}
       </Button>
     </div>
   );
@@ -293,15 +249,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // المزامنة الحقيقية: الانتظار حتى اكتمال تحميل البروفايل من السيرفر قبل تحديد أي شيء
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
       const savedProgress = profile.progress?.[id] || {};
       const lastId = savedProgress.lastLessonId;
-      
-      // نبدأ من آخر درس شاهده الطالب أو من الدرس الأول
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-      
       setSelectedLessonId(startId);
       setLocalCompleted(savedProgress.completedLessons || []);
       hasInitializedRef.current = true;
@@ -320,7 +272,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
     if (!isEnrolled) return true;
-    // الدرس مقفل إذا لم يكتمل الدرس السابق له
     return !allCompletedIds.includes(lessons?.[index - 1]?.id);
   }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
 
@@ -354,45 +305,34 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
-    // تحديث الحالة المحلية فوراً
     if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
-    // تحديث قاعدة البيانات
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
     const currentTotalPoints = Number(profile.points || 0);
     const currentCoursePoints = Number(userProgress.points || 0);
     
-    // 1. تسجيل إكمال الدرس (10 نقاط)
     if (!userProgress.completedLessons?.includes(lessonId)) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
       updates[`points`] = currentTotalPoints + 10;
       updates[`progress.${id}.points`] = currentCoursePoints + 10;
     }
     
-    // 2. تسجيل درجة الاختبار (إذا وجد)
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       const bonus = score * 5;
-      const runningTotal = Number(updates.points || currentTotalPoints);
-      const runningCourseTotal = Number(updates[`progress.${id}.points`] || currentCoursePoints);
-      
-      updates[`points`] = runningTotal + bonus;
-      updates[`progress.${id}.points`] = runningCourseTotal + bonus;
+      updates[`points`] = (updates.points || currentTotalPoints) + bonus;
+      updates[`progress.${id}.points`] = (updates[`progress.${id}.points`] || currentCoursePoints) + bonus;
     }
     
     if (Object.keys(updates).length > 0) {
-      try {
-        await updateDoc(userRef, updates);
-      } catch (err) {
-        console.error("Failed to save progress to server:", err);
-      }
+      updateDoc(userRef, updates).catch(() => {});
     }
     
     if (currentLesson.type === "video") {
-      setTimeout(goToNext, 2500);
+      setTimeout(goToNext, 2000);
     }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
@@ -409,11 +349,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
         ).map(([unitTitle, unitLessons]: [string, any], uIdx) => (
           <AccordionItem key={unitTitle} value={`unit-${uIdx}`} className="border rounded-2xl overflow-hidden bg-card border-primary/5">
             <AccordionTrigger className="hover:no-underline py-5 px-5 bg-muted/20 text-right [&[data-state=open]>svg]:rotate-180">
-              <div className="flex items-center gap-4 text-right flex-row">
+              <div className="flex items-center gap-4 text-right">
                 <div className="p-2.5 bg-primary text-white rounded-xl shadow-md shrink-0"><BookOpen className="w-5 h-5" /></div>
                 <div className="text-right flex-1">
                   <h4 className="text-base font-black text-primary">{unitTitle}</h4>
-                  <p className="text-[10px] text-muted-foreground font-bold">{unitLessons.length} عناصر تعليمية</p>
+                  <p className="text-[10px] text-muted-foreground font-bold">{unitLessons.length} عناصر</p>
                 </div>
               </div>
             </AccordionTrigger>
@@ -426,11 +366,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 return (
                   <button key={lesson.id} disabled={isLocked} onClick={() => { selectLesson(lesson.id); setIsCurriculumOpen(false); }}
                     className={cn("w-full text-right p-4 rounded-xl flex items-center justify-between transition-all", isActive ? "bg-secondary text-white shadow-lg scale-[1.02]" : "hover:bg-primary/5", isLocked && "opacity-40")}>
-                    <div className="flex items-center gap-4 text-right flex-row">
+                    <div className="flex items-center gap-4 text-right">
                       <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0", isActive ? "bg-white/20" : "bg-muted text-primary")}>{lIdx + 1}</div>
                       <div className="text-right flex-1">
                         <div className="text-sm font-bold">{lesson.title}</div>
-                        <div className="text-[10px] opacity-70 flex items-center gap-1 mt-1 font-bold"><Clock className="w-3.5 h-3.5" /> {lesson.duration} دقيقة</div>
                       </div>
                     </div>
                     <div className="shrink-0">{isLocked ? <Lock className="w-4 h-4 opacity-50" /> : isDone ? <CheckCircle2 className="w-5 h-5 text-green-500" /> : <PlayCircle className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />}</div>
@@ -467,12 +406,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             {isFinishing ? (
               <div className="bg-white p-6 md:p-16 rounded-[2rem] border-4 border-green-500/10 text-center space-y-8 luxury-shadow animate-in zoom-in duration-500">
                 <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto"><PartyPopper className="w-12 h-12 text-green-600" /></div>
-                <h2 className="text-3xl md:text-5xl font-black text-green-800 font-headline">مبارك لك الإنجاز!</h2>
-                <div className="bg-primary/5 p-8 rounded-[2.5rem] max-w-2xl mx-auto space-y-6">
-                   <p className="font-bold text-primary">لقد أتممت كافة دروس الدورة بنجاح. تواصل معنا لإصدار شهادتك الموثقة.</p>
-                   <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أتممت دورة ${course?.title} وأرغب في الشهادة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black"><MessageCircle className="w-6 h-6 ml-2" /> طلب الشهادة عبر واتساب</Button>
-                </div>
-                <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground">العودة للدرس الأخير</Button>
+                <h2 className="text-3xl font-black text-green-800 font-headline">مبارك لك الإنجاز!</h2>
+                <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أتممت دورة ${course?.title} وأرغب في الشهادة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black">طلب الشهادة عبر واتساب</Button>
+                <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground block mx-auto">العودة للدرس الأخير</Button>
               </div>
             ) : currentLesson && (isAdmin || currentLessonIndex === 0 || isEnrolled) ? (
               <>
@@ -490,7 +426,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       <span>{(!isEnrolled && currentLessonIndex === 0) ? "اشترك لفتح البقية" : "الدرس التالي"}</span>
                     </Button>
                     <Button onClick={goToPrev} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg gap-2">
-                       <ArrowLeft className="w-5 h-5 ml-1" />
                        <span>السابق</span>
                     </Button>
                   </div>
@@ -498,10 +433,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <SheetTrigger asChild><Button variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> المنهج الدراسي</Button></SheetTrigger>
                     <SheetContent side="right" className="w-[90%] sm:max-w-md p-0 overflow-y-auto" dir="rtl">
                       <SheetHeader className="p-8 border-b text-right bg-muted/10">
-                        <div className="flex items-center justify-between">
-                          <SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle>
-                          <SheetClose asChild className="p-2 hover:bg-primary/5 rounded-lg cursor-pointer"><XCircle className="w-6 h-6" /></SheetClose>
-                        </div>
+                        <SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle>
                       </SheetHeader>
                       <div className="p-6"><CurriculumContent /></div>
                     </SheetContent>
@@ -512,7 +444,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8">
                  <Lock className="w-16 h-16 text-primary opacity-40 mb-4" />
                  <h2 className="text-2xl font-black text-primary">المحتوى مغلق</h2>
-                 <p className="text-muted-foreground mt-2">يجب الاشتراك في الدورة لتتمكن من المتابعة.</p>
               </div>
             )}
           </div>
@@ -522,29 +453,22 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
                 <div className="text-right space-y-3">
                   <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{course?.title}</h1>
-                  <p className="text-base md:text-lg text-muted-foreground leading-relaxed">{course?.description}</p>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { label: "الطلاب", val: course?.studentsCount, icon: Users },
                     { label: "التقييم", val: course?.rating, icon: Star },
                     { label: "المستوى", val: getLevelName(course?.level || "beginner"), icon: Layers },
                     { label: "الشهادة", val: course?.hasCertificate ? "متاحة" : "غير متوفرة", icon: Award },
                   ].map((s, i) => (
-                    <div key={i} className="bg-muted/30 p-3 md:p-4 rounded-2xl flex items-center gap-3">
-                      <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-4 h-4 md:w-5 md:h-5 text-secondary" /></div>
-                      <div className="text-right overflow-hidden">
-                        <p className="text-[8px] md:text-[10px] font-black text-muted-foreground uppercase"> {s.label}</p>
-                        <p className="text-[10px] md:text-xs font-bold text-primary truncate">{s.val}</p>
+                    <div key={i} className="bg-muted/30 p-4 rounded-2xl flex items-center gap-3">
+                      <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-5 h-5 text-secondary" /></div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
+                        <p className="text-xs font-bold text-primary">{s.val}</p>
                       </div>
                     </div>
                   ))}
-                </div>
-                <div className="flex items-center justify-between border-t pt-8">
-                  <p className="text-2xl md:text-4xl font-black text-secondary">{course?.price} <small className="text-sm">ريال</small></p>
-                  <Badge variant="outline" className="h-9 px-4 md:px-6 rounded-xl bg-primary/5 text-primary border-primary/10 font-black text-[10px] md:text-xs">
-                    {getCategoryName(course?.category || "general")}
-                  </Badge>
                 </div>
               </Card>
 
@@ -554,20 +478,16 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <TabsTrigger value="curriculum" className="flex-1 font-black text-sm md:text-lg rounded-xl">المنهج</TabsTrigger>
                 </TabsList>
                 <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right">
-                  <h3 className="text-xl md:text-3xl font-black text-primary">الحسابات البنكية المعتمدة</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
-                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-4 md:gap-6 text-right" dir="rtl">
-                        <div className="w-14 h-14 md:w-16 md:h-16 relative bg-muted rounded-2xl shrink-0 overflow-hidden">
+                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6" dir="rtl">
+                        <div className="w-16 h-16 relative bg-muted rounded-2xl shrink-0">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
                         <div className="flex-1 overflow-hidden space-y-1">
-                          <h4 className="font-black text-base md:text-lg text-primary truncate">{bank.bankName}</h4>
-                          <p className="text-[10px] md:text-xs text-muted-foreground truncate font-bold">{bank.accountHolder}</p>
-                          <div className="flex items-center justify-between bg-muted/40 p-2 md:p-3 rounded-xl mt-2">
-                            <code className="text-[10px] md:sm font-black font-mono text-secondary truncate ml-2" dir="ltr">{bank.accountNumber}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }} className="p-1.5 bg-white rounded-lg shadow-sm"><Copy className="w-3.5 h-3.5" /></button>
-                          </div>
+                          <h4 className="font-black text-base md:text-lg text-primary">{bank.bankName}</h4>
+                          <code className="text-sm font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
+                          <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }} className="p-1.5 bg-muted rounded-lg mt-2 flex items-center gap-2 text-[10px] font-bold"><Copy className="w-3.5 h-3.5" /> نسخ الرقم</button>
                         </div>
                       </div>
                     ))}
