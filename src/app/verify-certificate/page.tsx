@@ -21,7 +21,10 @@ import {
   ScanLine,
   ChevronLeft,
   RotateCcw,
-  BadgeCheck
+  BadgeCheck,
+  Trophy,
+  Star,
+  Zap
 } from "lucide-react";
 import { useFirestore } from "@/firebase/provider";
 import { collection, query, where, getDocs, limit } from "firebase/firestore";
@@ -67,13 +70,13 @@ function VerificationContent() {
         setTimeout(() => {
           setCertificate(querySnapshot.docs[0].data());
           setLoading(false);
-        }, 1200);
+        }, 1500);
       } else {
-        setError("لم يتم العثور على سجل لهذه الشهادة في قاعدة بياناتنا. يرجى التأكد من الرقم.");
+        setError("رقم التوثيق غير صحيح أو لم يصدر بعد. يرجى التأكد من الرمز.");
         setLoading(false);
       }
     } catch (err) {
-      setError("حدث خطأ أثناء محاولة التحقق. يرجى المحاولة لاحقاً.");
+      setError("حدث خطأ تقني أثناء الفحص. يرجى المحاولة لاحقاً.");
       setLoading(false);
     }
   };
@@ -89,46 +92,29 @@ function VerificationContent() {
     if (isScanning && typeof window !== 'undefined') {
       const loadScanner = async () => {
         const { Html5QrcodeScanner } = await import("html5-qrcode");
-        
-        scanner = new Html5QrcodeScanner(
-          "qr-reader",
-          { 
-            fps: 15, 
-            qrbox: { width: 220, height: 220 },
-            videoConstraints: { facingMode: "environment" },
-            aspectRatio: 1.0
-          },
-          false
-        );
-
+        scanner = new Html5QrcodeScanner("qr-reader", { fps: 15, qrbox: 220, aspectRatio: 1.0 }, false);
         scanner.render((decodedText: string) => {
           let finalId = decodedText;
-          if (decodedText.includes("?id=")) {
-            finalId = decodedText.split("?id=")[1];
-          }
-          
+          if (decodedText.includes("?id=")) finalId = decodedText.split("?id=")[1];
           setSearchTerm(finalId);
           setIsScanning(false);
           scanner.clear();
           handleVerify(undefined, finalId);
-        }, (error: any) => {});
+        }, () => {});
       };
-
       loadScanner();
     }
-
-    return () => {
-      if (scanner) {
-        scanner.clear().catch(() => {});
-      }
-    };
+    return () => { if (scanner) scanner.clear().catch(() => {}); };
   }, [isScanning]);
 
-  const resetSearch = () => {
-    setCertificate(null);
-    setError(null);
-    setSearchTerm("");
-    router.replace("/verify-certificate");
+  const getGradeArabic = (grade: string) => {
+    const grades: Record<string, string> = {
+      excellent: "ممتاز",
+      very_good: "جيد جداً",
+      good: "جيد",
+      pass: "مقبول"
+    };
+    return grades[grade] || grade;
   };
 
   if (loading) {
@@ -140,68 +126,79 @@ function VerificationContent() {
         </div>
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-black text-primary animate-pulse font-headline">جاري الفحص الرقمي...</h2>
-          <p className="text-muted-foreground font-bold">نتحقق من سجلات التوثيق المعتمدة لمنصة سراج</p>
+          <p className="text-muted-foreground font-bold">نتحقق من السجلات الرسمية لمنصة سراج</p>
         </div>
       </div>
     );
   }
 
   if (certificate) {
+    const isExcellence = certificate.certificateType === 'excellence';
+    
     return (
-      <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-10 fade-in duration-700 pb-10">
+      <div className="max-w-2xl mx-auto space-y-8 animate-in slide-in-from-bottom-10 fade-in duration-700 pb-10 px-2">
         <header className="text-center space-y-4">
-           <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto text-green-600 shadow-inner luxury-shadow border-4 border-white">
-              <CheckCircle2 className="w-12 h-12" />
+           <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner luxury-shadow border-4 border-white", isExcellence ? "bg-secondary text-white" : "bg-green-50 text-green-600")}>
+              {isExcellence ? <Trophy className="w-12 h-12" /> : <CheckCircle2 className="w-12 h-12" />}
            </div>
-           <h2 className="text-3xl font-black text-primary font-headline">إفادة توثيق رسمية</h2>
+           <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">إفادة توثيق رقمية معتمدة</h2>
         </header>
 
         <Card className="rounded-[2.5rem] border-none luxury-shadow overflow-hidden bg-white relative">
-          <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-l from-secondary via-primary to-secondary opacity-80" />
+          <div className={cn("absolute top-0 left-0 right-0 h-2 opacity-80", isExcellence ? "bg-gradient-to-l from-secondary via-yellow-400 to-secondary" : "bg-gradient-to-l from-primary via-secondary to-primary")} />
           
-          <CardContent className="p-6 md:p-10 space-y-8">
-            <div className="bg-muted/30 p-6 md:p-10 rounded-[2rem] border border-primary/5 text-center relative overflow-hidden">
-               <ShieldCheck className="absolute -bottom-10 -right-10 w-40 h-40 text-primary/5 -rotate-12" />
-               <p className="text-lg md:text-xl leading-[2] text-primary font-medium relative z-10">
-                  "تتقدم منصة سراج بتقديم شهادة اتمام للطالب /ة <br className="hidden md:block" />
-                  <span className="font-black text-secondary text-2xl md:text-3xl block my-2 drop-shadow-sm">{certificate.studentNameAr}</span> 
-                  لاتمامه دورة <br className="hidden md:block" />
-                  <span className="font-black text-secondary text-xl md:text-2xl block my-2">{certificate.courseTitle}</span> 
-                  في تاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span> <br />
-                  وتؤكد منصة سراج بأن هذه الشهادة أصلية ومعتمدة وموثقة في سجلاتنا الرقمية."
-               </p>
+          <CardContent className="p-6 md:p-12 space-y-8">
+            <div className="bg-muted/30 p-6 md:p-10 rounded-[2.5rem] border border-primary/5 text-center relative overflow-hidden">
+               <ShieldCheck className="absolute -bottom-10 -right-10 w-48 h-40 text-primary/5 -rotate-12" />
+               
+               {isExcellence ? (
+                 <p className="text-lg md:text-xl leading-[2] text-primary font-medium relative z-10">
+                    "تمنح منصة سراج التعليمية <span className="text-secondary font-black">وسام التفوق العلمي</span> للطالب/ة <br />
+                    <span className="font-black text-secondary text-3xl block my-3 drop-shadow-sm">{certificate.studentNameAr}</span> 
+                    تقديراً لأدائه/ا الاستثنائي في الدورة التدريبية <br />
+                    <span className="font-black text-primary text-xl md:text-2xl block my-2">{certificate.courseTitle}</span> 
+                    حيث أظهر/ت تميزاً فائقاً في إنهاء المنهج واجتياز التقاويم والتمارين العملية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> بتاريخ <span className="font-black" dir="ltr">{certificate.issueDate}</span>."
+                 </p>
+               ) : (
+                 <p className="text-lg md:text-xl leading-[2] text-primary font-medium relative z-10">
+                    "تشهد منصة سراج التعليمية بأن الطالب/ة <br />
+                    <span className="font-black text-secondary text-3xl block my-3 drop-shadow-sm">{certificate.studentNameAr}</span> 
+                    قد أتم/ت بنجاح كافة متطلبات الدورة التدريبية <br />
+                    <span className="font-black text-primary text-xl md:text-2xl block my-2">{certificate.courseTitle}</span> 
+                    بما في ذلك مشاهدة المحاضرات واجتياز الاختبارات التقويمية بتقدير <span className="text-secondary font-black">{getGradeArabic(certificate.grade)}</span> في تاريخ <span className="font-black underline decoration-secondary/30 underline-offset-4" dir="ltr">{certificate.issueDate}</span>."
+                 </p>
+               )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/5 flex flex-col items-center justify-center text-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Hash className="w-4 h-4" /></div>
                   <div>
-                     <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">رقم التوثيق</p>
-                     <p className="text-[10px] md:text-xs font-black text-primary truncate max-w-[120px]">{certificate.certificateId}</p>
+                     <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">رقم السجل</p>
+                     <p className="text-[10px] md:text-xs font-black text-primary">{certificate.certificateId}</p>
                   </div>
                </div>
-               
                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/5 flex flex-col items-center justify-center text-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Calendar className="w-4 h-4" /></div>
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-secondary shadow-sm"><Star className="w-4 h-4" /></div>
                   <div>
-                     <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">تاريخ الإصدار</p>
-                     <p className="text-[10px] md:text-xs font-black text-primary">{certificate.issueDate}</p>
+                     <p className="text-[8px] text-muted-foreground font-black uppercase tracking-widest mb-0.5">التقدير العام</p>
+                     <p className="text-[10px] md:text-xs font-black text-primary">{getGradeArabic(certificate.grade)}</p>
                   </div>
                </div>
             </div>
             
-            <div className="flex flex-col items-center gap-3 pt-4 border-t border-primary/5">
-               <div className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-full text-[10px] font-black shadow-xl shadow-primary/10">
-                  <BadgeCheck className="w-4 h-4 text-secondary" /> تم التحقق بنجاح من قاعدة البيانات
+            <div className="flex flex-col items-center gap-3 pt-6 border-t border-primary/5">
+               <div className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-full text-[10px] font-black shadow-xl">
+                  <BadgeCheck className="w-4 h-4 text-secondary" /> سجل رقمي موثق ومعتمد
                </div>
-               <p className="text-[9px] text-muted-foreground font-bold">هذه الوثيقة صادرة إلكترونياً ولا تتطلب توقيعاً حياً</p>
+               <p className="text-[9px] text-muted-foreground font-bold text-center">تعتبر هذه الوثيقة رسمية وصادرة إلكترونياً من نظام التوثيق في سراج</p>
             </div>
           </CardContent>
         </Card>
 
         <div className="flex justify-center pt-2">
-          <Button onClick={resetSearch} variant="ghost" className="text-secondary font-black gap-2 hover:bg-secondary/5 h-12 px-8 rounded-2xl">
-             <RotateCcw className="w-5 h-5" /> فحص شهادة أخرى
+          <Button onClick={() => { setCertificate(null); setSearchTerm(""); router.replace("/verify-certificate"); }} variant="ghost" className="text-secondary font-black gap-2 hover:bg-secondary/5 h-12 px-8 rounded-2xl">
+             <RotateCcw className="w-5 h-5" /> فحص وثيقة أخرى
           </Button>
         </div>
       </div>
@@ -209,15 +206,15 @@ function VerificationContent() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:py-16 max-w-4xl text-center" dir="rtl">
+    <div className="container mx-auto px-4 py-10 md:py-16 max-w-4xl text-center" dir="rtl">
       <div className="mb-10 md:mb-16 space-y-6 animate-in fade-in slide-in-from-top-6 duration-700">
         <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-4 luxury-shadow border border-primary/5">
            <ShieldCheck className="w-10 h-10 text-secondary" />
         </div>
         <div className="space-y-2">
-          <h1 className="text-3xl md:text-5xl font-black font-headline text-primary">التحقق من الشهادات</h1>
+          <h1 className="text-3xl md:text-5xl font-black font-headline text-primary">نظام التحقق الرقمي</h1>
           <p className="text-muted-foreground text-sm md:text-lg max-w-xl mx-auto font-medium">
-            نظام التوثيق الرقمي المعتمد لطلاب منصة سراج التعليمية
+            تأكد من صحة الشهادات والأوسمة الصادرة لطلاب منصة سراج التعليمية
           </p>
         </div>
       </div>
@@ -235,27 +232,20 @@ function VerificationContent() {
               <div className="relative">
                 <Input 
                   placeholder="مثال: SIRAJ-2024-XXXX" 
-                  className="h-14 pr-12 text-right rounded-2xl border-primary/10 bg-muted/20 font-black text-primary placeholder:text-muted-foreground/50"
+                  className="h-14 pr-12 text-right rounded-2xl border-primary/10 bg-muted/20 font-black text-primary"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 <Search className="w-5 h-5 absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               </div>
-              <Button 
-                disabled={!searchTerm.trim()} 
-                type="submit" 
-                className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg hover:bg-primary/90 shadow-xl shadow-primary/10 transition-transform active:scale-95"
-              >
+              <Button disabled={!searchTerm.trim()} type="submit" className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg shadow-xl">
                 فحص السجل الرقمي
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <Card 
-          className="rounded-[2.5rem] border-none luxury-shadow bg-white/80 backdrop-blur-sm overflow-hidden group hover:bg-white transition-all cursor-pointer border-2 border-transparent hover:border-secondary/20" 
-          onClick={() => setIsScanning(true)}
-        >
+        <Card className="rounded-[2.5rem] border-none luxury-shadow bg-white/80 backdrop-blur-sm overflow-hidden group hover:bg-white transition-all cursor-pointer border-2 border-transparent hover:border-secondary/20" onClick={() => setIsScanning(true)}>
           <CardContent className="p-8 flex flex-col items-center justify-center text-center space-y-6 h-full">
             <div className="w-20 h-20 bg-secondary/10 rounded-3xl flex items-center justify-center text-secondary group-hover:scale-110 group-hover:bg-secondary group-hover:text-white transition-all duration-500 shadow-inner">
               <QrCode className="w-10 h-10" />
@@ -265,12 +255,17 @@ function VerificationContent() {
               <p className="text-sm text-muted-foreground font-bold">استخدم الكاميرا للمسح المباشر والسريع</p>
             </div>
             <div className="flex items-center gap-2 text-secondary font-black text-xs bg-secondary/5 px-4 py-1.5 rounded-full">
-              فتح الكاميرا الآن
-              <ChevronLeft className="w-4 h-4" />
+              فتح الكاميرا الآن <ChevronLeft className="w-4 h-4" />
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {error && (
+        <div className="mb-10 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center gap-3 text-red-600 font-bold animate-in shake-1">
+          <AlertCircle className="w-5 h-5" /> {error}
+        </div>
+      )}
 
       <Dialog open={isScanning} onOpenChange={setIsScanning}>
         <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none luxury-shadow [&>button]:hidden" dir="rtl">

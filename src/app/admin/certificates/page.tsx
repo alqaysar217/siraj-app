@@ -21,13 +21,16 @@ import {
   Copy,
   Calendar,
   User,
-  QrCode
+  QrCode,
+  Trophy,
+  Star
 } from "lucide-react";
 import Link from "next/link";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy, deleteDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +41,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export default function CertificatesManagementPage() {
   const db = useFirestore();
@@ -71,14 +75,14 @@ export default function CertificatesManagementPage() {
         originalId: certToDelete.id,
         originalPath: `certificates/${certToDelete.id}`,
         type: "certificate",
-        title: `شهادة: ${certToDelete.studentNameAr} - ${certToDelete.certificateId}`,
+        title: `شهادة: ${certToDelete.studentNameAr}`,
         data: certToDelete,
         deletedAt: serverTimestamp()
       });
-
       await deleteDoc(doc(db, "certificates", certToDelete.id));
+      toast({ title: "تم الحذف", description: "نُقل السجل لسلة المهملات." });
     } catch (error) {
-      // Error handling handled by global listener
+      // Handled
     } finally {
       setIsProcessing(false);
       setCertToDelete(null);
@@ -91,36 +95,34 @@ export default function CertificatesManagementPage() {
   };
 
   const copyVerificationLink = (cert: any) => {
-    const url = getVerificationUrl(cert);
-    navigator.clipboard.writeText(url);
+    navigator.clipboard.writeText(getVerificationUrl(cert));
     toast({ title: "تم النسخ", description: "رابط التحقق المباشر جاهز." });
+  };
+
+  const getGradeText = (grade: string) => {
+    const grades: Record<string, string> = {
+      excellent: "ممتاز",
+      very_good: "جيد جداً",
+      good: "جيد",
+      pass: "مقبول"
+    };
+    return grades[grade] || grade;
   };
 
   const downloadQRCode = async (cert: any) => {
     try {
       const QRCode = (await import('qrcode')).default;
       const url = getVerificationUrl(cert);
-      
       const dataUrl = await QRCode.toDataURL(url, {
-        width: 1000,
-        margin: 2,
-        color: {
-          dark: '#4A1F0F',
-          light: '#FFFFFF'
-        },
-        errorCorrectionLevel: 'H'
+        width: 1000, margin: 2, color: { dark: '#4A1F0F', light: '#FFFFFF' }, errorCorrectionLevel: 'H'
       });
-      
       const link = document.createElement('a');
       link.href = dataUrl;
-      link.download = `QR-SIRAJ-${cert.studentNameAr.replace(/\s+/g, '_')}-${cert.certificateId}.png`;
-      document.body.appendChild(link);
+      link.download = `QR-SIRAJ-${cert.studentNameAr}-${cert.certificateId}.png`;
       link.click();
-      document.body.removeChild(link);
-      
-      toast({ title: "تم التصدير", description: "تحميل الباركود عالي الجودة بنجاح." });
+      toast({ title: "تم التصدير", description: "تحميل الباركود بنجاح." });
     } catch (err) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل توليد صورة الباركود." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل توليد الباركود." });
     }
   };
 
@@ -130,8 +132,8 @@ export default function CertificatesManagementPage() {
       <div className="container mx-auto px-4 py-10 max-w-6xl">
         <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 text-right">
           <div>
-            <h1 className="text-3xl font-bold font-headline text-primary mb-2">إدارة وتوثيق الشهادات</h1>
-            <p className="text-muted-foreground">أصدر أرقام التوثيق وولد الباركود للطلاب لوضعها في التصاميم الورقية.</p>
+            <h1 className="text-3xl font-bold font-headline text-primary mb-2">توثيق الشهادات</h1>
+            <p className="text-muted-foreground">أصدر شهادات الإتمام والأوسمة الرقمية الموثقة لطلابك.</p>
           </div>
           <Button asChild className="bg-primary hover:bg-primary/90 h-12 rounded-xl gap-2 font-bold px-6 shadow-lg">
             <Link href="/admin/add-certificate">
@@ -163,8 +165,8 @@ export default function CertificatesManagementPage() {
                 <Table className="text-right">
                   <TableHeader className="bg-muted/20">
                     <TableRow>
-                      <TableHead className="text-right font-black py-4">الطالب</TableHead>
-                      <TableHead className="text-right font-black py-4">الدورة والتاريخ</TableHead>
+                      <TableHead className="text-right font-black py-4">الطالب والنوع</TableHead>
+                      <TableHead className="text-right font-black py-4">الدورة والتقدير</TableHead>
                       <TableHead className="text-center font-black py-4">رقم التوثيق</TableHead>
                       <TableHead className="text-center font-black py-4">الإجراءات</TableHead>
                     </TableRow>
@@ -174,10 +176,15 @@ export default function CertificatesManagementPage() {
                       <TableRow key={cert.id} className="hover:bg-primary/5 transition-colors border-b border-primary/5">
                         <TableCell className="py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
-                              <User className="w-5 h-5" />
+                            <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shadow-sm", cert.certificateType === 'excellence' ? "bg-secondary text-white" : "bg-primary/5 text-primary")}>
+                              {cert.certificateType === 'excellence' ? <Trophy className="w-5 h-5" /> : <Award className="w-5 h-5" />}
                             </div>
-                            <div className="font-bold text-primary text-sm">{cert.studentNameAr}</div>
+                            <div className="text-right">
+                               <div className="font-bold text-primary text-sm">{cert.studentNameAr}</div>
+                               <Badge variant="ghost" className="p-0 h-auto text-[8px] font-black opacity-60">
+                                  {cert.certificateType === 'excellence' ? "وسام تفوق" : "شهادة إتمام"}
+                               </Badge>
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell className="py-4">
@@ -186,37 +193,25 @@ export default function CertificatesManagementPage() {
                                 <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
                                 <span className="text-xs font-bold text-primary line-clamp-1">{cert.courseTitle}</span>
                              </div>
-                             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-bold pr-5">
-                                <Calendar className="w-3 h-3 text-secondary" />
-                                <span>بتاريخ: {cert.issueDate}</span>
+                             <div className="flex items-center gap-3 text-[10px] pr-5">
+                                <span className="flex items-center gap-1 font-black text-green-700">
+                                   <Star className="w-3 h-3" /> {getGradeText(cert.grade)}
+                                </span>
+                                <span className="text-muted-foreground font-bold flex items-center gap-1">
+                                   <Calendar className="w-3 h-3" /> {cert.issueDate}
+                                </span>
                              </div>
                           </div>
                         </TableCell>
                         <TableCell className="py-4 text-center">
-                           <code className="bg-muted px-3 py-1 rounded-lg text-xs font-black text-secondary">{cert.certificateId}</code>
+                           <code className="bg-muted px-3 py-1 rounded-lg text-[10px] font-black text-secondary">{cert.certificateId}</code>
                         </TableCell>
                         <TableCell className="py-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-lg hover:bg-secondary/10 text-secondary" 
-                              onClick={() => downloadQRCode(cert)}
-                              title="تصدير الباركود"
-                            >
-                              <QrCode className="w-4.5 h-4.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-primary/5 text-primary" onClick={() => copyVerificationLink(cert)} title="نسخ رابط التحقق">
-                              <Copy className="w-4.5 h-4.5" />
-                            </Button>
-                            <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-primary/5 text-primary" title="تعديل">
-                              <Link href={`/admin/add-certificate?id=${cert.id}`}>
-                                <Edit2 className="w-4.5 h-4.5" />
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:bg-destructive/5" onClick={() => setCertToDelete(cert)} title="حذف">
-                              <Trash2 className="w-4.5 h-4.5" />
-                            </Button>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-secondary/10 text-secondary" onClick={() => downloadQRCode(cert)} title="تحميل الباركود"><QrCode className="w-4.5 h-4.5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-primary/5 text-primary" onClick={() => copyVerificationLink(cert)} title="نسخ رابط التحقق"><Copy className="w-4.5 h-4.5" /></Button>
+                            <Button asChild variant="ghost" size="icon" className="h-9 w-9 rounded-lg hover:bg-primary/5 text-primary"><Link href={`/admin/add-certificate?id=${cert.id}`}><Edit2 className="w-4.5 h-4.5" /></Link></Button>
+                            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:bg-destructive/5" onClick={() => setCertToDelete(cert)}><Trash2 className="w-4.5 h-4.5" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -227,7 +222,7 @@ export default function CertificatesManagementPage() {
             ) : (
               <div className="py-32 text-center">
                  <Award className="w-20 h-20 text-muted-foreground/20 mx-auto mb-6" />
-                 <h3 className="text-xl font-bold text-primary">لا توجد سجلات حالياً</h3>
+                 <h3 className="text-xl font-bold text-primary">لا توجد شهادات صادرة</h3>
               </div>
             )}
           </CardContent>
@@ -240,23 +235,15 @@ export default function CertificatesManagementPage() {
                 <AlertTriangle className="w-10 h-10 text-destructive" />
               </div>
               <AlertDialogHeader className="space-y-3 p-0">
-                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">إلغاء توثيق الشهادة؟</AlertDialogTitle>
+                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">حذف التوثيق؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
-                  سيتم حذف توثيق الطالب <span className="text-primary font-bold">"{certToDelete?.studentNameAr}"</span>. لن يعمل الباركود المطبوع بعد هذا الإجراء.
+                  سيتم إلغاء توثيق الشهادة رقم <span className="text-primary font-bold">"{certToDelete?.certificateId}"</span> ونقلها للسلة.
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>
             <AlertDialogFooter className="flex flex-row gap-3 mt-8">
-              <AlertDialogAction 
-                onClick={handleDelete}
-                disabled={isProcessing}
-                className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90"
-              >
-                تأكيد الحذف
-              </AlertDialogAction>
-              <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">
-                إلغاء
-              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} disabled={isProcessing} className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90">تأكيد الحذف</AlertDialogAction>
+              <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">إلغاء</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
