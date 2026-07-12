@@ -2,9 +2,16 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Loader2, Play, Pause, Volume2, VolumeX, Maximize, Minimize, AlertCircle, Lock } from "lucide-react";
+import { Loader2, Play, Pause, Volume2, VolumeX, Maximize, Minimize, AlertCircle, Lock, Gauge } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface VideoPlayerProps {
   videoId: string | null | undefined;
@@ -33,6 +40,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [playbackRate, setPlaybackRate] = useState("1");
   
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -99,6 +107,8 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
             onReady: (event: any) => {
               setIsReady(true);
               setDuration(event.target.getDuration());
+              // تطبيق السرعة المختارة عند الجاهزية
+              event.target.setPlaybackRate(parseFloat(playbackRate));
             },
             onStateChange: (event: any) => {
               if (event.data === window.YT.PlayerState.PLAYING) {
@@ -187,24 +197,18 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     try {
       if (!document.fullscreenElement) {
         await containerRef.current.requestFullscreen();
-        // محاولة قفل الاتجاه مع حماية ضد أخطاء الأمان
         try {
           if (window.screen?.orientation?.lock) {
             await (window.screen.orientation as any).lock('landscape').catch(() => {});
           }
-        } catch (e) {
-          console.warn("Screen orientation lock is not supported or permitted.");
-        }
+        } catch (e) {}
       } else {
         await document.exitFullscreen();
-        // محاولة فك قفل الاتجاه مع حماية ضد أخطاء الأمان
         try {
           if (window.screen?.orientation?.unlock) {
             window.screen.orientation.unlock();
           }
-        } catch (e) {
-          // تجاهل الخطأ في حال لم يسمح المتصفح بفك القفل
-        }
+        } catch (e) {}
       }
     } catch (err) {
       console.error("Fullscreen logic error:", err);
@@ -216,6 +220,13 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     const time = values[0];
     playerRef.current.seekTo(time, true);
     setCurrentTime(time);
+  };
+
+  const handleRateChange = (rate: string) => {
+    setPlaybackRate(rate);
+    if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
+      playerRef.current.setPlaybackRate(parseFloat(rate));
+    }
   };
 
   if (!videoId) {
@@ -290,7 +301,25 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 md:gap-4">
+                {/* زر سرعة التشغيل الجديد */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors">
+                      <Gauge className="w-4 h-4" />
+                      <span className="text-[10px] md:text-xs font-black">{playbackRate}x</span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-white/95 backdrop-blur-xl border-primary/10 rounded-xl min-w-[100px]">
+                    <DropdownMenuRadioGroup value={playbackRate} onValueChange={handleRateChange}>
+                      <DropdownMenuRadioItem value="0.5" className="text-xs font-bold py-2">0.5x (بطيء)</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="1" className="text-xs font-bold py-2">1x (عادي)</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="1.5" className="text-xs font-bold py-2">1.5x (سريع)</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="2" className="text-xs font-bold py-2">2x (سريع جداً)</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 <button className="text-white hover:text-secondary p-1" onClick={handleToggleMute}>
                   {isMuted || currentTime === 0 ? <VolumeX className="w-5 h-5 text-destructive" /> : <Volume2 className="w-5 h-5" />}
                 </button>
