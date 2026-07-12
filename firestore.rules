@@ -20,7 +20,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || resource.data.showInLeaderboard == true);
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      // السماح للطالب بتعديل نقاطه وتقدمه (progress) وهاتفه وصورته
+      // السماح للطالب بتعديل نقاطه وتقدمه وهاتفه وصورته بشكل صريح
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingAdminFields());
       allow delete: if isAdmin();
     }

@@ -249,10 +249,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
+  // مزامنة البيانات من السيرفر عند الدخول لمنع تصفير التقدم
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
       const savedProgress = profile.progress?.[id] || {};
       const lastId = savedProgress.lastLessonId;
+      // نبدأ من آخر درس شاهده الطالب أو من الأول إذا لم يشاهد شيئاً
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
       setSelectedLessonId(startId);
       setLocalCompleted(savedProgress.completedLessons || []);
@@ -265,6 +267,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     setSelectedLessonId(lessonId);
     if (db && user && isEnrolled) {
       const userRef = doc(db, "users", user.uid);
+      // حفظ آخر درس لحظياً في السيرفر
       updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId }).catch(() => {});
     }
   }, [db, user, isEnrolled, id]);
@@ -272,6 +275,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
     if (!isEnrolled) return true;
+    // الدرس يكون مقفلاً إذا لم يكتمل الدرس السابق له
     return !allCompletedIds.includes(lessons?.[index - 1]?.id);
   }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
 
@@ -305,6 +309,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
+    // إضافة الدرس للمحلي فوراً لفتح القفل لحظياً
     if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
@@ -322,13 +327,16 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
-      const bonus = score * 5;
-      updates[`points`] = (updates.points || currentTotalPoints) + bonus;
-      updates[`progress.${id}.points`] = (updates[`progress.${id}.points`] || currentCoursePoints) + bonus;
+      const bonus = Number(score) * 5;
+      updates[`points`] = (Number(updates.points || currentTotalPoints)) + bonus;
+      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints)) + bonus;
     }
     
+    // الحفظ الحقيقي في السيرفر
     if (Object.keys(updates).length > 0) {
-      updateDoc(userRef, updates).catch(() => {});
+      updateDoc(userRef, updates).catch((err) => {
+        console.error("Firebase Save Error:", err);
+      });
     }
     
     if (currentLesson.type === "video") {
@@ -383,6 +391,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
+  // ننتظر تحميل ملف الطالب من السيرفر قبل البدء لمنع تصفير التقدم
   if (courseLoading || lessonsLoading || userLoading || (!selectedLessonId && !isFinishing)) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
