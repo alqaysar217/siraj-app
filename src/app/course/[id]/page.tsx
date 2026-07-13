@@ -14,9 +14,8 @@ import {
   BookOpen, 
   Clock, 
   Loader2, 
-  ClipboardList,
-  CheckCircle2,
-  XCircle,
+  CheckCircle2, 
+  XCircle, 
   RotateCcw,
   Users,
   Star,
@@ -31,14 +30,12 @@ import {
   AlertCircle,
   PartyPopper,
   Building2,
-  Check,
-  ArrowLeft,
   ArrowRight,
   MessageSquare,
   User as UserIcon
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { doc, collection, query, orderBy, updateDoc, arrayUnion, where } from "firebase/firestore";
+import { doc, collection, query, updateDoc, arrayUnion, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -51,7 +48,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetClose
 } from "@/components/ui/sheet";
 
 const WHATSAPP_NUMBER = "+967735952927";
@@ -229,18 +225,31 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
 
+  // جلب الدروس
   const lessonsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "courses", id, "lessons"), orderBy("order", "asc")) : null
   , [db, id]);
   const { data: lessons, loading: lessonsLoading } = useCollection(lessonsQuery);
 
-  const bankQuery = useMemoFirebase(() => db ? query(collection(db, "bankAccounts"), orderBy("createdAt", "desc")) : null, [db]);
+  // جلب الحسابات البنكية
+  const bankQuery = useMemoFirebase(() => db ? collection(db, "bankAccounts") : null, [db]);
   const { data: bankAccounts } = useCollection(bankQuery);
 
+  // جلب التقييمات: تم تبسيط الاستعلام لتجنب خطأ الفهرس (Index)
   const reviewsQuery = useMemoFirebase(() => 
-    db ? query(collection(db, "reviews"), where("courseId", "==", id), orderBy("createdAt", "desc")) : null
+    db ? query(collection(db, "reviews"), where("courseId", "==", id)) : null
   , [db, id]);
-  const { data: courseReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
+  const { data: rawReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
+
+  // ترتيب التقييمات برمجياً (Client-side) بدلاً من استعلام السيرفر لتجنب خطأ Index
+  const courseReviews = useMemo(() => {
+    if (!rawReviews) return [];
+    return [...rawReviews].sort((a: any, b: any) => {
+      const dateA = a.createdAt?.seconds || 0;
+      const dateB = b.createdAt?.seconds || 0;
+      return dateB - dateA;
+    });
+  }, [rawReviews]);
 
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
@@ -439,7 +448,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     </Button>
                   </div>
                   <Sheet open={isCurriculumOpen} onOpenChange={setIsCurriculumOpen}>
-                    <SheetTrigger asChild><Button variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> المنهج الدراسي</Button></SheetTrigger>
+                    <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> المنهج الدراسي</Button>
                     <SheetContent side="right" className="w-[90%] sm:max-w-md p-0 overflow-y-auto" dir="rtl">
                       <SheetHeader className="p-8 border-b text-right bg-muted/10">
                         <SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle>
