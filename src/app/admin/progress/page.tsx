@@ -18,7 +18,9 @@ import {
   Eye, 
   EyeOff, 
   Search,
-  User as UserIcon
+  User as UserIcon,
+  Crown,
+  Medal
 } from "lucide-react";
 import { useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { collection, query, orderBy, limit, doc, deleteDoc, setDoc, serverTimestamp, updateDoc } from "firebase/firestore";
@@ -72,6 +74,9 @@ export default function StudentProgressPage() {
         totalPoints,
         totalCompletedLessons
       };
+    }).sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      return b.totalCompletedLessons - a.totalCompletedLessons;
     });
 
     if (searchTerm) {
@@ -82,7 +87,14 @@ export default function StudentProgressPage() {
       );
     }
 
-    return list.sort((a, b) => b.totalPoints - a.totalPoints);
+    // احتساب الرتبة الحقيقية مع دعم التساوي
+    let currentRank = 1;
+    return list.map((student, index, array) => {
+      if (index > 0 && student.totalPoints < array[index - 1].totalPoints) {
+        currentRank = index + 1;
+      }
+      return { ...student, displayRank: currentRank };
+    });
   }, [users, searchTerm]);
 
   const stats = useMemo(() => {
@@ -97,7 +109,7 @@ export default function StudentProgressPage() {
   const handleToggleVisibility = async (student: any) => {
     if (!db) return;
     setProcessing(student.uid);
-    const newStatus = student.showInLeaderboard === false; // الإفتراضي true إذا لم يوجد الحقل
+    const newStatus = student.showInLeaderboard === false;
     
     try {
       await updateDoc(doc(db, "users", student.uid), {
@@ -228,19 +240,23 @@ export default function StudentProgressPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {leaderboard.map((student: any, index) => {
+                  {leaderboard.map((student) => {
                     const isVisible = student.showInLeaderboard !== false;
+                    const rank = student.displayRank;
                     return (
                       <TableRow key={student.uid} className={cn("hover:bg-primary/5 transition-colors border-b border-primary/5", !isVisible && "bg-muted/20 opacity-80")}>
                         <TableCell className="text-center">
                           <div className={cn(
                             "w-10 h-10 rounded-full flex items-center justify-center mx-auto font-black text-sm",
-                            index === 0 ? "bg-yellow-100 text-yellow-700 shadow-sm border border-yellow-200" :
-                            index === 1 ? "bg-slate-100 text-slate-700" :
-                            index === 2 ? "bg-orange-100 text-orange-700" :
+                            rank === 1 ? "bg-yellow-100 text-yellow-700 shadow-sm border border-yellow-200" :
+                            rank === 2 ? "bg-slate-100 text-slate-700 border border-slate-200" :
+                            rank === 3 ? "bg-orange-100 text-orange-700 border border-orange-200" :
                             "bg-muted text-muted-foreground"
                           )} dir="ltr">
-                            #{index + 1}
+                            {rank === 1 ? <Crown className="w-4 h-4 text-yellow-600" /> : 
+                             rank === 2 ? <Medal className="w-4 h-4 text-slate-500" /> :
+                             rank === 3 ? <Medal className="w-4 h-4 text-orange-600" /> :
+                             rank}
                           </div>
                         </TableCell>
                         <TableCell className="py-4">

@@ -34,7 +34,6 @@ export default function LeaderboardPage() {
     setMounted(true);
   }, []);
   
-  // الاستعلام يطلب فقط الطلاب الذين وافقوا على الظهور
   const usersQuery = useMemoFirebase(() => 
     (db && user) ? query(
       collection(db, "users"), 
@@ -48,17 +47,32 @@ export default function LeaderboardPage() {
   const leaderboard = useMemo(() => {
     if (!users) return [];
 
-    return users.map((u: any) => {
+    // الترتيب الأساسي: النقاط (الأعلى أولاً)، ثم عدد الدروس المكتملة (كعامل ترجيحي)
+    const sorted = users.map((u: any) => {
       const progressEntries = Object.values(u.progress || {});
       const totalPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
+      const totalLessons = progressEntries.reduce((acc: number, curr: any) => acc + (curr.completedLessons?.length || 0), 0);
       
       return {
         id: u.id,
         name: u.name,
         photoURL: u.photoURL,
-        totalPoints
+        totalPoints,
+        totalLessons
       };
-    }).sort((a, b) => b.totalPoints - a.totalPoints);
+    }).sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      return b.totalLessons - a.totalLessons;
+    });
+
+    // احتساب الرتبة الحقيقية مع دعم التساوي
+    let currentRank = 1;
+    return sorted.map((student, index, array) => {
+      if (index > 0 && student.totalPoints < array[index - 1].totalPoints) {
+        currentRank = index + 1;
+      }
+      return { ...student, displayRank: currentRank };
+    });
   }, [users]);
 
   const visibleLeaderboard = useMemo(() => {
@@ -69,7 +83,6 @@ export default function LeaderboardPage() {
     setVisibleCount(prev => prev + 10);
   };
 
-  // حالة التحميل
   if (authLoading || (user && dataLoading && visibleLeaderboard.length === 0)) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -82,7 +95,6 @@ export default function LeaderboardPage() {
     );
   }
 
-  // حالة الزائر غير المسجل
   if (!user && !authLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background" dir="rtl">
@@ -140,67 +152,70 @@ export default function LeaderboardPage() {
                 <Table className="text-right w-full min-w-[300px]">
                   <TableHeader className="bg-muted/10">
                     <TableRow>
-                      <TableHead className="text-center font-black py-4 w-12 md:w-24 px-2">#</TableHead>
+                      <TableHead className="text-center font-black py-4 w-12 md:w-24 px-2">المركز</TableHead>
                       <TableHead className="text-right font-black py-4 px-2">الطالب</TableHead>
                       <TableHead className="text-center font-black py-4 w-20 md:w-32 px-2">النقاط</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visibleLeaderboard.map((student, index) => (
-                      <TableRow key={student.id} className={cn(
-                        "hover:bg-primary/5 transition-colors border-b border-primary/5",
-                        index === 0 && "bg-yellow-50/30",
-                        index === 1 && "bg-slate-50/30",
-                        index === 2 && "bg-orange-50/30"
-                      )}>
-                        <TableCell className="text-center px-1 md:px-2">
-                          <div className={cn(
-                            "w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto font-black text-xs md:text-sm transition-transform hover:scale-110 shadow-sm",
-                            index === 0 ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
-                            index === 1 ? "bg-slate-100 text-slate-700 border border-slate-200" :
-                            index === 2 ? "bg-orange-100 text-orange-700 border border-orange-200" :
-                            "bg-muted text-muted-foreground"
-                          )}>
-                            {index === 0 ? <Crown className="w-4 h-4 md:w-6 md:h-6" /> : 
-                             index === 1 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-slate-500" /> :
-                             index === 2 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-orange-600" /> :
-                             index + 1}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-3 md:py-6 px-1 md:px-4">
-                          <div className="flex items-center gap-2 md:gap-4 text-right">
-                            <Avatar className={cn(
-                              "h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
-                              index === 0 ? "border-yellow-400" : "border-white"
+                    {visibleLeaderboard.map((student) => {
+                      const rank = student.displayRank;
+                      return (
+                        <TableRow key={student.id} className={cn(
+                          "hover:bg-primary/5 transition-colors border-b border-primary/5",
+                          rank === 1 && "bg-yellow-50/30",
+                          rank === 2 && "bg-slate-50/30",
+                          rank === 3 && "bg-orange-50/30"
+                        )}>
+                          <TableCell className="text-center px-1 md:px-2">
+                            <div className={cn(
+                              "w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto font-black text-xs md:text-sm transition-transform hover:scale-110 shadow-sm",
+                              rank === 1 ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
+                              rank === 2 ? "bg-slate-100 text-slate-700 border border-slate-200" :
+                              rank === 3 ? "bg-orange-100 text-orange-700 border border-orange-200" :
+                              "bg-muted text-muted-foreground"
                             )}>
-                              <AvatarImage src={student.photoURL || undefined} className="object-cover" />
-                              <AvatarFallback className="bg-primary/5 text-primary font-black text-[10px] md:text-lg">{student.name?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="overflow-hidden">
-                              <div className="font-black text-primary text-xs md:text-lg truncate max-w-[80px] md:max-w-none">{student.name}</div>
-                              <div className="text-[7px] md:text-[10px] text-muted-foreground font-bold tracking-wider uppercase truncate">
-                                {index === 0 ? "البطل الذهبي" : index === 1 ? "المنافس الفضي" : index === 2 ? "المثابر البرونزي" : "طالب سراج"}
+                              {rank === 1 ? <Crown className="w-4 h-4 md:w-6 md:h-6" /> : 
+                               rank === 2 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-slate-500" /> :
+                               rank === 3 ? <Medal className="w-4 h-4 md:w-5 md:h-5 text-orange-600" /> :
+                               rank}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3 md:py-6 px-1 md:px-4">
+                            <div className="flex items-center gap-2 md:gap-4 text-right">
+                              <Avatar className={cn(
+                                "h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
+                                rank === 1 ? "border-yellow-400" : "border-white"
+                              )}>
+                                <AvatarImage src={student.photoURL || undefined} className="object-cover" />
+                                <AvatarFallback className="bg-primary/5 text-primary font-black text-[10px] md:text-lg">{student.name?.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div className="overflow-hidden">
+                                <div className="font-black text-primary text-xs md:text-lg truncate max-w-[80px] md:max-w-none">{student.name}</div>
+                                <div className="text-[7px] md:text-[10px] text-muted-foreground font-bold tracking-wider uppercase truncate">
+                                  {rank === 1 ? "البطل الذهبي" : rank === 2 ? "المنافس الفضي" : rank === 3 ? "المثابر البرونزي" : "طالب سراج"}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center px-1 md:px-2">
-                          <div className={cn(
-                            "inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl shadow-inner",
-                            index === 0 ? "bg-yellow-100/50" : "bg-secondary/10"
-                          )}>
-                             <Medal className={cn(
-                               "w-3 h-3 md:w-5 md:h-5",
-                               index === 0 ? "text-yellow-600 fill-yellow-600" : "text-secondary fill-transparent"
-                             )} />
-                             <span className={cn(
-                               "text-xs md:text-lg font-black",
-                               index === 0 ? "text-yellow-700" : "text-secondary"
-                             )} dir="ltr">{mounted ? student.totalPoints : '0'}</span>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-center px-1 md:px-2">
+                            <div className={cn(
+                              "inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl shadow-inner",
+                              rank === 1 ? "bg-yellow-100/50" : "bg-secondary/10"
+                            )}>
+                               <Medal className={cn(
+                                 "w-3 h-3 md:w-5 md:h-5",
+                                 rank === 1 ? "text-yellow-600 fill-yellow-600" : "text-secondary fill-transparent"
+                               )} />
+                               <span className={cn(
+                                 "text-xs md:text-lg font-black",
+                                 rank === 1 ? "text-yellow-700" : "text-secondary"
+                               )} dir="ltr">{mounted ? student.totalPoints : '0'}</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
