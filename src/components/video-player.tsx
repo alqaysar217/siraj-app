@@ -34,9 +34,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   
-  // نظام السرعات الثلاثي: 1.0, 1.25, 1.5
   const [playbackRate, setPlaybackRate] = useState(1);
-  
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
@@ -67,6 +65,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 4000);
   }, []);
 
+  // فصلنا السرعة عن الاعتمادات لمنع إعادة تشغيل الفيديو
   useEffect(() => {
     if (!videoId) return;
 
@@ -102,6 +101,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
             onReady: (event: any) => {
               setIsReady(true);
               setDuration(event.target.getDuration());
+              // تطبيق السرعة الحالية عند الجاهزية
               event.target.setPlaybackRate(playbackRate);
             },
             onStateChange: (event: any) => {
@@ -151,19 +151,14 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       const isFs = !!document.fullscreenElement;
       setIsFullscreen(isFs);
       
-      // تغليف العمليات الأمنية في try-catch لتجنب انهيار التطبيق في بعض المتصفحات
       try {
-        // محاولة قفل التدوير لوضع العرض عند التكبير في الجوال
         if (isFs && window.screen?.orientation?.lock) {
-          window.screen.orientation.lock("landscape").catch(() => {
-            // تجاهل خطأ الوعد (Promise rejection)
-          });
+          window.screen.orientation.lock("landscape").catch(() => {});
         } else if (!isFs && window.screen?.orientation?.unlock) {
           window.screen.orientation.unlock();
         }
       } catch (err) {
-        // تجاهل أخطاء الأمان (SecurityError) أو عدم الدعم
-        console.warn("Screen orientation interaction prevented by browser security policy.");
+        // حماية من أخطاء الأمان في بعض المتصفحات
       }
     };
     
@@ -179,7 +174,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls, playbackRate]);
+  }, [videoId, showControls]); // إزالة playbackRate من هنا
 
   const handleTogglePlay = (e?: any) => {
     e?.stopPropagation();
@@ -206,7 +201,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
 
   const toggleFullScreen = async () => {
     if (!containerRef.current) return;
-    
     try {
       if (!document.fullscreenElement) {
         if (containerRef.current.requestFullscreen) {
@@ -222,7 +216,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         }
       }
     } catch (err) {
-      console.error("Fullscreen logic error:", err);
+      console.error("FS Error:", err);
     }
   };
 
@@ -241,6 +235,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     else nextRate = 1;
 
     setPlaybackRate(nextRate);
+    // إرسال الأمر مباشرة للمشغل دون إعادة تحميله
     if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(nextRate);
     }

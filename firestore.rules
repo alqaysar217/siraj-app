@@ -20,7 +20,6 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || resource.data.showInLeaderboard == true);
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      // السماح للطالب بتعديل نقاطه وتقدمه وهاتفه وصورته بشكل صريح
       allow update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId && isNotModifyingAdminFields());
       allow delete: if isAdmin();
     }
@@ -34,10 +33,16 @@ service cloud.firestore {
       }
     }
     
+    match /reviews/{reviewId} {
+      // السماح بالقراءة للجميع (بما في ذلك الزوار) لضمان عمل التبويب بشكل صحيح
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+    
     match /subscriptions/{subId} { allow read, write: if isAdmin(); }
     match /bankAccounts/{accountId} { allow read: if true; allow write: if isAdmin(); }
     match /books/{bookId} { allow read: if true; allow write: if isAdmin(); }
-    match /reviews/{reviewId} { allow read: if true; allow create: if isAuthenticated(); allow update, delete: if isAdmin(); }
     match /socialLinks/{linkId} { allow read: if true; allow write: if isAdmin(); }
     match /trash/{trashId} { allow read, write: if isAdmin(); }
     match /certificates/{certId} { allow read: if true; allow write: if isAdmin(); }
