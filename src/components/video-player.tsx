@@ -151,13 +151,19 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       const isFs = !!document.fullscreenElement;
       setIsFullscreen(isFs);
       
-      // محاولة قفل التدوير لوضع العرض عند التكبير في الجوال
-      if (isFs && window.screen?.orientation?.lock) {
-        window.screen.orientation.lock("landscape").catch(() => {
-          // قد يفشل في بعض المتصفحات أو إذا كان التدوير مقفلاً من النظام، نتجاهل الخطأ
-        });
-      } else if (!isFs && window.screen?.orientation?.unlock) {
-        window.screen.orientation.unlock();
+      // تغليف العمليات الأمنية في try-catch لتجنب انهيار التطبيق في بعض المتصفحات
+      try {
+        // محاولة قفل التدوير لوضع العرض عند التكبير في الجوال
+        if (isFs && window.screen?.orientation?.lock) {
+          window.screen.orientation.lock("landscape").catch(() => {
+            // تجاهل خطأ الوعد (Promise rejection)
+          });
+        } else if (!isFs && window.screen?.orientation?.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch (err) {
+        // تجاهل أخطاء الأمان (SecurityError) أو عدم الدعم
+        console.warn("Screen orientation interaction prevented by browser security policy.");
       }
     };
     
@@ -173,13 +179,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls]);
-
-  useEffect(() => {
-    if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
-      playerRef.current.setPlaybackRate(playbackRate);
-    }
-  }, [playbackRate]);
+  }, [videoId, showControls, playbackRate]);
 
   const handleTogglePlay = (e?: any) => {
     e?.stopPropagation();
