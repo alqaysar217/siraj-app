@@ -35,7 +35,7 @@ import {
   User as UserIcon
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { doc, collection, query, updateDoc, arrayUnion, where } from "firebase/firestore";
+import { doc, collection, query, updateDoc, arrayUnion, where, orderBy } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -225,7 +225,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
 
-  // جلب الدروس
+  // جلب الدروس بمرجع مستقر واستخدام استيراد orderBy الصحيح
   const lessonsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "courses", id, "lessons"), orderBy("order", "asc")) : null
   , [db, id]);
@@ -241,7 +241,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   , [db, id]);
   const { data: rawReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
 
-  // ترتيب التقييمات برمجياً (Client-side) بدلاً من استعلام السيرفر لتجنب خطأ Index
+  // ترتيب التقييمات برمجياً (Client-side) لضمان عدم ظهور خطأ Index
   const courseReviews = useMemo(() => {
     if (!rawReviews) return [];
     return [...rawReviews].sort((a: any, b: any) => {
