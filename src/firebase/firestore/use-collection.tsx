@@ -33,14 +33,21 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         }));
         setData(docs);
         setLoading(false);
+        setError(null);
       },
-      async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: (query as any)._query?.path?.toString() || 'unknown',
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setError(permissionError);
+      async (serverError: any) => {
+        // نطلق التنبيه فقط إذا كان الرفض حقيقياً بسبب الصلاحيات
+        if (serverError.code === 'permission-denied') {
+          const permissionError = new FirestorePermissionError({
+            path: (query as any)._query?.path?.toString() || 'unknown',
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setError(permissionError);
+        } else {
+          console.error("Firestore Fetch Error:", serverError);
+          setError(serverError);
+        }
         setLoading(false);
       }
     );
