@@ -102,7 +102,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
             onReady: (event: any) => {
               setIsReady(true);
               setDuration(event.target.getDuration());
-              // ضبط السرعة الحالية عند الجاهزية بدون إعادة تشغيل
               event.target.setPlaybackRate(playbackRate);
             },
             onStateChange: (event: any) => {
@@ -149,21 +148,33 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 500);
 
     const handleFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreen(isFs);
+      
+      // محاولة قفل التدوير لوضع العرض عند التكبير في الجوال
+      if (isFs && window.screen?.orientation?.lock) {
+        window.screen.orientation.lock("landscape").catch(() => {
+          // قد يفشل في بعض المتصفحات أو إذا كان التدوير مقفلاً من النظام، نتجاهل الخطأ
+        });
+      } else if (!isFs && window.screen?.orientation?.unlock) {
+        window.screen.orientation.unlock();
+      }
     };
+    
     document.addEventListener("fullscreenchange", handleFsChange);
+    document.addEventListener("webkitfullscreenchange", handleFsChange);
 
     return () => {
       clearInterval(interval);
       document.removeEventListener("fullscreenchange", handleFsChange);
+      document.removeEventListener("webkitfullscreenchange", handleFsChange);
       if (playerRef.current && playerRef.current.destroy) {
         playerRef.current.destroy();
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls]); // أزلنا playbackRate من هنا لمنع تدمير المشغل عند تغيير السرعة
+  }, [videoId, showControls]);
 
-  // تحديث السرعة في المشغل عند تغير الحالة دون إعادة تشغيل الفيديو
   useEffect(() => {
     if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(playbackRate);
@@ -198,9 +209,17 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     
     try {
       if (!document.fullscreenElement) {
-        await containerRef.current.requestFullscreen();
+        if (containerRef.current.requestFullscreen) {
+          await containerRef.current.requestFullscreen();
+        } else if ((containerRef.current as any).webkitRequestFullscreen) {
+          await (containerRef.current as any).webkitRequestFullscreen();
+        }
       } else {
-        await document.exitFullscreen();
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
       }
     } catch (err) {
       console.error("Fullscreen logic error:", err);
@@ -214,7 +233,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     setCurrentTime(time);
   };
 
-  // وظيفة تبديل السرعة الثلاثية الذكية دون إعادة تشغيل
   const toggleSpeed = (e: any) => {
     e.stopPropagation();
     let nextRate = 1;
@@ -223,7 +241,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     else nextRate = 1;
 
     setPlaybackRate(nextRate);
-    // التحديث المباشر للمشغل هنا يضمن عدم العودة للبداية
     if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(nextRate);
     }
@@ -245,7 +262,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         onMouseMove={showControls}
         className={cn(
           "relative aspect-video rounded-2xl overflow-hidden bg-black luxury-shadow border border-border select-none transition-all duration-300",
-          isFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex items-center justify-center"
+          isFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex items-center justify-center bg-black"
         )}
       >
         {!isReady && (
@@ -254,7 +271,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           </div>
         )}
 
-        <div className="w-full h-full">
+        <div className={cn("w-full h-full flex items-center justify-center", isFullscreen ? "bg-black" : "")}>
           <div id="youtube-player-element" className="w-full h-full" />
           <div 
             className="absolute inset-0 z-[50] cursor-pointer" 
