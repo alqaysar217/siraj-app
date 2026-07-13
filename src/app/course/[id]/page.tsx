@@ -33,10 +33,12 @@ import {
   Building2,
   Check,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  MessageSquare,
+  User as UserIcon
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { doc, collection, query, orderBy, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, collection, query, orderBy, updateDoc, arrayUnion, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -235,6 +237,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const bankQuery = useMemoFirebase(() => db ? query(collection(db, "bankAccounts"), orderBy("createdAt", "desc")) : null, [db]);
   const { data: bankAccounts } = useCollection(bankQuery);
 
+  const reviewsQuery = useMemoFirebase(() => 
+    db ? query(collection(db, "reviews"), where("courseId", "==", id), orderBy("createdAt", "desc")) : null
+  , [db, id]);
+  const { data: courseReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
+
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
     return Array.isArray(profile?.enrolledCourses) && profile.enrolledCourses.includes(id);
@@ -249,12 +256,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // مزامنة البيانات من السيرفر عند الدخول لمنع تصفير التقدم
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
       const savedProgress = profile.progress?.[id] || {};
       const lastId = savedProgress.lastLessonId;
-      // نبدأ من آخر درس شاهده الطالب أو من الأول إذا لم يشاهد شيئاً
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
       setSelectedLessonId(startId);
       setLocalCompleted(savedProgress.completedLessons || []);
@@ -267,7 +272,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     setSelectedLessonId(lessonId);
     if (db && user && isEnrolled) {
       const userRef = doc(db, "users", user.uid);
-      // حفظ آخر درس لحظياً في السيرفر
       updateDoc(userRef, { [`progress.${id}.lastLessonId`]: lessonId }).catch(() => {});
     }
   }, [db, user, isEnrolled, id]);
@@ -275,7 +279,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin || index === 0) return false;
     if (!isEnrolled) return true;
-    // الدرس يكون مقفلاً إذا لم يكتمل الدرس السابق له
     return !allCompletedIds.includes(lessons?.[index - 1]?.id);
   }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
 
@@ -309,7 +312,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
-    // إضافة الدرس للمحلي فوراً لفتح القفل لحظياً
     if (!localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
@@ -332,7 +334,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints)) + bonus;
     }
     
-    // الحفظ الحقيقي في السيرفر
     if (Object.keys(updates).length > 0) {
       updateDoc(userRef, updates).catch((err) => {
         console.error("Firebase Save Error:", err);
@@ -391,7 +392,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  // ننتظر تحميل ملف الطالب من السيرفر قبل البدء لمنع تصفير التقدم
   if (courseLoading || lessonsLoading || userLoading || (!selectedLessonId && !isFinishing)) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
@@ -482,11 +482,31 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               </Card>
 
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
-                <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b">
-                  <TabsTrigger value="payment" className="flex-1 font-black text-sm md:text-lg rounded-xl">تفعيل الدورة</TabsTrigger>
-                  <TabsTrigger value="curriculum" className="flex-1 font-black text-sm md:text-lg rounded-xl">المنهج</TabsTrigger>
+                <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b gap-1">
+                  <TabsTrigger 
+                    value="payment" 
+                    className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
+                  >
+                    <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>تفعيل الدورة</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="curriculum" 
+                    className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
+                  >
+                    <ListVideo className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>المنهج</span>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="reviews" 
+                    className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
+                  >
+                    <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
+                    <span>التقييمات</span>
+                  </TabsTrigger>
                 </TabsList>
-                <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right">
+
+                <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right animate-in fade-in duration-300">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
                       <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6" dir="rtl">
@@ -502,7 +522,51 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     ))}
                   </div>
                 </TabsContent>
-                <TabsContent value="curriculum" className="p-6 md:p-8"><CurriculumContent /></TabsContent>
+
+                <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
+                  <CurriculumContent />
+                </TabsContent>
+
+                <TabsContent value="reviews" className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
+                   <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-black text-primary font-headline">آراء الطلاب</h3>
+                      <div className="flex items-center gap-1.5 bg-secondary/10 px-4 py-1.5 rounded-full">
+                         <Star className="w-4 h-4 text-secondary fill-secondary" />
+                         <span className="font-black text-secondary">{course?.rating || "5.0"}</span>
+                      </div>
+                   </div>
+                   
+                   {reviewsLoading ? (
+                     <div className="py-10 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-secondary" /></div>
+                   ) : courseReviews && courseReviews.length > 0 ? (
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                       {courseReviews.map((review: any, i: number) => (
+                         <div key={i} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4">
+                            <div className="flex items-center gap-3">
+                               <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
+                                  <AvatarImage src={review.userPhoto || undefined} className="object-cover" />
+                                  <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
+                               </Avatar>
+                               <div className="text-right">
+                                  <div className="text-sm font-black text-primary">{review.userName}</div>
+                                  <div className="flex items-center gap-0.5 mt-0.5">
+                                     {[...Array(5)].map((_, s) => (
+                                       <Star key={s} className={cn("w-3 h-3", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
+                                     ))}
+                                  </div>
+                               </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground font-bold italic line-clamp-3 leading-relaxed">"{review.comment}"</p>
+                         </div>
+                       ))}
+                     </div>
+                   ) : (
+                     <div className="py-20 text-center bg-muted/20 rounded-[2.5rem] border-2 border-dashed border-primary/5">
+                        <MessageCircle className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+                        <p className="text-sm text-muted-foreground font-black">كن أول من يشارك رأيه حول هذه الدورة!</p>
+                     </div>
+                   )}
+                </TabsContent>
               </Tabs>
             </div>
           )}
