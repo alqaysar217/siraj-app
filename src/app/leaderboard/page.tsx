@@ -47,7 +47,7 @@ export default function LeaderboardPage() {
   const leaderboard = useMemo(() => {
     if (!users) return [];
 
-    // الترتيب الأساسي: النقاط (الأعلى أولاً)، ثم عدد الدروس المكتملة (كعامل ترجيحي)
+    // الترتيب الأساسي: النقاط (الأعلى أولاً)، ثم عدد الدروس المكتملة (كعامل ترجيحي داخلي فقط)
     const sorted = users.map((u: any) => {
       const progressEntries = Object.values(u.progress || {});
       const totalPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
@@ -65,11 +65,12 @@ export default function LeaderboardPage() {
       return b.totalLessons - a.totalLessons;
     });
 
-    // احتساب الرتبة الحقيقية مع دعم التساوي
+    // احتساب الرتبة باستخدام Dense Ranking (الترتيب الكثيف)
+    // بحيث المتساوين في النقاط يأخذون نفس الرتبة والمركز الذي يليهم يكون الرقم التالي مباشرة
     let currentRank = 1;
     return sorted.map((student, index, array) => {
       if (index > 0 && student.totalPoints < array[index - 1].totalPoints) {
-        currentRank = index + 1;
+        currentRank++;
       }
       return { ...student, displayRank: currentRank };
     });

@@ -87,11 +87,12 @@ export default function StudentProgressPage() {
       );
     }
 
-    // احتساب الرتبة الحقيقية مع دعم التساوي
+    // احتساب الرتبة باستخدام Dense Ranking (الترتيب الكثيف)
+    // لضمان حصول الطلاب المتساوين في النقاط على نفس المركز
     let currentRank = 1;
     return list.map((student, index, array) => {
       if (index > 0 && student.totalPoints < array[index - 1].totalPoints) {
-        currentRank = index + 1;
+        currentRank++;
       }
       return { ...student, displayRank: currentRank };
     });
