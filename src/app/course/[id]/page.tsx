@@ -37,7 +37,8 @@ import {
   Send,
   ChevronLeft,
   Info,
-  FileText
+  FileText,
+  CreditCard
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -52,7 +53,6 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 const WHATSAPP_NUMBER = "+967735952927";
@@ -226,7 +226,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [activeTab, setActiveTab] = useState("details");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
-  // حالات التقييم
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -626,26 +625,57 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 </div>
 
                 {!isEnrolled && (
-                  <section className="space-y-6 pt-6 border-t border-primary/5">
-                    <h3 className="text-xl font-black text-primary font-headline flex items-center gap-3">
-                      <ShieldCheck className="w-6 h-6 text-secondary" />
-                      طريقة الاشتراك والتفعيل
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <section className="space-y-6 pt-10 border-t border-primary/5">
+                    <div className="flex items-center justify-between mb-2">
+                       <h3 className="text-xl md:text-2xl font-black text-primary font-headline flex items-center gap-3">
+                        <CreditCard className="w-6 h-6 text-secondary" />
+                        طريقة الاشتراك والتفعيل
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {bankAccounts?.map((bank: any, idx: number) => (
-                        <div key={idx} className="bg-white p-5 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6">
-                          <div className="w-16 h-16 relative bg-muted rounded-2xl shrink-0">
-                            {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
+                        <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-primary/5 luxury-shadow flex flex-col md:flex-row items-center gap-6 relative overflow-hidden group hover:border-secondary/20 transition-all">
+                          <div className="absolute top-0 right-0 w-20 h-20 bg-secondary/5 rounded-full -mr-10 -mt-10 group-hover:bg-secondary/10 transition-colors" />
+                          
+                          <div className="w-20 h-20 relative bg-muted/30 rounded-3xl shrink-0 overflow-hidden border border-primary/5">
+                            {bank.imageUrl ? (
+                              <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-primary/20"><Building2 className="w-10 h-10" /></div>
+                            )}
                           </div>
-                          <div className="flex-1 overflow-hidden space-y-1">
-                            <h4 className="font-black text-base text-primary">{bank.bankName}</h4>
-                            <code className="text-sm font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
-                            <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }} className="p-1.5 bg-muted rounded-lg mt-2 flex items-center gap-2 text-[10px] font-bold"><Copy className="w-3.5 h-3.5" /> نسخ الرقم</button>
+                          
+                          <div className="flex-1 text-center md:text-right space-y-2 overflow-hidden w-full">
+                            <h4 className="font-black text-lg text-primary leading-none">{bank.bankName}</h4>
+                            <div className="space-y-0.5">
+                               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">اسم صاحب الحساب</p>
+                               <p className="text-sm font-black text-primary/80">{bank.accountHolder}</p>
+                            </div>
+                            <div className="bg-primary/5 p-3 rounded-2xl border border-primary/5 inline-block w-full">
+                               <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">رقم الحساب</p>
+                               <code className="text-base font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
+                            </div>
+                            <Button 
+                              onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ", description: "رقم الحساب جاهز للصق" }); }} 
+                              variant="ghost"
+                              className="w-full h-10 rounded-xl mt-2 flex items-center justify-center gap-2 text-xs font-black text-primary hover:bg-primary/5 hover:text-secondary"
+                            >
+                               <Copy className="w-4 h-4" /> نسخ رقم الحساب
+                            </Button>
                           </div>
                         </div>
                       ))}
                     </div>
-                    <p className="text-[11px] text-center text-muted-foreground font-bold">بعد التحويل، أرسل صورة السند عبر واتساب ليتم تفعيل الدورة فوراً في حسابك.</p>
+                    <div className="bg-secondary/5 p-6 rounded-[2rem] border border-dashed border-secondary/20 text-center space-y-3">
+                       <p className="text-sm md:text-base text-primary font-bold leading-relaxed">
+                          بعد إتمام عملية التحويل، يرجى إرسال <span className="text-secondary font-black">صورة سند التحويل</span> عبر الواتساب لتفعيل الدورة في حسابك فوراً.
+                       </p>
+                       <Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg">
+                          <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=أهلاً سراج، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`} target="_blank">
+                             <MessageCircle className="w-5 h-5" /> إرسال السند عبر واتساب
+                          </a>
+                       </Button>
+                    </div>
                   </section>
                 )}
               </TabsContent>
