@@ -10,31 +10,51 @@ let auth: Auth | undefined;
 let db: Firestore | undefined;
 
 /**
- * Initializes Firebase services safely.
- * Deployment Pulse: v1.8.0 - FIX: Robust Long Polling initialization to solve "Backend didn't respond" errors.
+ * تهيئة خدمات Firebase بأمان باستخدام نمط Singleton.
+ * يمنع هذا التحديث أخطاء "INTERNAL ASSERTION FAILED" عبر ضمان استدعاء initializeFirestore مرة واحدة فقط.
  */
 export function initializeFirebase() {
-  if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
-    try {
+  if (typeof window === 'undefined' || !isFirebaseConfigValid()) {
+    return { app: null, auth: null, db: null };
+  }
+
+  try {
+    // 1. تأمين مثيل التطبيق (App Instance)
+    if (!app) {
       const existingApps = getApps();
-      if (!existingApps.length) {
+      if (existingApps.length > 0) {
+        app = existingApps[0];
+      } else {
         app = initializeApp(firebaseConfig);
-        // نستخدم initializeFirestore مباشرة لضمان تطبيق الإعدادات قبل أي محاولة اتصال أخرى
+      }
+    }
+
+    // 2. تأمين مثيل قاعدة البيانات (Firestore Instance)
+    // نستخدم initializeFirestore لضبط الإعدادات التجريبية (Long Polling) المطلوبة في هذه البيئة
+    if (!db) {
+      try {
         db = initializeFirestore(app, {
           experimentalForceLongPolling: true,
         });
-        auth = getAuth(app);
-      } else {
-        app = getApp();
-        auth = getAuth(app);
+      } catch (firestoreError) {
+        // في حال كان Firestore مهيأ مسبقاً (مثلاً بواسطة HMR)، نقوم بجلب المثيل الحالي
         db = getFirestore(app);
       }
-    } catch (error) {
-      console.error("Firebase Initialization Error:", error);
     }
+
+    // 3. تأمين مثيل الحماية (Auth Instance)
+    if (!auth) {
+      auth = getAuth(app);
+    }
+  } catch (error) {
+    console.error("Firebase Critical Initialization Error:", error);
   }
   
-  return { app: app || null, auth: auth || null, db: db || null };
+  return { 
+    app: app || null, 
+    auth: auth || null, 
+    db: db || null 
+  };
 }
 
 export * from './provider';
