@@ -135,7 +135,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         <div className="space-y-2">
           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">تقويم الوحدة التعليمية</h2>
           <p className="text-muted-foreground text-sm md:text-lg leading-relaxed max-w-lg mx-auto">
-            تنبيه: يتم احتساب نقاط هذا تقويم من أول محاولة إجابة فقط.
+            تنبيه: يتم احتساب نقاط هذا التقويم من أول محاولة إجابة فقط.
           </p>
         </div>
         <Button onClick={() => setStarted(true)} className="h-14 px-12 rounded-2xl bg-primary text-white font-bold text-lg shadow-lg">
@@ -147,7 +147,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
 
   if (showResult) {
     const isSuccess = score >= quizData.length / 2;
-    const pointsEarned = score * 5;
+    const pointsEarned = 10 + (score * 5); // 10 للإنهاء + 5 لكل سؤال صح
 
     return (
       <div className="bg-card p-6 md:p-12 rounded-[2rem] border border-border text-center space-y-8 luxury-shadow animate-in fade-in zoom-in duration-300">
@@ -309,10 +309,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   }, [db, user, isEnrolled, id]);
 
   const isLessonLocked = useCallback((lesson: any, index: number) => {
-    if (isAdmin || index === 0) return false;
-    if (!isEnrolled) return true;
-    return !allCompletedIds.includes(lessons?.[index - 1]?.id);
-  }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
+    if (isAdmin) return false;
+    // إذا كان الطالب أكمله سابقاً، يبقى مفتوحاً للأبد مهما تغير الترتيب
+    if (allCompletedIds.includes(lesson.id)) return false;
+    // الدرس الأول دائماً مفتوح
+    if (index === 0) return false;
+    // الدرس يفتح إذا كان الطالب قد أنهى الدرس الذي قبله في القائمة الحالية
+    const prevLesson = lessons?.[index - 1];
+    return !allCompletedIds.includes(prevLesson?.id);
+  }, [isAdmin, allCompletedIds, lessons]);
 
   const goToNext = useCallback(() => {
     if (!isEnrolled && currentLessonIndex === 0) {
@@ -341,26 +346,33 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     
     const lessonId = currentLesson.id;
-    if (!localCompleted.includes(lessonId)) {
+    const isNewCompletion = !userProgress.completedLessons?.includes(lessonId);
+
+    if (isNewCompletion && !localCompleted.includes(lessonId)) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
     const userRef = doc(db, "users", user.uid);
     const updates: any = {};
-    const currentTotalPoints = Number(profile.points || 0);
-    const currentCoursePoints = Number(userProgress.points || 0);
+    let totalPointsToAdd = 0;
     
-    if (!userProgress.completedLessons?.includes(lessonId)) {
+    // 1. إضافة 10 نقاط ثابتة عند إكمال أي فيديو أو تقويم لأول مرة
+    if (isNewCompletion) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
-      updates[`points`] = currentTotalPoints + 10;
-      updates[`progress.${id}.points`] = currentCoursePoints + 10;
+      totalPointsToAdd += 10;
     }
     
+    // 2. إضافة 5 نقاط عن كل إجابة صحيحة في التقويم (لأول مرة فقط)
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
-      const bonus = Number(score) * 5;
-      updates[`points`] = (Number(updates.points || currentTotalPoints)) + bonus;
-      updates[`progress.${id}.points`] = (Number(updates[`progress.${id}.points`] || currentCoursePoints)) + bonus;
+      totalPointsToAdd += (score * 5);
+    }
+    
+    if (totalPointsToAdd > 0) {
+      const currentTotalPoints = Number(profile.points || 0);
+      const currentCoursePoints = Number(userProgress.points || 0);
+      updates[`points`] = currentTotalPoints + totalPointsToAdd;
+      updates[`progress.${id}.points`] = currentCoursePoints + totalPointsToAdd;
     }
     
     if (Object.keys(updates).length > 0) {
@@ -506,7 +518,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto"><PartyPopper className="w-12 h-12 text-green-600" /></div>
                   <div className="space-y-2">
                     <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز الكبير! 🎓</h2>
-                    <p className="text-muted-foreground font-bold">لقد أكملت كافة متبات دورة "{course?.title}" بنجاح.</p>
+                    <p className="text-muted-foreground font-bold">لقد أكملت كافة متطلبات دورة "{course?.title}" بنجاح.</p>
                   </div>
                   <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أهلاً سراج، أتممت دورة ${course?.title} وأرغب في استلام الشهادة الموثقة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
                     <Award className="w-6 h-6" /> طلب الشهادة الموثقة عبر واتساب
@@ -624,61 +636,58 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   ))}
                 </div>
 
-                {/* الحسابات البنكية تظهر لمن لم يشترك وللمسؤولين للمعانية */}
-                {(!isEnrolled || isAdmin) && (
-                  <section className="space-y-6 pt-10 border-t border-primary/5">
-                    <div className="flex items-center justify-between mb-2">
-                       <h3 className="text-xl md:text-2xl font-black text-primary font-headline flex items-center gap-3">
-                        <CreditCard className="w-6 h-6 text-secondary" />
-                        طريقة الاشتراك والتفعيل
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {bankAccounts?.map((bank: any, idx: number) => (
-                        <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-primary/5 luxury-shadow flex flex-col md:flex-row items-center gap-6 relative overflow-hidden group hover:border-secondary/20 transition-all">
-                          <div className="absolute top-0 right-0 w-20 h-20 bg-secondary/5 rounded-full -mr-10 -mt-10 group-hover:bg-secondary/10 transition-colors" />
-                          
-                          <div className="w-20 h-20 relative bg-muted/30 rounded-3xl shrink-0 overflow-hidden border border-primary/5">
-                            {bank.imageUrl ? (
-                              <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-primary/20"><Building2 className="w-10 h-10" /></div>
-                            )}
-                          </div>
-                          
-                          <div className="flex-1 text-center md:text-right space-y-2 overflow-hidden w-full">
-                            <h4 className="font-black text-lg text-primary leading-none">{bank.bankName}</h4>
-                            <div className="space-y-0.5">
-                               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">اسم صاحب الحساب</p>
-                               <p className="text-sm font-black text-primary/80">{bank.accountHolder}</p>
-                            </div>
-                            <div className="bg-primary/5 p-3 rounded-2xl border border-primary/5 inline-block w-full">
-                               <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">رقم الحساب</p>
-                               <code className="text-base font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
-                            </div>
-                            <Button 
-                              onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ", description: "رقم الحساب جاهز للصق" }); }} 
-                              variant="ghost"
-                              className="w-full h-10 rounded-xl mt-2 flex items-center justify-center gap-2 text-xs font-black text-primary hover:bg-primary/5 hover:text-secondary"
-                            >
-                               <Copy className="w-4 h-4" /> نسخ رقم الحساب
-                            </Button>
-                          </div>
+                <section className="space-y-6 pt-10 border-t border-primary/5">
+                  <div className="flex items-center justify-between mb-2">
+                     <h3 className="text-xl md:text-2xl font-black text-primary font-headline flex items-center gap-3">
+                      <CreditCard className="w-6 h-6 text-secondary" />
+                      طريقة الاشتراك والتفعيل
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {bankAccounts?.map((bank: any, idx: number) => (
+                      <div key={idx} className="bg-white p-6 rounded-[2.5rem] border border-primary/5 luxury-shadow flex flex-col md:flex-row items-center gap-6 relative overflow-hidden group hover:border-secondary/20 transition-all">
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-secondary/5 rounded-full -mr-10 -mt-10 group-hover:bg-secondary/10 transition-colors" />
+                        
+                        <div className="w-20 h-20 relative bg-muted/30 rounded-3xl shrink-0 overflow-hidden border border-primary/5">
+                          {bank.imageUrl ? (
+                            <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-primary/20"><Building2 className="w-10 h-10" /></div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                    <div className="bg-secondary/5 p-6 rounded-[2rem] border border-dashed border-secondary/20 text-center space-y-3">
-                       <p className="text-sm md:text-base text-primary font-bold leading-relaxed">
-                          بعد إتمام عملية التحويل، يرجى إرسال <span className="text-secondary font-black">صورة سند التحويل</span> عبر الواتساب لتفعيل الدورة في حسابك فوراً.
-                       </p>
-                       <Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg">
-                          <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=أهلاً سراج، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`} target="_blank">
-                             <MessageCircle className="w-5 h-5" /> إرسال السند عبر واتساب
-                          </a>
-                       </Button>
-                    </div>
-                  </section>
-                )}
+                        
+                        <div className="flex-1 text-center md:text-right space-y-2 overflow-hidden w-full">
+                          <h4 className="font-black text-lg text-primary leading-none">{bank.bankName}</h4>
+                          <div className="space-y-0.5">
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">اسم صاحب الحساب</p>
+                             <p className="text-sm font-black text-primary/80">{bank.accountHolder}</p>
+                          </div>
+                          <div className="bg-primary/5 p-3 rounded-2xl border border-primary/5 inline-block w-full">
+                             <p className="text-[9px] font-black text-muted-foreground uppercase mb-1">رقم الحساب</p>
+                             <code className="text-base font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
+                          </div>
+                          <Button 
+                            onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ", description: "رقم الحساب جاهز للصق" }); }} 
+                            variant="ghost"
+                            className="w-full h-10 rounded-xl mt-2 flex items-center justify-center gap-2 text-xs font-black text-primary hover:bg-primary/5 hover:text-secondary"
+                          >
+                             <Copy className="w-4 h-4" /> نسخ رقم الحساب
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-secondary/5 p-6 rounded-[2rem] border border-dashed border-secondary/20 text-center space-y-3">
+                     <p className="text-sm md:text-base text-primary font-bold leading-relaxed">
+                        بعد إتمام عملية التحويل، يرجى إرسال <span className="text-secondary font-black">صورة سند التحويل</span> عبر الواتساب لتفعيل الدورة في حسابك فوراً.
+                     </p>
+                     <Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg">
+                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=أهلاً سراج، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`} target="_blank">
+                           <MessageCircle className="w-5 h-5" /> إرسال السند عبر واتساب
+                        </a>
+                     </Button>
+                  </div>
+                </section>
               </TabsContent>
 
               <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
@@ -732,3 +741,4 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 }
+
