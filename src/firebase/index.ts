@@ -3,16 +3,18 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore, initializeFirestore } from 'firebase/firestore';
+import { getFirestore, Firestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
+let persistenceEnabled = false;
 
 /**
  * تهيئة خدمات Firebase بأمان باستخدام نمط Singleton.
- * يضمن استدعاء initializeFirestore مرة واحدة فقط لمنع أخطاء التكرار في البيئة السحابية.
+ * تم إضافة ميزة enableMultiTabIndexedDbPersistence لتسريع تحميل البيانات 
+ * وضمان عمل المنصة في ظروف الإنترنت الضعيفة.
  */
 export function initializeFirebase() {
   if (typeof window === 'undefined' || !isFirebaseConfigValid()) {
@@ -30,13 +32,23 @@ export function initializeFirebase() {
       }
     }
 
-    // 2. تأمين مثيل قاعدة البيانات (Firestore Instance)
+    // 2. تأمين مثيل قاعدة البيانات (Firestore Instance) مع التخزين المحلي
     if (!db) {
-      try {
-        db = getFirestore(app);
-      } catch (firestoreError) {
-        // حماية إضافية في حالة التهيئة المسبقة
-        db = getFirestore(app);
+      db = getFirestore(app);
+
+      // تفعيل ميزة التخزين المحلي الذكي (Persistence)
+      // تتيح للمنصة تحميل البيانات فوراً من ذاكرة الجهاز قبل طلبها من السحابة
+      if (!persistenceEnabled && typeof window !== 'undefined') {
+        enableMultiTabIndexedDbPersistence(db).catch((err) => {
+          if (err.code === 'failed-precondition') {
+            // تحدث إذا فتح المستخدم تبويبات كثيرة في نفس الوقت
+            console.warn("تنبيه: التخزين المحلي يعمل في تبويب آخر.");
+          } else if (err.code === 'unimplemented') {
+            // تحدث إذا كان المتصفح قديماً جداً ولا يدعم الميزة
+            console.warn("تنبيه: المتصفح الحالي لا يدعم ميزة العمل دون اتصال.");
+          }
+        });
+        persistenceEnabled = true;
       }
     }
 
