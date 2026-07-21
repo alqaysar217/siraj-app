@@ -35,7 +35,9 @@ import {
   MessageSquare,
   User as UserIcon,
   Send,
-  ChevronLeft
+  ChevronLeft,
+  Info,
+  FileText
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -221,7 +223,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
-  const [activeTab, setActiveTab] = useState("curriculum");
+  const [activeTab, setActiveTab] = useState("details");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
   // حالات التقييم
@@ -276,7 +278,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
-  // فحص هل انتهى من كافة الدروس
   const isAllLessonsCompleted = useMemo(() => {
     if (!lessons || lessons.length === 0) return false;
     return allCompletedIds.length >= lessons.length;
@@ -288,7 +289,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       const lastId = savedProgress.lastLessonId;
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
       
-      // إذا كان قد أنهى كل الدروس، نظهر شاشة النهاية مباشرة
       if (isAllLessonsCompleted && !lastId) {
         setIsFinishing(true);
         setSelectedLessonId(null);
@@ -317,7 +317,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
   const goToNext = useCallback(() => {
     if (!isEnrolled && currentLessonIndex === 0) {
-      setActiveTab("payment");
+      setActiveTab("details");
       return;
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
@@ -401,7 +401,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
   };
 
-  const CurriculumContent = () => (
+  const CurriculumList = () => (
     <div className="space-y-6" dir="rtl">
       <Accordion type="single" collapsible className="space-y-4">
         {lessons && lessons.length > 0 && Object.entries(
@@ -445,7 +445,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
           </AccordionItem>
         ))}
 
-        {/* خطوة إضافية نهائية: التقييم والشهادة */}
         {lessons && lessons.length > 0 && (
           <div className="mt-4 border rounded-2xl overflow-hidden bg-card border-secondary/20 luxury-shadow">
             <button 
@@ -486,7 +485,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       <div className="container mx-auto px-4 py-6 md:py-10">
         <div className="max-w-5xl mx-auto space-y-6">
           
-          {/* شريط التقدم العلوي */}
           {isEnrolled && (
             <div className="w-full bg-white/95 backdrop-blur-xl border border-primary/10 p-4 rounded-2xl shadow-sm flex items-center gap-4">
                <div className="p-2 bg-secondary/10 rounded-lg shrink-0"><ShieldCheck className="w-5 h-5 text-secondary" /></div>
@@ -532,7 +530,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       </div>
                       <Textarea 
                         placeholder="اكتب رأيك بصراحة.. ما الذي أعجبك؟ وكيف يمكننا التحسين؟"
-                        className="min-h-[120px] rounded-2xl border-primary/10 text-base"
+                        className="min-h-[120px] rounded-2xl border-primary/10 text-base text-right"
                         value={reviewComment}
                         onChange={(e) => setReviewComment(e.target.value)}
                       />
@@ -571,7 +569,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       <SheetHeader className="p-8 border-b text-right bg-muted/10">
                         <SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle>
                       </SheetHeader>
-                      <div className="p-6"><CurriculumContent /></div>
+                      <div className="p-6"><CurriculumList /></div>
                     </SheetContent>
                   </Sheet>
                 </div>
@@ -585,70 +583,75 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             )}
           </div>
 
-          {/* تبويبات المعلومات والمنهج والتقييمات السفلية */}
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-            <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
-              <div className="text-right space-y-3">
-                <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{course?.title}</h1>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: "الطلاب", val: course?.studentsCount, icon: Users },
-                  { label: "التقييم", val: course?.rating, icon: Star },
-                  { label: "المستوى", val: getLevelName(course?.level || "beginner"), icon: Layers },
-                  { label: "الشهادة", val: course?.hasCertificate ? "متاحة" : "غير متوفرة", icon: Award },
-                ].map((s, i) => (
-                  <div key={i} className="bg-muted/30 p-4 rounded-2xl flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-5 h-5 text-secondary" /></div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
-                      <p className="text-xs font-bold text-primary">{s.val}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
               <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b gap-1">
+                <TabsTrigger value="details" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                  <Info className="w-4 h-4 md:w-5 md:h-5" /> <span>عن الدورة</span>
+                </TabsTrigger>
                 <TabsTrigger value="curriculum" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                   <ListVideo className="w-4 h-4 md:w-5 md:h-5" /> <span>المنهج</span>
-                </TabsTrigger>
-                <TabsTrigger value="payment" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
-                  <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /> <span>{isEnrolled ? "بياناتي" : "تفعيل"}</span>
                 </TabsTrigger>
                 <TabsTrigger value="reviews" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                   <MessageSquare className="w-4 h-4 md:w-5 md:h-5" /> <span>التقييمات</span>
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
-                <CurriculumContent />
+              <TabsContent value="details" className="p-6 md:p-10 space-y-10 animate-in fade-in duration-300">
+                <section className="space-y-4 text-right">
+                  <h3 className="text-2xl font-black text-primary font-headline flex items-center gap-3">
+                    <div className="p-2 bg-secondary/10 rounded-xl text-secondary"><FileText className="w-6 h-6" /></div>
+                    وصف الدورة التدريبية
+                  </h3>
+                  <p className="text-base md:text-lg text-muted-foreground leading-relaxed font-medium whitespace-pre-line pr-2">
+                    {course?.description}
+                  </p>
+                </section>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "إجمالي الطلاب", val: course?.studentsCount, icon: Users },
+                    { label: "التقييم العام", val: course?.rating, icon: Star },
+                    { label: "المستوى", val: getLevelName(course?.level || "beginner"), icon: Layers },
+                    { label: "شهادة معتمدة", val: course?.hasCertificate ? "متاحة" : "غير متوفرة", icon: Award },
+                  ].map((s, i) => (
+                    <div key={i} className="bg-muted/30 p-5 rounded-[1.5rem] flex items-center gap-3 border border-primary/5">
+                      <div className="p-2.5 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-6 h-6 text-secondary" /></div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
+                        <p className="text-sm font-bold text-primary">{s.val}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {!isEnrolled && (
+                  <section className="space-y-6 pt-6 border-t border-primary/5">
+                    <h3 className="text-xl font-black text-primary font-headline flex items-center gap-3">
+                      <ShieldCheck className="w-6 h-6 text-secondary" />
+                      طريقة الاشتراك والتفعيل
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {bankAccounts?.map((bank: any, idx: number) => (
+                        <div key={idx} className="bg-white p-5 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6">
+                          <div className="w-16 h-16 relative bg-muted rounded-2xl shrink-0">
+                            {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
+                          </div>
+                          <div className="flex-1 overflow-hidden space-y-1">
+                            <h4 className="font-black text-base text-primary">{bank.bankName}</h4>
+                            <code className="text-sm font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
+                            <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }} className="p-1.5 bg-muted rounded-lg mt-2 flex items-center gap-2 text-[10px] font-bold"><Copy className="w-3.5 h-3.5" /> نسخ الرقم</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-center text-muted-foreground font-bold">بعد التحويل، أرسل صورة السند عبر واتساب ليتم تفعيل الدورة فوراً في حسابك.</p>
+                  </section>
+                )}
               </TabsContent>
 
-              <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right animate-in fade-in duration-300">
-                {isEnrolled ? (
-                  <div className="bg-green-50 p-8 rounded-[2rem] border border-green-100 text-center space-y-4">
-                     <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
-                     <h3 className="text-2xl font-black text-green-800">أنت مشترك بالفعل</h3>
-                     <p className="text-green-700 font-bold">يمكنك الوصول لكافة المحتويات، الاختبارات، والحصول على الشهادة عند الإتمام.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                    {bankAccounts?.map((bank: any, idx: number) => (
-                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6">
-                        <div className="w-16 h-16 relative bg-muted rounded-2xl shrink-0">
-                          {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
-                        </div>
-                        <div className="flex-1 overflow-hidden space-y-1">
-                          <h4 className="font-black text-base md:text-lg text-primary">{bank.bankName}</h4>
-                          <code className="text-sm font-black font-mono text-secondary block" dir="ltr">{bank.accountNumber}</code>
-                          <button onClick={() => { navigator.clipboard.writeText(bank.accountNumber); toast({ title: "تم النسخ" }); }} className="p-1.5 bg-muted rounded-lg mt-2 flex items-center gap-2 text-[10px] font-bold"><Copy className="w-3.5 h-3.5" /> نسخ الرقم</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
+                <CurriculumList />
               </TabsContent>
 
               <TabsContent value="reviews" className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
