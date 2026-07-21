@@ -38,7 +38,8 @@ import {
   ChevronLeft,
   Info,
   FileText,
-  CreditCard
+  CreditCard,
+  ShieldAlert
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -249,12 +250,14 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
   const courseReviews = useMemo(() => {
     if (!rawReviews) return [];
-    return [...rawReviews].sort((a: any, b: any) => {
-      const dateA = a.createdAt?.seconds || 0;
-      const dateB = b.createdAt?.seconds || 0;
-      return dateB - dateA;
-    });
-  }, [rawReviews]);
+    return [...rawReviews]
+      .filter((r: any) => r.status !== 'hidden' || isAdmin) // إظهار التعليقات غير المخفية، أو إظهار الكل للمدير
+      .sort((a: any, b: any) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      });
+  }, [rawReviews, isAdmin]);
 
   useEffect(() => {
     if (courseReviews && user) {
@@ -310,11 +313,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin) return false;
-    // إذا كان الطالب أكمله سابقاً، يبقى مفتوحاً للأبد مهما تغير الترتيب
     if (allCompletedIds.includes(lesson.id)) return false;
-    // الدرس الأول دائماً مفتوح
     if (index === 0) return false;
-    // الدرس يفتح إذا كان الطالب قد أنهى الدرس الذي قبله في القائمة الحالية
     const prevLesson = lessons?.[index - 1];
     return !allCompletedIds.includes(prevLesson?.id);
   }, [isAdmin, allCompletedIds, lessons]);
@@ -356,13 +356,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     const updates: any = {};
     let totalPointsToAdd = 0;
     
-    // 1. إضافة 10 نقاط ثابتة عند إكمال أي فيديو أو تقويم لأول مرة
     if (isNewCompletion) {
       updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId);
       totalPointsToAdd += 10;
     }
     
-    // 2. إضافة 5 نقاط عن كل إجابة صحيحة في التقويم (لأول مرة فقط)
     if (score !== undefined && !userProgress.quizScores?.[lessonId]) {
       updates[`progress.${id}.quizScores.${lessonId}`] = score;
       totalPointsToAdd += (score * 5);
@@ -401,6 +399,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
         courseTitle: course?.title || "دورة",
         rating: reviewRating,
         comment: reviewComment,
+        status: 'visible',
         createdAt: serverTimestamp()
       });
       setHasReviewed(true);
@@ -708,7 +707,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                  ) : courseReviews && courseReviews.length > 0 ? (
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      {courseReviews.map((review: any, i: number) => (
-                       <div key={i} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4">
+                       <div key={i} className={cn("bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4 relative", review.status === 'hidden' && "border-red-200 bg-red-50/10")}>
+                          {review.status === 'hidden' && isAdmin && (
+                            <Badge variant="destructive" className="absolute top-4 left-4 h-5 text-[8px] gap-1">
+                              <ShieldAlert className="w-2.5 h-2.5" /> تعليق مخفي (يراه المسؤول فقط)
+                            </Badge>
+                          )}
                           <div className="flex items-center gap-3">
                              <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
                                 <AvatarImage src={review.userPhoto || undefined} className="object-cover" />
@@ -723,7 +727,20 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                                 </div>
                              </div>
                           </div>
-                          <p className="text-xs text-muted-foreground font-bold italic line-clamp-3 leading-relaxed">"{review.comment}"</p>
+                          <p className="text-xs text-muted-foreground font-bold italic leading-relaxed">"{review.comment}"</p>
+                          
+                          {/* عرض رد الإدارة إذا وجد */}
+                          {review.adminReply && (
+                            <div className="mt-4 p-4 bg-primary/5 rounded-2xl border-r-4 border-secondary text-right animate-in slide-in-from-right-2 duration-500">
+                               <div className="flex items-center gap-2 mb-1">
+                                  <div className="w-6 h-6 bg-secondary rounded-full flex items-center justify-center shadow-sm">
+                                     <UserIcon className="w-3 h-3 text-white" />
+                                  </div>
+                                  <span className="text-[10px] font-black text-secondary uppercase tracking-wider">رد إدارة سراج</span>
+                               </div>
+                               <p className="text-xs text-primary font-bold leading-relaxed">{review.adminReply}</p>
+                            </div>
+                          )}
                        </div>
                      ))}
                    </div>
@@ -741,4 +758,3 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 }
-
