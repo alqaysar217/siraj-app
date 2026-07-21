@@ -506,7 +506,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto"><PartyPopper className="w-12 h-12 text-green-600" /></div>
                   <div className="space-y-2">
                     <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز الكبير! 🎓</h2>
-                    <p className="text-muted-foreground font-bold">لقد أكملت كافة متطلبات دورة "{course?.title}" بنجاح.</p>
+                    <p className="text-muted-foreground font-bold">لقد أكملت كافة متبات دورة "{course?.title}" بنجاح.</p>
                   </div>
                   <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أهلاً سراج، أتممت دورة ${course?.title} وأرغب في استلام الشهادة الموثقة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
                     <Award className="w-6 h-6" /> طلب الشهادة الموثقة عبر واتساب
@@ -583,7 +583,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
           </div>
 
           <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
+            <Tabs dir="rtl" value={activeTab} onValueChange={setActiveTab} className="bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
               <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b gap-1">
                 <TabsTrigger value="details" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
                   <Info className="w-4 h-4 md:w-5 md:h-5" /> <span>عن الدورة</span>
@@ -624,7 +624,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   ))}
                 </div>
 
-                {!isEnrolled && (
+                {/* الحسابات البنكية تظهر لمن لم يشترك وللمسؤولين للمعانية */}
+                {(!isEnrolled || isAdmin) && (
                   <section className="space-y-6 pt-10 border-t border-primary/5">
                     <div className="flex items-center justify-between mb-2">
                        <h3 className="text-xl md:text-2xl font-black text-primary font-headline flex items-center gap-3">
