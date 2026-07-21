@@ -34,7 +34,8 @@ import {
   ArrowRight,
   MessageSquare,
   User as UserIcon,
-  Send
+  Send,
+  ChevronLeft
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -215,16 +216,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const db = useFirestore();
   const { profile, user, isAdmin, loading: userLoading } = useUser();
   const { toast } = useToast();
-  const paymentTabRef = useRef<HTMLDivElement>(null);
   const hasInitializedRef = useRef(false);
   
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
-  const [activeTab, setActiveTab] = useState("payment");
+  const [activeTab, setActiveTab] = useState("curriculum");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
-  // حالات التقييم الجديد
+  // حالات التقييم
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
@@ -276,16 +276,29 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const currentLessonIndex = useMemo(() => lessons?.findIndex(l => l.id === selectedLessonId) ?? -1, [lessons, selectedLessonId]);
   const currentLesson = lessons?.[currentLessonIndex];
 
+  // فحص هل انتهى من كافة الدروس
+  const isAllLessonsCompleted = useMemo(() => {
+    if (!lessons || lessons.length === 0) return false;
+    return allCompletedIds.length >= lessons.length;
+  }, [lessons, allCompletedIds]);
+
   useEffect(() => {
     if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
       const savedProgress = profile.progress?.[id] || {};
       const lastId = savedProgress.lastLessonId;
       const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-      setSelectedLessonId(startId);
+      
+      // إذا كان قد أنهى كل الدروس، نظهر شاشة النهاية مباشرة
+      if (isAllLessonsCompleted && !lastId) {
+        setIsFinishing(true);
+        setSelectedLessonId(null);
+      } else {
+        setSelectedLessonId(startId);
+      }
       setLocalCompleted(savedProgress.completedLessons || []);
       hasInitializedRef.current = true;
     }
-  }, [lessons, profile, id, userLoading]);
+  }, [lessons, profile, id, userLoading, isAllLessonsCompleted]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -302,12 +315,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return !allCompletedIds.includes(lessons?.[index - 1]?.id);
   }, [isAdmin, isEnrolled, allCompletedIds, lessons]);
 
-  const isAllLessonsCompleted = useMemo(() => lessons?.length > 0 && allCompletedIds.length >= lessons.length, [lessons, allCompletedIds]);
-
   const goToNext = useCallback(() => {
     if (!isEnrolled && currentLessonIndex === 0) {
       setActiveTab("payment");
-      paymentTabRef.current?.scrollIntoView({ behavior: "smooth" });
       return;
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
@@ -355,9 +365,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
     
     if (Object.keys(updates).length > 0) {
-      updateDoc(userRef, updates).catch((err) => {
-        console.error("Firebase Save Error:", err);
-      });
+      updateDoc(userRef, updates).catch(() => {});
     }
     
     if (currentLesson.type === "video") {
@@ -436,6 +444,34 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             </AccordionContent>
           </AccordionItem>
         ))}
+
+        {/* خطوة إضافية نهائية: التقييم والشهادة */}
+        {lessons && lessons.length > 0 && (
+          <div className="mt-4 border rounded-2xl overflow-hidden bg-card border-secondary/20 luxury-shadow">
+            <button 
+              disabled={!isAllLessonsCompleted}
+              onClick={() => { setIsFinishing(true); setSelectedLessonId(null); setIsCurriculumOpen(false); }}
+              className={cn(
+                "w-full text-right p-6 flex items-center justify-between transition-all",
+                isFinishing ? "bg-primary text-white" : "bg-muted/10",
+                !isAllLessonsCompleted && "opacity-60 cursor-not-allowed"
+              )}
+            >
+              <div className="flex items-center gap-4">
+                <div className={cn("p-2.5 rounded-xl shadow-md shrink-0", isAllLessonsCompleted ? "bg-secondary text-white" : "bg-muted text-muted-foreground")}>
+                  {isAllLessonsCompleted ? <Trophy className="w-6 h-6" /> : <Lock className="w-6 h-6" />}
+                </div>
+                <div className="text-right">
+                  <h4 className="text-base font-black">الخطوة الأخيرة: التقييم والشهادة</h4>
+                  <p className="text-[10px] font-bold opacity-70">
+                    {isAllLessonsCompleted ? "افتح الآن لاستلام إنجازك" : "ستُفتح بعد إتمام كافة الدروس"}
+                  </p>
+                </div>
+              </div>
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </Accordion>
     </div>
   );
@@ -449,12 +485,19 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       <Navbar />
       <div className="container mx-auto px-4 py-6 md:py-10">
         <div className="max-w-5xl mx-auto space-y-6">
+          
+          {/* شريط التقدم العلوي */}
           {isEnrolled && (
             <div className="w-full bg-white/95 backdrop-blur-xl border border-primary/10 p-4 rounded-2xl shadow-sm flex items-center gap-4">
                <div className="p-2 bg-secondary/10 rounded-lg shrink-0"><ShieldCheck className="w-5 h-5 text-secondary" /></div>
                <div className="flex-1 space-y-1.5">
-                  <div className="flex justify-between items-center text-[10px] font-black text-primary"><span>تقدمك الدراسي</span><span className="text-secondary">{Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%</span></div>
-                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden"><div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%` }} /></div>
+                  <div className="flex justify-between items-center text-[10px] font-black text-primary">
+                    <span>تقدمك في المنهج</span>
+                    <span className="text-secondary">{Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-secondary transition-all duration-1000" style={{ width: `${Math.round(allCompletedIds.length / (lessons?.length || 1) * 100)}%` }} />
+                  </div>
                </div>
             </div>
           )}
@@ -468,7 +511,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز الكبير! 🎓</h2>
                     <p className="text-muted-foreground font-bold">لقد أكملت كافة متطلبات دورة "{course?.title}" بنجاح.</p>
                   </div>
-                  <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أتممت دورة ${course?.title} وأرغب في الشهادة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
+                  <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أهلاً سراج، أتممت دورة ${course?.title} وأرغب في استلام الشهادة الموثقة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
                     <Award className="w-6 h-6" /> طلب الشهادة الموثقة عبر واتساب
                   </Button>
                 </Card>
@@ -501,9 +544,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   </Card>
                 )}
                 
-                <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground block mx-auto">العودة للدرس الأخير</Button>
+                <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground block mx-auto font-bold">العودة لمراجعة المنهج</Button>
               </div>
-            ) : currentLesson && (isAdmin || currentLessonIndex === 0 || isEnrolled) ? (
+            ) : currentLesson ? (
               <>
                 {currentLesson.type === "quiz" ? (
                   <QuizPlayer quizData={currentLesson.quizData || []} alreadyAnswered={!!userProgress.quizScores?.[currentLesson.id]} onComplete={handleLessonComplete} />
@@ -523,7 +566,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     </Button>
                   </div>
                   <Sheet open={isCurriculumOpen} onOpenChange={setIsCurriculumOpen}>
-                    <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> المنهج الدراسي</Button>
+                    <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج والدروس</Button>
                     <SheetContent side="right" className="w-[90%] sm:max-w-md p-0 overflow-y-auto" dir="rtl">
                       <SheetHeader className="p-8 border-b text-right bg-muted/10">
                         <SheetTitle className="text-2xl font-black">منهج الدورة</SheetTitle>
@@ -542,7 +585,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             )}
           </div>
 
-          <div ref={paymentTabRef} className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+          {/* تبويبات المعلومات والمنهج والتقييمات السفلية */}
+          <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
             <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
               <div className="text-right space-y-3">
                 <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{course?.title}</h1>
@@ -567,40 +611,32 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
               <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b gap-1">
-                <TabsTrigger 
-                  value="payment" 
-                  className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
-                >
-                  <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" />
-                  <span>{isEnrolled ? "بيانات الدورة" : "تفعيل الدورة"}</span>
+                <TabsTrigger value="curriculum" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                  <ListVideo className="w-4 h-4 md:w-5 md:h-5" /> <span>المنهج</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="curriculum" 
-                  className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
-                >
-                  <ListVideo className="w-4 h-4 md:w-5 md:h-5" />
-                  <span>المنهج</span>
+                <TabsTrigger value="payment" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                  <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" /> <span>{isEnrolled ? "بياناتي" : "تفعيل"}</span>
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="reviews" 
-                  className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
-                >
-                  <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
-                  <span>التقييمات</span>
+                <TabsTrigger value="reviews" className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                  <MessageSquare className="w-4 h-4 md:w-5 md:h-5" /> <span>التقييمات</span>
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
+                <CurriculumContent />
+              </TabsContent>
 
               <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right animate-in fade-in duration-300">
                 {isEnrolled ? (
                   <div className="bg-green-50 p-8 rounded-[2rem] border border-green-100 text-center space-y-4">
                      <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
-                     <h3 className="text-2xl font-black text-green-800">أنت مشترك في هذه الدورة</h3>
+                     <h3 className="text-2xl font-black text-green-800">أنت مشترك بالفعل</h3>
                      <p className="text-green-700 font-bold">يمكنك الوصول لكافة المحتويات، الاختبارات، والحصول على الشهادة عند الإتمام.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
-                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6" dir="rtl">
+                      <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6">
                         <div className="w-16 h-16 relative bg-muted rounded-2xl shrink-0">
                           {bank.imageUrl ? <Image src={bank.imageUrl} alt={bank.bankName} fill className="object-cover" /> : <Building2 className="w-8 h-8 opacity-20 m-4" />}
                         </div>
@@ -613,10 +649,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     ))}
                   </div>
                 )}
-              </TabsContent>
-
-              <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
-                <CurriculumContent />
               </TabsContent>
 
               <TabsContent value="reviews" className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
