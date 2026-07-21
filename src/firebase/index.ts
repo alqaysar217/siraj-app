@@ -1,6 +1,7 @@
+
 'use client';
 
-import { initializeApp, getApps, FirebaseApp, getApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, initializeFirestore } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
@@ -11,7 +12,7 @@ let db: Firestore | undefined;
 
 /**
  * تهيئة خدمات Firebase بأمان باستخدام نمط Singleton.
- * يمنع هذا التحديث أخطاء "INTERNAL ASSERTION FAILED" عبر ضمان استدعاء initializeFirestore مرة واحدة فقط.
+ * يضمن استدعاء initializeFirestore مرة واحدة فقط لمنع أخطاء التكرار في البيئة السحابية.
  */
 export function initializeFirebase() {
   if (typeof window === 'undefined' || !isFirebaseConfigValid()) {
@@ -30,14 +31,11 @@ export function initializeFirebase() {
     }
 
     // 2. تأمين مثيل قاعدة البيانات (Firestore Instance)
-    // نستخدم initializeFirestore لضبط الإعدادات التجريبية (Long Polling) المطلوبة في هذه البيئة
     if (!db) {
       try {
-        db = initializeFirestore(app, {
-          experimentalForceLongPolling: true,
-        });
+        db = getFirestore(app);
       } catch (firestoreError) {
-        // في حال كان Firestore مهيأ مسبقاً (مثلاً بواسطة HMR)، نقوم بجلب المثيل الحالي
+        // حماية إضافية في حالة التهيئة المسبقة
         db = getFirestore(app);
       }
     }

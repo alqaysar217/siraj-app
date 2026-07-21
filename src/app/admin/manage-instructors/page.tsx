@@ -26,7 +26,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { useCollection } from "@/firebase";
-import { collection, doc, deleteDoc, query, orderBy, setDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { useMemoFirebase } from "@/firebase/firestore/use-memo-firebase";
 import { useToast } from "@/hooks/use-toast";
@@ -41,9 +41,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 
 export default function ManageInstructorsPage() {
   const db = useFirestore();
@@ -51,8 +49,9 @@ export default function ManageInstructorsPage() {
   const [viewType, setViewType] = useState<"table" | "grid">("grid");
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
+  // تم إزالة orderBy لضمان ظهور البيانات القديمة التي قد لا تحتوي على حقل createdAt
   const instructorsQuery = useMemoFirebase(() => 
-    db ? query(collection(db, "instructors"), orderBy("createdAt", "desc")) : null
+    db ? collection(db, "instructors") : null
   , [db]);
 
   const { data: instructors, loading } = useCollection(instructorsQuery);
@@ -73,6 +72,7 @@ export default function ManageInstructorsPage() {
       });
 
       await deleteDoc(doc(db, "instructors", instructor.id));
+      toast({ title: "تم الحذف", description: "تم نقل المدرب لسلة المهملات." });
     } catch (error) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل الحذف." });
     } finally {
@@ -169,35 +169,14 @@ export default function ManageInstructorsPage() {
                                 <Edit2 className="w-3.5 h-3.5" />
                               </Link>
                             </Button>
-                            
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-secondary/10 text-secondary">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent dir="rtl" className="rounded-3xl border-none luxury-shadow max-w-[400px] p-6 bg-card/95 backdrop-blur-xl">
-                                <div className="flex flex-col items-center text-center">
-                                  <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
-                                    <AlertTriangle className="w-8 h-8 text-secondary" />
-                                  </div>
-                                  <AlertDialogHeader className="space-y-2 p-0">
-                                    <AlertDialogTitle className="text-xl font-headline text-primary font-black">حذف المدرب؟</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-muted-foreground text-sm font-medium">
-                                      سيتم نقل <span className="text-primary font-bold">"{instructor.name}"</span> إلى سلة المهملات.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                </div>
-                                <AlertDialogFooter className="flex flex-row gap-3 mt-6">
-                                  <AlertDialogAction onClick={() => handleDelete(instructor)} className="h-11 rounded-xl bg-primary text-white font-bold gap-2 flex-1">
-                                    تأكيد
-                                  </AlertDialogAction>
-                                  <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">
-                                    إلغاء
-                                  </AlertDialogCancel>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <Button 
+                              onClick={() => {}} 
+                              variant="outline" 
+                              size="icon" 
+                              className="h-8 w-8 rounded-lg border-secondary/10 text-secondary"
+                            >
+                               <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -223,7 +202,7 @@ export default function ManageInstructorsPage() {
                   <div className="p-5 flex-grow space-y-4 text-right">
                     <div className="flex items-center justify-between">
                        <h3 className="text-lg font-bold text-primary">{instructor.name}</h3>
-                       <div className="flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-lg">
+                       <div className="flex items-center gap-1 bg-primary/5 px-2.5 py-1.5 rounded-lg">
                           <Star className="w-3 h-3 text-secondary fill-secondary" />
                           <span className="text-xs font-bold text-primary">{instructor.rating}</span>
                        </div>
@@ -242,11 +221,6 @@ export default function ManageInstructorsPage() {
                           <Linkedin className="w-4 h-4" />
                         </a>
                       )}
-                      {instructor.socials?.instagram && (
-                        <a href={instructor.socials.instagram} target="_blank" className="p-2 bg-[#E4405F]/10 text-[#E4405F] rounded-full hover:scale-110 transition-transform">
-                          <Instagram className="w-4 h-4" />
-                        </a>
-                      )}
                     </div>
 
                     <div className="pt-4 border-t border-primary/5 flex items-center justify-between">
@@ -261,32 +235,14 @@ export default function ManageInstructorsPage() {
                     <Button asChild variant="outline" className="flex-1 rounded-2xl h-11 font-bold border-primary/10 hover:bg-primary/5 text-xs">
                       <Link href={`/admin/add-instructor?id=${instructor.id}`}>تعديل</Link>
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-11 w-11 rounded-2xl border-secondary/10 text-secondary hover:bg-secondary/5">
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent dir="rtl" className="rounded-3xl border-none luxury-shadow max-w-[400px] p-6 bg-card/95 backdrop-blur-xl">
-                        <div className="flex flex-col items-center text-center">
-                          <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
-                            <AlertTriangle className="w-8 h-8 text-secondary" />
-                          </div>
-                          <AlertDialogHeader className="space-y-2 p-0">
-                            <AlertDialogTitle className="text-xl font-headline text-primary font-black">حذف المدرب؟</AlertDialogTitle>
-                            <AlertDialogDescription className="text-muted-foreground text-sm font-medium">سيتم نقل "{instructor.name}" إلى سلة المهملات.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                        </div>
-                        <AlertDialogFooter className="flex flex-row gap-3 mt-6">
-                          <AlertDialogAction onClick={() => handleDelete(instructor)} className="h-11 rounded-xl bg-primary text-white font-bold gap-2 flex-1">
-                            تأكيد
-                          </AlertDialogAction>
-                          <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">
-                            إلغاء
-                          </AlertDialogCancel>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-11 w-11 rounded-2xl border-secondary/10 text-secondary hover:bg-secondary/5"
+                      onClick={() => handleDelete(instructor)}
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
                   </CardFooter>
                 </Card>
               ))}

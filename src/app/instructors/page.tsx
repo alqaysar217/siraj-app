@@ -3,7 +3,6 @@
 
 import Navbar from "@/components/navbar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { 
@@ -14,21 +13,21 @@ import {
   Linkedin, 
   Instagram, 
   Facebook, 
-  Briefcase,
-  Loader2,
-  UsersRound,
-  ChevronLeft
+  Loader2, 
+  UsersRound, 
+  ChevronLeft 
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 export default function InstructorsPage() {
   const db = useFirestore();
+  
+  // تم إزالة الترتيب الزمني لضمان ظهور البيانات القديمة والجديدة معاً
   const instructorsQuery = useMemoFirebase(() => 
-    db ? query(collection(db, "instructors"), orderBy("createdAt", "desc")) : null
+    db ? collection(db, "instructors") : null
   , [db]);
 
   const { data: instructors, loading } = useCollection(instructorsQuery);
@@ -67,7 +66,6 @@ export default function InstructorsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {instructors.map((instructor: any) => (
               <Card key={instructor.id} className="overflow-hidden group luxury-shadow flex flex-col h-full rounded-[2.5rem] border border-primary/5 bg-card/80 backdrop-blur-sm transition-all hover:translate-y-[-8px]">
-                {/* الجزء العلوي: الصورة والمجال */}
                 <div className="relative aspect-square overflow-hidden max-h-56">
                   <img 
                     src={instructor.photoURL || `https://picsum.photos/seed/${instructor.id}/400/400`} 
@@ -83,7 +81,6 @@ export default function InstructorsPage() {
                 </div>
 
                 <div className="p-6 flex-grow space-y-6 text-right">
-                  {/* السطر الأول: الاسم والتوثيق والنجوم */}
                   <div className="flex items-center justify-between">
                      <div className="space-y-1">
                         <h3 className="text-xl font-black text-primary font-headline leading-none">{instructor.name}</h3>
@@ -98,12 +95,10 @@ export default function InstructorsPage() {
                      </div>
                   </div>
                   
-                  {/* السطر الثاني: الوصف */}
                   <p className="text-muted-foreground text-xs font-medium line-clamp-1 leading-relaxed text-center px-4 italic opacity-90">
                     "{instructor.bio}"
                   </p>
 
-                  {/* السطر الثالث: أيقونات التواصل الاجتماعي */}
                   <div className="flex items-center justify-center gap-4 py-2">
                     {instructor.socials?.linkedin && (
                       <a href={instructor.socials.linkedin} target="_blank" className="text-[#0077B5] hover:scale-125 transition-transform"><Linkedin className="w-5 h-5" /></a>
@@ -114,12 +109,8 @@ export default function InstructorsPage() {
                     {instructor.socials?.facebook && (
                       <a href={instructor.socials.facebook} target="_blank" className="text-[#1877F2] hover:scale-125 transition-transform"><Facebook className="w-5 h-5" /></a>
                     )}
-                    {instructor.socials?.whatsapp && (
-                      <a href={`https://wa.me/${instructor.socials.whatsapp}`} target="_blank" className="text-[#25D366] hover:scale-125 transition-transform"><MessageCircle className="w-5 h-5" /></a>
-                    )}
                   </div>
 
-                  {/* السطر الرابع: زر التفاصيل */}
                   <Button asChild className="w-full h-11 rounded-2xl bg-primary text-white font-black text-xs gap-2 shadow-lg shadow-primary/10 transition-transform active:scale-95">
                     <Link href={`/instructor/${instructor.id}`}>
                       عرض الملف الكامل <ChevronLeft className="w-4 h-4" />
