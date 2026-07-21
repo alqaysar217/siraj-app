@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -12,58 +11,49 @@
         "phone": { "type": "string" },
         "photoURL": { "type": "string" },
         "role": { "type": "string", "enum": ["student", "admin"] },
-        "status": { "type": "string", "enum": ["active", "banned"], "default": "active" },
-        "forcePasswordChange": { "type": "boolean", "default": false, "description": "إجبار المستخدم على تغيير كلمة المرور عند الدخول القادم" },
-        "lastSessionId": { "type": "string", "description": "معرف آخر جلسة دخول لمنع التعدد" },
-        "deviceIds": { 
-          "type": "array", 
-          "items": { "type": "string" },
-          "description": "قائمة معرفات الأجهزة المسموح لها بالدخول (بحد أقصى 2)"
-        },
-        "showInLeaderboard": { "type": "boolean", "default": true, "description": "التحكم في ظهور الطالب في لوحة المتصدرين العامة" },
+        "status": { "type": "string", "enum": ["active", "banned"] },
+        "forcePasswordChange": { "type": "boolean" },
+        "lastSessionId": { "type": "string" },
+        "deviceIds": { "type": "array", "items": { "type": "string" } },
+        "showInLeaderboard": { "type": "boolean" },
         "enrolledCourses": { "type": "array", "items": { "type": "string" } },
-        "progress": {
-          "type": "object",
-          "description": "تتبع التقدم في كل دورة",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "lastLessonId": { "type": "string" },
-              "completedLessons": { "type": "array", "items": { "type": "string" } },
-              "points": { "type": "number" },
-              "quizScores": { "type": "object", "additionalProperties": { "type": "number" } }
-            }
-          }
-        },
+        "progress": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "name", "email", "role"]
     },
     "Course": {
       "title": "الدورة التدريبية",
-      "description": "بيانات الدورة الأساسية",
+      "description": "بيانات الدورة الأساسية ومحتواها",
       "type": "object",
       "properties": {
         "title": { "type": "string" },
         "instructor": { "type": "string" },
         "instructorId": { "type": "string" },
-        "instructorPhoto": { "type": "string" },
-        "instructorAccreditation": { "type": "string" },
         "description": { "type": "string" },
         "price": { "type": "number" },
-        "oldPrice": { "type": "number" },
-        "category": { "type": "string" },
-        "level": { "type": "string" },
         "imageUrl": { "type": "string" },
-        "isFree": { "type": "boolean" },
+        "category": { "type": "string" },
         "videosCount": { "type": "number" },
-        "durationHours": { "type": "number" },
-        "hasCertificate": { "type": "boolean" },
-        "studentsCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Instructor": {
+      "title": "المدرب",
+      "description": "بيانات المدرب وخبراته وحساباته",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "accreditation": { "type": "string" },
+        "bio": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "specialty": { "type": "string" },
         "rating": { "type": "number" },
+        "qualifications": { "type": "string" },
+        "socials": { "type": "object" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "description"]
+      "required": ["name", "specialty"]
     }
   },
   "auth": {
@@ -73,6 +63,14 @@
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "بيانات الطلاب والمديرين"
+    },
+    "/instructors/{instructorId}": {
+      "schema": "Instructor",
+      "description": "قائمة المدربين المعتمدين في المنصة"
+    },
+    "/courses/{courseId}": {
+      "schema": "Course",
+      "description": "قائمة الدورات التدريبية"
     }
   }
 }
