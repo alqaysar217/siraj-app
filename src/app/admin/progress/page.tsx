@@ -20,10 +20,17 @@ import {
   Search,
   User as UserIcon,
   Crown,
-  Medal
+  Medal,
+  CheckCircle2,
+  Circle,
+  PlayCircle,
+  ClipboardList,
+  Calendar,
+  RefreshCw,
+  Info
 } from "lucide-react";
-import { useCollection, useMemoFirebase, errorEmitter, FirestorePermissionError } from "@/firebase";
-import { collection, query, orderBy, limit, doc, deleteDoc, setDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, limit, doc, deleteDoc, setDoc, serverTimestamp, updateDoc, getDocs } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,14 +49,98 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+/**
+ * مكون فرعي لعرض تفاصيل دروس دورة معينة لطالب محدد
+ */
+function CourseAuditDetail({ courseId, courseTitle, studentProgress, lessons }: { 
+  courseId: string, 
+  courseTitle: string, 
+  studentProgress: any,
+  lessons: any[]
+}) {
+  const groupedLessons = useMemo(() => {
+    return lessons.reduce((acc: any, lesson: any) => {
+      const unit = lesson.unitTitle || "بدون عنوان وحدة";
+      if (!acc[unit]) acc[unit] = [];
+      acc[unit].push(lesson);
+      return acc;
+    }, {});
+  }, [lessons]);
+
+  const completedCount = studentProgress?.completedLessons?.length || 0;
+  const totalCount = lessons.length;
+  const progressPercent = Math.round((completedCount / (totalCount || 1)) * 100);
+
+  return (
+    <Card className="border border-primary/10 overflow-hidden rounded-2xl mb-4 bg-muted/10">
+      <div className="p-4 bg-muted/20 border-b border-primary/5 flex items-center justify-between">
+        <div className="text-right">
+          <h4 className="font-black text-primary text-sm">{courseTitle}</h4>
+          <p className="text-[10px] text-muted-foreground font-bold">{completedCount} من {totalCount} دروس مكتملة</p>
+        </div>
+        <Badge variant="outline" className="bg-white border-primary/10 text-primary font-black">{progressPercent}%</Badge>
+      </div>
+      
+      <Accordion type="single" collapsible className="w-full">
+        {Object.entries(groupedLessons).map(([unit, unitLessons]: [string, any], i) => (
+          <AccordionItem key={i} value={`unit-${i}`} className="border-none px-4">
+            <AccordionTrigger className="hover:no-underline py-3 text-xs font-bold text-primary/70">
+              {unit}
+            </AccordionTrigger>
+            <AccordionContent className="space-y-1 pb-4">
+              {unitLessons.map((lesson: any) => {
+                const isDone = studentProgress?.completedLessons?.includes(lesson.id);
+                const quizScore = studentProgress?.quizScores?.[lesson.id];
+                return (
+                  <div key={lesson.id} className="flex items-center justify-between p-2 rounded-lg bg-white border border-primary/5">
+                    <div className="flex items-center gap-3">
+                      {isDone ? <CheckCircle2 className="w-4 h-4 text-green-500" /> : <Circle className="w-4 h-4 text-muted-foreground/30" />}
+                      <div className="text-right">
+                        <p className={cn("text-[11px] font-bold", isDone ? "text-primary" : "text-muted-foreground")}>{lesson.title}</p>
+                        <div className="flex items-center gap-2 opacity-60">
+                           {lesson.type === 'quiz' ? <ClipboardList className="w-2.5 h-2.5" /> : <PlayCircle className="w-2.5 h-2.5" />}
+                           <span className="text-[9px]">{lesson.type === 'quiz' ? 'تقويم' : 'فيديو'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {lesson.type === 'quiz' && isDone && (
+                      <Badge className="bg-secondary/10 text-secondary border-none h-5 text-[9px] font-black">
+                        النتيجة: {quizScore || 0}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
+    </Card>
+  );
+}
 
 export default function StudentProgressPage() {
   const db = useFirestore();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
+  
+  // حالات الإدارة
   const [userToDelete, setUserToDelete] = useState<any>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // حالات التدقيق
+  const [auditUser, setAuditUser] = useState<any>(null);
+  const [auditLessons, setAuditLessons] = useState<Record<string, any[]>>({});
+  const [loadingAudit, setLoadingAudit] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -60,6 +151,9 @@ export default function StudentProgressPage() {
   , [db]);
   
   const { data: users, loading } = useCollection(usersQuery);
+
+  const coursesQuery = useMemoFirebase(() => db ? collection(db, "courses") : null, [db]);
+  const { data: courses } = useCollection(coursesQuery);
 
   const leaderboard = useMemo(() => {
     if (!users) return [];
@@ -87,8 +181,6 @@ export default function StudentProgressPage() {
       );
     }
 
-    // احتساب الرتبة باستخدام Dense Ranking (الترتيب الكثيف)
-    // لضمان حصول الطلاب المتساوين في النقاط على نفس المركز
     let currentRank = 1;
     return list.map((student, index, array) => {
       if (index > 0 && student.totalPoints < array[index - 1].totalPoints) {
@@ -106,6 +198,30 @@ export default function StudentProgressPage() {
       avgPoints: Math.round(totalPointsSum / leaderboard.length)
     };
   }, [leaderboard]);
+
+  const handleOpenAudit = async (student: any) => {
+    if (!db) return;
+    setAuditUser(student);
+    setLoadingAudit(true);
+    setAuditLessons({});
+
+    try {
+      const enrolledIds = student.enrolledCourses || [];
+      const newAuditLessons: Record<string, any[]> = {};
+
+      // جلب دروس كل دورة مشترك بها الطالب
+      for (const courseId of enrolledIds) {
+        const lessonsSnap = await getDocs(query(collection(db, "courses", courseId, "lessons"), orderBy("order", "asc")));
+        newAuditLessons[courseId] = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+      
+      setAuditLessons(newAuditLessons);
+    } catch (error) {
+      toast({ variant: "destructive", title: "خطأ في التدقيق", description: "فشل تحميل هيكل المنهج التعليمي لهذا الطالب." });
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
 
   const handleToggleVisibility = async (student: any) => {
     if (!db) return;
@@ -159,7 +275,7 @@ export default function StudentProgressPage() {
         <header className="mb-10 text-right space-y-4">
           <div>
             <h1 className="text-3xl font-bold font-headline text-primary mb-2">تقدم الطلاب واللوحة الشرفية</h1>
-            <p className="text-muted-foreground">متابعة دقيقة لمستوى تفاعل الطلاب وإنجازاتهم التعليمية عبر كافة الدورات.</p>
+            <p className="text-muted-foreground text-sm">متابعة تفصيلية لمستوى تفاعل الطلاب وإنجازاتهم التعليمية عبر كافة الدورات.</p>
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-4 w-full">
@@ -218,7 +334,7 @@ export default function StudentProgressPage() {
             <div className="flex items-center justify-between">
                <div>
                   <CardTitle className="text-2xl font-black text-primary font-headline">قائمة المتصدرين</CardTitle>
-                  <CardDescription className="font-bold mt-1">الطلاب الأكثر حصداً للنقاط من خلال المشاهدة والاختبارات</CardDescription>
+                  <CardDescription className="font-bold mt-1">الطلاب الأكثر تفاعلاً وإنجازاً في المنصة</CardDescription>
                </div>
                <TrendingUp className="w-8 h-8 text-secondary opacity-20" />
             </div>
@@ -274,18 +390,25 @@ export default function StudentProgressPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <div className="flex flex-col items-center">
-                             <span className="text-sm font-black text-primary" dir="ltr">{mounted ? student.totalCompletedLessons : '0'}</span>
-                          </div>
+                          <span className="text-sm font-black text-primary" dir="ltr">{student.totalCompletedLessons}</span>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-secondary/10 rounded-full">
                              <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
-                             <span className="text-sm font-black text-secondary" dir="ltr">{mounted ? student.totalPoints : '0'}</span>
+                             <span className="text-sm font-black text-secondary" dir="ltr">{student.totalPoints}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5"
+                              onClick={() => handleOpenAudit(student)}
+                              title="تدقيق الإنجاز والمشاهدة"
+                            >
+                               <Eye className="w-4 h-4" />
+                            </Button>
                             <Button 
                               disabled={processing === student.uid}
                               variant="outline" 
@@ -297,7 +420,7 @@ export default function StudentProgressPage() {
                               onClick={() => handleToggleVisibility(student)}
                               title={isVisible ? "إخفاء من اللوحة العامة" : "إظهار في اللوحة العامة"}
                             >
-                              {processing === student.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                              {processing === student.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </Button>
                             <Button 
                               variant="ghost" 
@@ -324,6 +447,84 @@ export default function StudentProgressPage() {
           </CardContent>
         </Card>
 
+        {/* نافذة تدقيق الطالب الأكاديمية */}
+        <Dialog open={!!auditUser} onOpenChange={(open) => !open && setAuditUser(null)}>
+           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0 border-none luxury-shadow [&>button]:hidden" dir="rtl">
+              <DialogHeader className="p-8 bg-muted/30 border-b border-border/50 flex flex-row items-center gap-6">
+                <Avatar className="h-20 w-20 border-4 border-white shadow-xl shrink-0">
+                  <AvatarImage src={auditUser?.photoURL || undefined} className="object-cover" />
+                  <AvatarFallback className="bg-primary text-white text-2xl font-black">{auditUser?.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="text-right flex-1">
+                  <DialogTitle className="text-3xl font-black text-primary font-headline mb-1">{auditUser?.name}</DialogTitle>
+                  <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-muted-foreground">
+                    <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-secondary fill-secondary" /> {auditUser?.totalPoints} نقطة تفاعل</span>
+                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><PlayCircle className="w-4 h-4 text-primary" /> {auditUser?.totalCompletedLessons} درساً مكتملة</span>
+                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><Info className="w-4 h-4 text-blue-500" /> {auditUser?.enrolledCourses?.length || 0} دورات مشتركة</span>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setAuditUser(null)} className="rounded-full h-12 w-12 hover:bg-primary/5 text-primary">
+                  <X className="w-8 h-8" />
+                </Button>
+              </DialogHeader>
+
+              <div className="p-8">
+                 <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-xl font-black text-primary flex items-center gap-2">
+                       <BookOpen className="w-6 h-6 text-secondary" /> سجل المنهج التفصيلي (التدقيق الحي)
+                    </h3>
+                    <Button onClick={() => handleOpenAudit(auditUser)} variant="ghost" className="text-secondary font-black gap-2 h-10 px-4 rounded-xl hover:bg-secondary/5">
+                       <RefreshCw className={cn("w-4 h-4", loadingAudit && "animate-spin")} /> تحديث المزامنة
+                    </Button>
+                 </div>
+
+                 {loadingAudit ? (
+                   <div className="py-20 text-center space-y-4">
+                      <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto opacity-40" />
+                      <p className="text-muted-foreground font-bold">جاري سحب سجلات المشاهدة من الخادم...</p>
+                   </div>
+                 ) : auditUser?.enrolledCourses?.length > 0 ? (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {auditUser.enrolledCourses.map((courseId: string) => {
+                        const course = courses?.find(c => c.id === courseId);
+                        const lessonsForCourse = auditLessons[courseId] || [];
+                        const progress = auditUser.progress?.[courseId] || {};
+                        
+                        return (
+                          <CourseAuditDetail 
+                            key={courseId} 
+                            courseId={courseId} 
+                            courseTitle={course?.title || "دورة محذوفة أو غير متوفرة"} 
+                            studentProgress={progress}
+                            lessons={lessonsForCourse}
+                          />
+                        );
+                      })}
+                   </div>
+                 ) : (
+                   <div className="py-24 text-center bg-muted/20 rounded-[2rem] border-2 border-dashed border-primary/10">
+                      <Users className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
+                      <p className="text-lg text-muted-foreground font-black">هذا الطالب لم يشترك في أي دورة تعليمية بعد.</p>
+                   </div>
+                 )}
+              </div>
+              
+              <div className="bg-muted/30 p-8 border-t border-border/50">
+                 <div className="flex items-start gap-4 flex-row-reverse text-right">
+                    <Info className="w-6 h-6 text-blue-600 shrink-0" />
+                    <div>
+                       <p className="text-sm text-primary font-black">دليل التدقيق للمسؤول</p>
+                       <ul className="text-xs text-muted-foreground font-medium mt-2 space-y-1 list-disc list-inside pr-1">
+                          <li>علامة الصح تعني أن الطالب ضغط على زر "إكمال" أو أنهى مشاهدة الفيديو بالكامل.</li>
+                          <li>نقاط التقويم تُحسب (10 للإنهاء) + (5 عن كل إجابة صحيحة).</li>
+                          <li>إذا كانت الدورة مكتملة 100% ستظهر بنسبة خضراء في اللائحة.</li>
+                       </ul>
+                    </div>
+                 </div>
+              </div>
+           </DialogContent>
+        </Dialog>
+
         <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
           <AlertDialogContent dir="rtl" className="rounded-3xl border-none luxury-shadow max-w-[400px] p-6 bg-card/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -331,9 +532,9 @@ export default function StudentProgressPage() {
                 <AlertTriangle className="w-8 h-8 text-secondary" />
               </div>
               <AlertDialogHeader className="space-y-2 p-0">
-                <AlertDialogTitle className="text-xl font-headline text-primary font-black">إخفاء/حذف الطالب؟</AlertDialogTitle>
+                <AlertDialogTitle className="text-xl font-headline text-primary font-black">حذف الطالب؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed">
-                  أنت على وشك حذف الطالب <span className="text-primary font-bold">"{userToDelete?.name}"</span> ونقله لسلة المهملات.
+                  سيتم نقل الطالب <span className="text-primary font-bold">"{userToDelete?.name}"</span> وكامل سجلاته إلى سلة المهملات.
                 </AlertDialogDescription>
               </AlertDialogHeader>
             </div>
@@ -356,3 +557,4 @@ export default function StudentProgressPage() {
     </div>
   );
 }
+
