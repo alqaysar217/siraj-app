@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   PlayCircle, 
   BookOpen, 
@@ -32,10 +33,11 @@ import {
   Building2,
   ArrowRight,
   MessageSquare,
-  User as UserIcon
+  User as UserIcon,
+  Send
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { doc, collection, query, updateDoc, arrayUnion, where, orderBy } from "firebase/firestore";
+import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -222,26 +224,28 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [activeTab, setActiveTab] = useState("payment");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
+  // حالات التقييم الجديد
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
+
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
 
-  // جلب الدروس بمرجع مستقر واستخدام استيراد orderBy الصحيح
   const lessonsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "courses", id, "lessons"), orderBy("order", "asc")) : null
   , [db, id]);
   const { data: lessons, loading: lessonsLoading } = useCollection(lessonsQuery);
 
-  // جلب الحسابات البنكية
   const bankQuery = useMemoFirebase(() => db ? collection(db, "bankAccounts") : null, [db]);
   const { data: bankAccounts } = useCollection(bankQuery);
 
-  // جلب التقييمات: تم تبسيط الاستعلام لتجنب خطأ الفهرس (Index)
   const reviewsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "reviews"), where("courseId", "==", id)) : null
   , [db, id]);
   const { data: rawReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
 
-  // ترتيب التقييمات برمجياً (Client-side) لضمان عدم ظهور خطأ Index
   const courseReviews = useMemo(() => {
     if (!rawReviews) return [];
     return [...rawReviews].sort((a: any, b: any) => {
@@ -250,6 +254,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       return dateB - dateA;
     });
   }, [rawReviews]);
+
+  useEffect(() => {
+    if (courseReviews && user) {
+      const existing = courseReviews.find((r: any) => r.userId === user.uid);
+      if (existing) setHasReviewed(true);
+    }
+  }, [courseReviews, user]);
 
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
@@ -354,6 +365,34 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
+  const handleAddReview = async () => {
+    if (!db || !user || !profile || !id) return;
+    if (!reviewComment.trim()) {
+      toast({ variant: "destructive", title: "تنبيه", description: "يرجى كتابة رأيك قبل الإرسال." });
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      await addDoc(collection(db, "reviews"), {
+        userId: user.uid,
+        userName: profile.name,
+        userPhoto: profile.photoURL || "",
+        courseId: id,
+        courseTitle: course?.title || "دورة",
+        rating: reviewRating,
+        comment: reviewComment,
+        createdAt: serverTimestamp()
+      });
+      setHasReviewed(true);
+      toast({ title: "تم الإرسال", description: "شكراً لمشاركتك رأيك القوي معنا!" });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "حدثت مشكلة أثناء حفظ التقييم." });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   const CurriculumContent = () => (
     <div className="space-y-6" dir="rtl">
       <Accordion type="single" collapsible className="space-y-4">
@@ -422,10 +461,46 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
           <div className="space-y-6">
             {isFinishing ? (
-              <div className="bg-white p-6 md:p-16 rounded-[2rem] border-4 border-green-500/10 text-center space-y-8 luxury-shadow animate-in zoom-in duration-500">
-                <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto"><PartyPopper className="w-12 h-12 text-green-600" /></div>
-                <h2 className="text-3xl font-black text-green-800 font-headline">مبارك لك الإنجاز!</h2>
-                <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أتممت دورة ${course?.title} وأرغب في الشهادة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black">طلب الشهادة عبر واتساب</Button>
+              <div className="space-y-6 animate-in zoom-in duration-500">
+                <Card className="bg-white p-6 md:p-12 rounded-[2rem] border-4 border-green-500/10 text-center space-y-8 luxury-shadow">
+                  <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto"><PartyPopper className="w-12 h-12 text-green-600" /></div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز الكبير! 🎓</h2>
+                    <p className="text-muted-foreground font-bold">لقد أكملت كافة متطلبات دورة "{course?.title}" بنجاح.</p>
+                  </div>
+                  <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أتممت دورة ${course?.title} وأرغب في الشهادة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
+                    <Award className="w-6 h-6" /> طلب الشهادة الموثقة عبر واتساب
+                  </Button>
+                </Card>
+
+                {!hasReviewed && (
+                  <Card className="bg-card p-6 md:p-10 rounded-[2rem] border border-secondary/20 luxury-shadow space-y-6">
+                    <h3 className="text-xl md:text-2xl font-black text-primary font-headline flex items-center gap-3">
+                      <Star className="w-6 h-6 text-secondary fill-secondary" />
+                      قيم تجربتك في هذه الدورة
+                    </h3>
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-2 justify-center md:justify-start">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button key={s} onClick={() => setReviewRating(s)} className="p-1 transition-transform hover:scale-125">
+                            <Star className={cn("w-8 h-8 md:w-10 md:h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted")} />
+                          </button>
+                        ))}
+                      </div>
+                      <Textarea 
+                        placeholder="اكتب رأيك بصراحة.. ما الذي أعجبك؟ وكيف يمكننا التحسين؟"
+                        className="min-h-[120px] rounded-2xl border-primary/10 text-base"
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                      />
+                      <Button disabled={submittingReview} onClick={handleAddReview} className="w-full h-14 bg-primary text-white rounded-2xl font-black gap-2">
+                        {submittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                        إرسال التقييم ونشره
+                      </Button>
+                    </div>
+                  </Card>
+                )}
+                
                 <Button onClick={goToPrev} variant="ghost" className="text-muted-foreground block mx-auto">العودة للدرس الأخير</Button>
               </div>
             ) : currentLesson && (isAdmin || currentLessonIndex === 0 || isEnrolled) ? (
@@ -462,60 +537,67 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8">
                  <Lock className="w-16 h-16 text-primary opacity-40 mb-4" />
                  <h2 className="text-2xl font-black text-primary">المحتوى مغلق</h2>
+                 <p className="text-muted-foreground font-bold mt-2">اشترك في الدورة لفتح هذا الدرس وبقية المنهج.</p>
               </div>
             )}
           </div>
 
-          {(currentLessonIndex === 0 || !isEnrolled) && !isFinishing && (
-            <div ref={paymentTabRef} className="animate-in fade-in slide-in-from-bottom-6 duration-700">
-              <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
-                <div className="text-right space-y-3">
-                  <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{course?.title}</h1>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {[
-                    { label: "الطلاب", val: course?.studentsCount, icon: Users },
-                    { label: "التقييم", val: course?.rating, icon: Star },
-                    { label: "المستوى", val: getLevelName(course?.level || "beginner"), icon: Layers },
-                    { label: "الشهادة", val: course?.hasCertificate ? "متاحة" : "غير متوفرة", icon: Award },
-                  ].map((s, i) => (
-                    <div key={i} className="bg-muted/30 p-4 rounded-2xl flex items-center gap-3">
-                      <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-5 h-5 text-secondary" /></div>
-                      <div className="text-right">
-                        <p className="text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
-                        <p className="text-xs font-bold text-primary">{s.val}</p>
-                      </div>
+          <div ref={paymentTabRef} className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+            <Card className="rounded-[2.5rem] border-none luxury-shadow p-5 md:p-8 bg-white space-y-8">
+              <div className="text-right space-y-3">
+                <h1 className="text-2xl md:text-4xl font-black text-primary leading-tight">{course?.title}</h1>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "الطلاب", val: course?.studentsCount, icon: Users },
+                  { label: "التقييم", val: course?.rating, icon: Star },
+                  { label: "المستوى", val: getLevelName(course?.level || "beginner"), icon: Layers },
+                  { label: "الشهادة", val: course?.hasCertificate ? "متاحة" : "غير متوفرة", icon: Award },
+                ].map((s, i) => (
+                  <div key={i} className="bg-muted/30 p-4 rounded-2xl flex items-center gap-3">
+                    <div className="p-2 bg-white rounded-xl shadow-sm shrink-0"><s.icon className="w-5 h-5 text-secondary" /></div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase">{s.label}</p>
+                      <p className="text-xs font-bold text-primary">{s.val}</p>
                     </div>
-                  ))}
-                </div>
-              </Card>
+                  </div>
+                ))}
+              </div>
+            </Card>
 
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
-                <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b gap-1">
-                  <TabsTrigger 
-                    value="payment" 
-                    className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
-                  >
-                    <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" />
-                    <span>تفعيل الدورة</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="curriculum" 
-                    className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
-                  >
-                    <ListVideo className="w-4 h-4 md:w-5 md:h-5" />
-                    <span>المنهج</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="reviews" 
-                    className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
-                  >
-                    <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
-                    <span>التقييمات</span>
-                  </TabsTrigger>
-                </TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-8 bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
+              <TabsList className="w-full flex h-14 md:h-16 bg-muted/30 p-1 md:p-1.5 border-b gap-1">
+                <TabsTrigger 
+                  value="payment" 
+                  className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
+                >
+                  <ShieldCheck className="w-4 h-4 md:w-5 md:h-5" />
+                  <span>{isEnrolled ? "بيانات الدورة" : "تفعيل الدورة"}</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="curriculum" 
+                  className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
+                >
+                  <ListVideo className="w-4 h-4 md:w-5 md:h-5" />
+                  <span>المنهج</span>
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="reviews" 
+                  className="flex-1 font-black text-xs md:text-base rounded-xl gap-2 transition-all data-[state=active]:bg-primary data-[state=active]:text-white h-full"
+                >
+                  <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
+                  <span>التقييمات</span>
+                </TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right animate-in fade-in duration-300">
+              <TabsContent value="payment" className="p-6 md:p-12 space-y-8 text-right animate-in fade-in duration-300">
+                {isEnrolled ? (
+                  <div className="bg-green-50 p-8 rounded-[2rem] border border-green-100 text-center space-y-4">
+                     <CheckCircle2 className="w-12 h-12 text-green-600 mx-auto" />
+                     <h3 className="text-2xl font-black text-green-800">أنت مشترك في هذه الدورة</h3>
+                     <p className="text-green-700 font-bold">يمكنك الوصول لكافة المحتويات، الاختبارات، والحصول على الشهادة عند الإتمام.</p>
+                  </div>
+                ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     {bankAccounts?.map((bank: any, idx: number) => (
                       <div key={idx} className="bg-white p-5 md:p-6 rounded-[2rem] border border-primary/5 luxury-shadow flex flex-row items-center gap-6" dir="rtl">
@@ -530,55 +612,55 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       </div>
                     ))}
                   </div>
-                </TabsContent>
+                )}
+              </TabsContent>
 
-                <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
-                  <CurriculumContent />
-                </TabsContent>
+              <TabsContent value="curriculum" className="p-6 md:p-8 animate-in fade-in duration-300">
+                <CurriculumContent />
+              </TabsContent>
 
-                <TabsContent value="reviews" className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
-                   <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-xl font-black text-primary font-headline">آراء الطلاب</h3>
-                      <div className="flex items-center gap-1.5 bg-secondary/10 px-4 py-1.5 rounded-full">
-                         <Star className="w-4 h-4 text-secondary fill-secondary" />
-                         <span className="font-black text-secondary">{course?.rating || "5.0"}</span>
-                      </div>
+              <TabsContent value="reviews" className="p-6 md:p-8 space-y-6 animate-in fade-in duration-300">
+                 <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-black text-primary font-headline">آراء الطلاب</h3>
+                    <div className="flex items-center gap-1.5 bg-secondary/10 px-4 py-1.5 rounded-full">
+                       <Star className="w-4 h-4 text-secondary fill-secondary" />
+                       <span className="font-black text-secondary">{course?.rating || "5.0"}</span>
+                    </div>
+                 </div>
+                 
+                 {reviewsLoading ? (
+                   <div className="py-10 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-secondary" /></div>
+                 ) : courseReviews && courseReviews.length > 0 ? (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     {courseReviews.map((review: any, i: number) => (
+                       <div key={i} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4">
+                          <div className="flex items-center gap-3">
+                             <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
+                                <AvatarImage src={review.userPhoto || undefined} className="object-cover" />
+                                <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
+                             </Avatar>
+                             <div className="text-right">
+                                <div className="text-sm font-black text-primary">{review.userName}</div>
+                                <div className="flex items-center gap-0.5 mt-0.5">
+                                   {[...Array(5)].map((_, s) => (
+                                     <Star key={s} className={cn("w-3 h-3", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
+                                   ))}
+                                </div>
+                             </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground font-bold italic line-clamp-3 leading-relaxed">"{review.comment}"</p>
+                       </div>
+                     ))}
                    </div>
-                   
-                   {reviewsLoading ? (
-                     <div className="py-10 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-secondary" /></div>
-                   ) : courseReviews && courseReviews.length > 0 ? (
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                       {courseReviews.map((review: any, i: number) => (
-                         <div key={i} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4">
-                            <div className="flex items-center gap-3">
-                               <Avatar className="h-10 w-10 border border-primary/10 shadow-sm">
-                                  <AvatarImage src={review.userPhoto || undefined} className="object-cover" />
-                                  <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
-                               </Avatar>
-                               <div className="text-right">
-                                  <div className="text-sm font-black text-primary">{review.userName}</div>
-                                  <div className="flex items-center gap-0.5 mt-0.5">
-                                     {[...Array(5)].map((_, s) => (
-                                       <Star key={s} className={cn("w-3 h-3", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
-                                     ))}
-                                  </div>
-                               </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground font-bold italic line-clamp-3 leading-relaxed">"{review.comment}"</p>
-                         </div>
-                       ))}
-                     </div>
-                   ) : (
-                     <div className="py-20 text-center bg-muted/20 rounded-[2.5rem] border-2 border-dashed border-primary/5">
-                        <MessageCircle className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
-                        <p className="text-sm text-muted-foreground font-black">كن أول من يشارك رأيه حول هذه الدورة!</p>
-                     </div>
-                   )}
-                </TabsContent>
-              </Tabs>
-            </div>
-          )}
+                 ) : (
+                   <div className="py-20 text-center bg-muted/20 rounded-[2.5rem] border-2 border-dashed border-primary/5">
+                      <MessageCircle className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+                      <p className="text-sm text-muted-foreground font-black">كن أول من يشارك رأيه حول هذه الدورة!</p>
+                   </div>
+                 )}
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
     </div>
