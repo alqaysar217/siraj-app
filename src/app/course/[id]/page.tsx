@@ -39,7 +39,8 @@ import {
   Info,
   FileText,
   CreditCard,
-  ShieldAlert
+  ShieldAlert,
+  BadgeCheck
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -251,7 +252,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const courseReviews = useMemo(() => {
     if (!rawReviews) return [];
     return [...rawReviews]
-      .filter((r: any) => r.status !== 'hidden' || isAdmin) // إظهار التعليقات غير المخفية، أو إظهار الكل للمدير
+      .filter((r: any) => r.status !== 'hidden' || isAdmin)
       .sort((a: any, b: any) => {
         const dateA = a.createdAt?.seconds || 0;
         const dateB = b.createdAt?.seconds || 0;
@@ -729,14 +730,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                           </div>
                           <p className="text-xs text-muted-foreground font-bold italic leading-relaxed">"{review.comment}"</p>
                           
-                          {/* عرض رد الإدارة إذا وجد */}
                           {review.adminReply && (
                             <div className="mt-4 p-4 bg-primary/5 rounded-2xl border-r-4 border-secondary text-right animate-in slide-in-from-right-2 duration-500">
                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-6 h-6 bg-secondary rounded-full flex items-center justify-center shadow-sm">
-                                     <UserIcon className="w-3 h-3 text-white" />
+                                  <Avatar className="h-6 w-6 border border-secondary/20 shadow-sm">
+                                     <AvatarImage src="/logo.png" className="object-contain p-1" />
+                                     <AvatarFallback className="bg-secondary text-white text-[8px]">إدارة</AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex items-center gap-1">
+                                     <span className="text-[10px] font-black text-secondary uppercase tracking-wider">رد إدارة سراج</span>
+                                     <ShieldCheck className="w-3 h-3 text-blue-500 fill-blue-50" />
                                   </div>
-                                  <span className="text-[10px] font-black text-secondary uppercase tracking-wider">رد إدارة سراج</span>
                                </div>
                                <p className="text-xs text-primary font-bold leading-relaxed">{review.adminReply}</p>
                             </div>
