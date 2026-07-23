@@ -3,18 +3,23 @@
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  Firestore, 
+  initializeFirestore, 
+  persistentLocalCache, 
+  persistentMultipleTabManager 
+} from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
-let persistenceEnabled = false;
 
 /**
- * تهيئة خدمات Firebase بأمان باستخدام نمط Singleton.
- * تم إضافة ميزة enableMultiTabIndexedDbPersistence لتسريع تحميل البيانات 
- * وضمان عمل المنصة في ظروف الإنترنت الضعيفة.
+ * تهيئة خدمات Firebase بأداء فائق (Ultra-Fast Initialization).
+ * نستخدم هنا persistentLocalCache لضمان تخزين البيانات نصياً في جهاز المستخدم.
+ * هذا يجعل الدورات والكتب تظهر فوراً (في أجزاء من الثانية) عند فتح الموقع مرة ثانية.
  */
 export function initializeFirebase() {
   if (typeof window === 'undefined' || !isFirebaseConfigValid()) {
@@ -22,49 +27,32 @@ export function initializeFirebase() {
   }
 
   try {
-    // 1. تأمين مثيل التطبيق (App Instance)
+    // 1. تأمين مثيل التطبيق
     if (!app) {
       const existingApps = getApps();
-      if (existingApps.length > 0) {
-        app = existingApps[0];
-      } else {
-        app = initializeApp(firebaseConfig);
-      }
+      app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfig);
     }
 
-    // 2. تأمين مثيل قاعدة البيانات (Firestore Instance) مع التخزين المحلي
+    // 2. تأمين قاعدة البيانات مع التخزين المحلي المتقدم (Persistent Cache)
     if (!db) {
-      db = getFirestore(app);
-
-      // تفعيل ميزة التخزين المحلي الذكي (Persistence)
-      // تتيح للمنصة تحميل البيانات فوراً من ذاكرة الجهاز قبل طلبها من السحابة
-      if (!persistenceEnabled && typeof window !== 'undefined') {
-        enableMultiTabIndexedDbPersistence(db).catch((err) => {
-          if (err.code === 'failed-precondition') {
-            // تحدث إذا فتح المستخدم تبويبات كثيرة في نفس الوقت
-            console.warn("تنبيه: التخزين المحلي يعمل في تبويب آخر.");
-          } else if (err.code === 'unimplemented') {
-            // تحدث إذا كان المتصفح قديماً جداً ولا يدعم الميزة
-            console.warn("تنبيه: المتصفح الحالي لا يدعم ميزة العمل دون اتصال.");
-          }
-        });
-        persistenceEnabled = true;
-      }
+      // نستخدم initializeFirestore بدلاً من getFirestore لتفعيل الإعدادات المتقدمة للكاش
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        })
+      });
+      console.log("✅ تم تفعيل نظام التخزين المحلي الذكي لمنصة سراج");
     }
 
-    // 3. تأمين مثيل الحماية (Auth Instance)
+    // 3. تأمين مثيل الحماية
     if (!auth) {
       auth = getAuth(app);
     }
   } catch (error) {
-    console.error("Firebase Critical Initialization Error:", error);
+    console.error("Firebase Initialization Error:", error);
   }
   
-  return { 
-    app: app || null, 
-    auth: auth || null, 
-    db: db || null 
-  };
+  return { app: app || null, auth: auth || null, db: db || null };
 }
 
 export * from './provider';
