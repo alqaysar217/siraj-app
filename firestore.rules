@@ -30,6 +30,11 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
       }
+      // إضافة صلاحيات الدفعات الجديدة
+      match /batches/{batchId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
     }
 
     match /instructors/{instructorId} {
