@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/navbar";
@@ -193,13 +192,15 @@ export default function LeaderboardPage() {
             <div className="space-y-2 text-right">
                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">تصفية حسب الدورة</Label>
                <Select value={selectedCourseId} onValueChange={(val) => { setSelectedCourseId(val); setSelectedBatchId("all"); }}>
-                  <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
-                     <SelectValue />
+                  <SelectTrigger className="h-12 rounded-xl bg-white border-primary/10 shadow-sm font-bold text-xs md:text-sm" dir="rtl">
+                     <SelectValue placeholder="اختر الدورة..." />
                   </SelectTrigger>
-                  <SelectContent dir="rtl">
-                     <SelectItem value="all">كل دورات المنصة (الترتيب العام)</SelectItem>
+                  <SelectContent dir="rtl" className="max-w-[85vw]">
+                     <SelectItem value="all" className="text-xs md:text-sm">كل دورات المنصة (الترتيب العام)</SelectItem>
                      {courses?.map((c: any) => (
-                       <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                       <SelectItem key={c.id} value={c.id} className="text-xs md:text-sm">
+                         <span className="truncate block max-w-[200px] md:max-w-xs">{c.title}</span>
+                       </SelectItem>
                      ))}
                   </SelectContent>
                </Select>
@@ -208,13 +209,15 @@ export default function LeaderboardPage() {
             <div className={cn("space-y-2 text-right transition-all", selectedCourseId === "all" ? "opacity-30 pointer-events-none" : "opacity-100")}>
                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">تصفية حسب الدفعة</Label>
                <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
-                  <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
-                     <SelectValue />
+                  <SelectTrigger className="h-12 rounded-xl bg-white border-primary/10 shadow-sm font-bold text-xs md:text-sm" dir="rtl">
+                     <SelectValue placeholder="اختر الدفعة..." />
                   </SelectTrigger>
-                  <SelectContent dir="rtl">
-                     <SelectItem value="all">جميع الدفعات</SelectItem>
+                  <SelectContent dir="rtl" className="max-w-[85vw]">
+                     <SelectItem value="all" className="text-xs md:text-sm">جميع الدفعات</SelectItem>
                      {batches?.map((b: any) => (
-                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                        <SelectItem key={b.id} value={b.id} className="text-xs md:text-sm">
+                           <span className="truncate block max-w-[200px] md:max-w-xs">{b.name}</span>
+                        </SelectItem>
                      ))}
                   </SelectContent>
                </Select>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/navbar";
@@ -92,10 +91,10 @@ function CourseAuditDetail({ courseId, courseTitle, studentProgress, lessons }: 
     <Card className="border border-primary/10 overflow-hidden rounded-2xl mb-4 bg-muted/10 text-right">
       <div className="p-4 bg-muted/20 border-b border-primary/5 flex items-center justify-between">
         <div className="text-right">
-          <h4 className="font-black text-primary text-sm">{courseTitle}</h4>
+          <h4 className="font-black text-primary text-sm line-clamp-1">{courseTitle}</h4>
           <p className="text-[10px] text-muted-foreground font-bold">{completedCount} من {totalCount} دروس مكتملة</p>
         </div>
-        <Badge variant="outline" className="bg-white border-primary/10 text-primary font-black">{progressPercent}%</Badge>
+        <Badge variant="outline" className="bg-white border-primary/10 text-primary font-black shrink-0">{progressPercent}%</Badge>
       </div>
       
       <Accordion type="single" collapsible className="w-full">
@@ -121,7 +120,7 @@ function CourseAuditDetail({ courseId, courseTitle, studentProgress, lessons }: 
                       </div>
                     </div>
                     {lesson.type === 'quiz' && isDone && (
-                      <Badge className="bg-secondary/10 text-secondary border-none h-5 text-[9px] font-black">
+                      <Badge className="bg-secondary/10 text-secondary border-none h-5 text-[9px] font-black shrink-0">
                         النتيجة: {quizScore || 0}
                       </Badge>
                     )}
@@ -334,10 +333,10 @@ export default function StudentProgressPage() {
                 <p className="text-muted-foreground text-sm font-bold leading-relaxed">أدر المتصدرين، دقق إنجازات الطلاب، ونظم الدفعات التعليمية.</p>
               </div>
               <TabsList className="bg-muted/50 p-1 rounded-2xl h-14 w-full md:w-auto luxury-shadow">
-                 <TabsTrigger value="progress" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                 <TabsTrigger value="progress" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all flex-1 md:flex-none">
                     <TrendingUp className="w-5 h-5" /> تقدم الطلاب
                  </TabsTrigger>
-                 <TabsTrigger value="batches" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
+                 <TabsTrigger value="batches" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all flex-1 md:flex-none">
                     <Layers className="w-5 h-5" /> إدارة الدفعات
                  </TabsTrigger>
               </TabsList>
@@ -521,12 +520,14 @@ export default function StudentProgressPage() {
                           <BookOpen className="w-4 h-4 text-secondary" /> اختر الدورة التعليمية أولاً
                        </Label>
                        <Select value={batchCourseId} onValueChange={setBatchCourseId}>
-                          <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-black text-primary" dir="rtl">
+                          <SelectTrigger className="h-12 rounded-2xl bg-white border-primary/10 shadow-sm font-black text-primary text-xs md:text-sm" dir="rtl">
                              <SelectValue placeholder="حدد دورة لعرض دفعاتها..." />
                           </SelectTrigger>
-                          <SelectContent dir="rtl">
+                          <SelectContent dir="rtl" className="max-w-[85vw]">
                              {courses?.map((c: any) => (
-                               <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                               <SelectItem key={c.id} value={c.id} className="text-xs md:text-sm">
+                                 <span className="truncate block max-w-[200px] md:max-w-xs">{c.title}</span>
+                               </SelectItem>
                              ))}
                           </SelectContent>
                        </Select>
@@ -623,17 +624,17 @@ export default function StudentProgressPage() {
                   <AvatarFallback className="bg-primary text-white text-2xl font-black">{auditUser?.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="text-right flex-1 overflow-hidden">
-                  <DialogTitle className="text-3xl font-black text-primary font-headline mb-1 truncate">{auditUser?.name}</DialogTitle>
-                  <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-muted-foreground">
+                  <DialogTitle className="text-2xl md:text-3xl font-black text-primary font-headline mb-1 truncate">{auditUser?.name}</DialogTitle>
+                  <div className="flex flex-wrap items-center gap-4 text-xs md:text-sm font-bold text-muted-foreground">
                     <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-secondary fill-secondary" /> {auditUser?.totalPoints} نقطة</span>
                     <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><PlayCircle className="w-4 h-4 text-primary" /> {auditUser?.totalCompletedLessons} دروس مكتملة</span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setAuditUser(null)} className="rounded-full h-12 w-12 hover:bg-primary/5 text-primary">
-                  <X className="w-8 h-8" />
+                <Button variant="ghost" size="icon" onClick={() => setAuditUser(null)} className="rounded-full h-10 w-10 md:h-12 md:w-12 hover:bg-primary/5 text-primary">
+                  <X className="w-6 h-6 md:w-8 md:h-8" />
                 </Button>
               </DialogHeader>
-              <div className="p-8">
+              <div className="p-6 md:p-8">
                  {loadingAudit ? (
                    <div className="py-20 text-center"><Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto opacity-40" /></div>
                  ) : auditUser?.enrolledCourses?.length > 0 ? (
