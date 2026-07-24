@@ -28,7 +28,8 @@ import {
   Edit2,
   Layers,
   Settings2,
-  LayoutGrid
+  LayoutGrid,
+  Save
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy, doc, deleteDoc, setDoc, serverTimestamp, updateDoc, getDocs, addDoc } from "firebase/firestore";
@@ -85,7 +86,7 @@ function CourseAuditDetail({ courseId, courseTitle, studentProgress, lessons }: 
   const progressPercent = Math.round((completedCount / (totalCount || 1)) * 100);
 
   return (
-    <Card className="border border-primary/10 overflow-hidden rounded-2xl mb-4 bg-muted/10">
+    <Card className="border border-primary/10 overflow-hidden rounded-2xl mb-4 bg-muted/10 text-right">
       <div className="p-4 bg-muted/20 border-b border-primary/5 flex items-center justify-between">
         <div className="text-right">
           <h4 className="font-black text-primary text-sm">{courseTitle}</h4>
@@ -97,7 +98,7 @@ function CourseAuditDetail({ courseId, courseTitle, studentProgress, lessons }: 
       <Accordion type="single" collapsible className="w-full">
         {Object.entries(groupedLessons).map(([unit, unitLessons]: [string, any], i) => (
           <AccordionItem key={i} value={`unit-${i}`} className="border-none px-4">
-            <AccordionTrigger className="hover:no-underline py-3 text-xs font-bold text-primary/70">
+            <AccordionTrigger className="hover:no-underline py-3 text-xs font-bold text-primary/70 text-right">
               {unit}
             </AccordionTrigger>
             <AccordionContent className="space-y-1 pb-4">
@@ -295,7 +296,7 @@ export default function StudentProgressPage() {
            <TabsContent value="progress" className="space-y-10 animate-in fade-in duration-500">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="luxury-shadow border-primary/5">
-                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
+                  <CardContent className="p-6 flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
                       <Users className="w-7 h-7 text-blue-600" />
                     </div>
@@ -307,7 +308,7 @@ export default function StudentProgressPage() {
                 </Card>
 
                 <Card className="luxury-shadow border-primary/5">
-                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
+                  <CardContent className="p-6 flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
                       <Trophy className="w-7 h-7 text-secondary" />
                     </div>
@@ -319,7 +320,7 @@ export default function StudentProgressPage() {
                 </Card>
 
                 <Card className="luxury-shadow border-primary/5">
-                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
+                  <CardContent className="p-6 flex items-center gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center shrink-0">
                       <Award className="w-7 h-7 text-green-600" />
                     </div>
@@ -421,7 +422,7 @@ export default function StudentProgressPage() {
            <TabsContent value="batches" className="space-y-8 animate-in fade-in duration-500">
               <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
                  <CardHeader className="bg-muted/30 border-b border-border/50 p-8">
-                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                        <div className="text-right space-y-1">
                           <CardTitle className="text-2xl font-black text-primary font-headline">تنظيم دفعات الدورات</CardTitle>
                           <CardDescription className="font-bold">أنشئ الدفعات وحدد تاريخ بدايتها لتصنيف الطلاب تلقائياً في قائمة المتصدرين.</CardDescription>
@@ -583,7 +584,7 @@ export default function StudentProgressPage() {
             </div>
             <AlertDialogFooter className="flex flex-row gap-3 mt-6">
               <AlertDialogAction onClick={() => {}} className="h-11 rounded-xl bg-primary text-white font-bold flex-1">تأكيد الحذف</AlertDialogAction>
-              <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold flex-1 mt-0">إلغاء</AlertDialogCancel>
+              <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">إلغاء</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -591,3 +592,4 @@ export default function StudentProgressPage() {
     </div>
   );
 }
+

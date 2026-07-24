@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export default function LeaderboardPage() {
   const db = useFirestore();
@@ -188,7 +189,7 @@ export default function LeaderboardPage() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <div className="space-y-2">
+            <div className="space-y-2 text-right">
                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">تصفية حسب الدورة</Label>
                <Select value={selectedCourseId} onValueChange={(val) => { setSelectedCourseId(val); setSelectedBatchId("all"); }}>
                   <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
@@ -203,7 +204,7 @@ export default function LeaderboardPage() {
                </Select>
             </div>
 
-            <div className={cn("space-y-2 transition-all", selectedCourseId === "all" ? "opacity-30 pointer-events-none" : "opacity-100")}>
+            <div className={cn("space-y-2 text-right transition-all", selectedCourseId === "all" ? "opacity-30 pointer-events-none" : "opacity-100")}>
                <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">تصفية حسب الدفعة</Label>
                <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
                   <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
@@ -310,3 +311,4 @@ export default function LeaderboardPage() {
     </div>
   );
 }
+
