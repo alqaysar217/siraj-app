@@ -5,7 +5,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Auth } from 'firebase/auth';
 import { Firestore } from 'firebase/firestore';
-import { initializeFirebase } from './index';
+import { app as appInstance, auth as authInstance, db as dbInstance } from './index';
 import { FirebaseErrorListener } from '@/components/firebase-error-listener';
 
 interface FirebaseContextType {
@@ -22,20 +22,21 @@ const FirebaseContext = createContext<FirebaseContextType>({
 
 export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [instances, setInstances] = useState<FirebaseContextType>({
-    app: null,
-    auth: null,
-    db: null,
+    app: appInstance || null,
+    auth: authInstance || null,
+    db: dbInstance || null,
   });
 
   useEffect(() => {
-    const { app, auth, db } = initializeFirebase();
-    // نقوم بتعيين الحالات حتى لو كانت null لكي تعرف الخطافات (Hooks) أن المحاولة تمت
-    setInstances({ 
-      app: app || null, 
-      auth: auth || null, 
-      db: db || null 
-    });
-  }, []);
+    // التأكد من مزامنة الحالات في حال تأخرت التهيئة قليلاً
+    if (!instances.app && appInstance) {
+      setInstances({
+        app: appInstance,
+        auth: authInstance,
+        db: dbInstance
+      });
+    }
+  }, [instances.app]);
 
   return (
     <FirebaseContext.Provider value={instances}>

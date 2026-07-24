@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   DocumentReference,
   onSnapshot,
@@ -12,12 +12,13 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * خطاف جلب المستندات المطور ليدعم السرعة القصوى (Cache Awareness).
+ * خطاف جلب المستندات المطور ليعمل بنظام Cache-First.
  */
 export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const hasDataRef = useRef(false);
 
   useEffect(() => {
     if (!docRef) {
@@ -31,9 +32,10 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
       { includeMetadataChanges: true },
       (snapshot: DocumentSnapshot<T>) => {
         const docData = snapshot.exists() ? { ...snapshot.data()!, id: snapshot.id } : null;
-        setData(docData);
+        setData(docData as T);
+        hasDataRef.current = true;
         
-        // ننهي التحميل فوراً بمجرد قراءة المستند من ذاكرة الجهاز (الكاش)
+        // ننهي التحميل فوراً عند قراءة البيانات من الجهاز
         setLoading(false);
         setError(null);
       },
@@ -48,7 +50,9 @@ export function useDoc<T = DocumentData>(docRef: DocumentReference<T> | null) {
         } else {
           setError(serverError);
         }
-        setLoading(false);
+        if (!hasDataRef.current) {
+          setLoading(false);
+        }
       }
     );
 

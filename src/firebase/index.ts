@@ -4,55 +4,46 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 
-  getFirestore, 
   Firestore, 
   initializeFirestore, 
   persistentLocalCache, 
-  persistentMultipleTabManager 
+  persistentMultipleTabManager,
+  getFirestore
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
 
-let app: FirebaseApp | undefined;
-let auth: Auth | undefined;
-let db: Firestore | undefined;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
 
 /**
- * تهيئة خدمات Firebase بأداء فائق (Ultra-Fast Initialization).
- * نستخدم هنا persistentLocalCache لضمان تخزين البيانات نصياً في جهاز المستخدم.
- * هذا يجعل الدورات والكتب تظهر فوراً (في أجزاء من الثانية) عند فتح الموقع مرة ثانية.
+ * تهيئة فايربيس بنظام "المثيل الوحيد" الفوري.
+ * يتم التنفيذ بمجرد استيراد الملف لضمان جاهزية الكاش قبل رندرة المكونات.
  */
-export function initializeFirebase() {
-  if (typeof window === 'undefined' || !isFirebaseConfigValid()) {
-    return { app: null, auth: null, db: null };
-  }
-
+if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
+  const existingApps = getApps();
+  app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfig);
+  
+  // تهيئة Firestore مع تفعيل التخزين المحلي الدائم وتعدد التبويبات
   try {
-    // 1. تأمين مثيل التطبيق
-    if (!app) {
-      const existingApps = getApps();
-      app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfig);
-    }
-
-    // 2. تأمين قاعدة البيانات مع التخزين المحلي المتقدم (Persistent Cache)
-    if (!db) {
-      // نستخدم initializeFirestore بدلاً من getFirestore لتفعيل الإعدادات المتقدمة للكاش
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        })
-      });
-      console.log("✅ تم تفعيل نظام التخزين المحلي الذكي لمنصة سراج");
-    }
-
-    // 3. تأمين مثيل الحماية
-    if (!auth) {
-      auth = getAuth(app);
-    }
-  } catch (error) {
-    console.error("Firebase Initialization Error:", error);
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    });
+    console.log("🚀 تم تشغيل محرك البيانات المحلي فائق السرعة لمنصة سراج");
+  } catch (e) {
+    // في حال كانت القاعدة مهيئة مسبقاً (مثلاً أثناء التطوير HMR)
+    db = getFirestore(app);
   }
   
-  return { app: app || null, auth: auth || null, db: db || null };
+  auth = getAuth(app);
+}
+
+export { app, auth, db };
+
+export function initializeFirebase() {
+  return { app, auth, db };
 }
 
 export * from './provider';

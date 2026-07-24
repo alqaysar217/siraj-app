@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Query,
   onSnapshot,
@@ -13,12 +13,14 @@ import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
 
 /**
- * خطاف جلب المجموعات المطور ليدعم السرعة القصوى (Cache Awareness).
+ * خطاف جلب المجموعات المطور ليعمل بنظام Cache-First.
+ * يضمن ظهور البيانات فوراً من الجهاز ويخفي دائرة التحميل بمجرد توفر الكاش.
  */
 export function useCollection<T = DocumentData>(query: Query<T> | null) {
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const hasDataRef = useRef(false);
 
   useEffect(() => {
     if (!query) {
@@ -27,12 +29,9 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
       return;
     }
 
-    // ملاحظة: لا نعيد تعيين loading لـ true إذا كان لدينا بيانات كاش فعلاً
-    // لضمان عدم ظهور "دائرة التحميل" عند الانتقال بين الصفحات
-    
     const unsubscribe = onSnapshot(
       query,
-      { includeMetadataChanges: true }, // نراقب التغييرات لضمان تحديث الكاش بالبيانات الجديدة من السيرفر
+      { includeMetadataChanges: true },
       (snapshot: QuerySnapshot<T>) => {
         const docs = snapshot.docs.map((doc: QueryDocumentSnapshot<T>) => ({
           ...doc.data(),
@@ -40,10 +39,11 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         }));
         
         setData(docs);
+        hasDataRef.current = true;
         
-        // السر هنا: بمجرد وصول أي بيانات (سواء من الكاش أو السيرفر)، ننهي حالة التحميل فوراً
-        // snapshot.metadata.fromCache ستكون true في أول ثانية إذا كانت البيانات مخزنة
-        setLoading(false); 
+        // السر: بمجرد وصول أي نسخة (حتى لو من الكاش)، ننهي حالة التحميل فوراً
+        // snapshot.metadata.fromCache تكون true إذا كانت البيانات من الجهاز
+        setLoading(false);
         setError(null);
       },
       async (serverError: any) => {
@@ -57,7 +57,10 @@ export function useCollection<T = DocumentData>(query: Query<T> | null) {
         } else {
           setError(serverError);
         }
-        setLoading(false);
+        // لا ننهي التحميل إلا إذا لم يكن لدينا بيانات سابقة إطلاقاً وفشل الاتصال
+        if (!hasDataRef.current) {
+          setLoading(false);
+        }
       }
     );
 
