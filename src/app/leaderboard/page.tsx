@@ -16,7 +16,8 @@ import {
   LogIn,
   Filter,
   Layers,
-  BookOpen
+  BookOpen,
+  Users
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { collection, query, where, limit, orderBy } from "firebase/firestore";
@@ -278,7 +279,7 @@ export default function LeaderboardPage() {
                           <TableCell className="text-center px-1 md:px-2">
                             <div className="inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl bg-secondary/10">
                                <Medal className="w-3 h-3 md:w-5 md:h-5 text-secondary" />
-                               <span className="text-xs md:text-lg font-black text-secondary" dir="ltr">{student.totalPoints}</span>
+                               <span className="text-xs md:lg font-black text-secondary" dir="ltr">{student.totalPoints}</span>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -311,4 +312,3 @@ export default function LeaderboardPage() {
     </div>
   );
 }
-
