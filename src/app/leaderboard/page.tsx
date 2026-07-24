@@ -13,22 +13,30 @@ import {
   ChevronDown,
   UserPlus,
   Lock,
-  LogIn
+  LogIn,
+  Filter,
+  Layers,
+  BookOpen
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { collection, query, where, limit } from "firebase/firestore";
+import { collection, query, where, limit, orderBy } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function LeaderboardPage() {
   const db = useFirestore();
   const { user, loading: authLoading } = useUser();
   const [mounted, setMounted] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10);
+  
+  // فلاتر البحث
+  const [selectedCourseId, setSelectedCourseId] = useState("all");
+  const [selectedBatchId, setSelectedBatchId] = useState("all");
 
   useEffect(() => {
     setMounted(true);
@@ -38,35 +46,80 @@ export default function LeaderboardPage() {
     (db && user) ? query(
       collection(db, "users"), 
       where("showInLeaderboard", "==", true),
-      limit(100) 
+      limit(200) 
     ) : null
   , [db, user]);
   
   const { data: users, loading: dataLoading } = useCollection(usersQuery);
 
+  const coursesQuery = useMemoFirebase(() => db ? collection(db, "courses") : null, [db]);
+  const { data: courses } = useCollection(coursesQuery);
+
+  const batchesQuery = useMemoFirebase(() => 
+    (db && selectedCourseId !== "all") ? query(collection(db, "courses", selectedCourseId, "batches"), orderBy("startDate", "asc")) : null
+  , [db, selectedCourseId]);
+  const { data: batches } = useCollection(batchesQuery);
+
   const leaderboard = useMemo(() => {
     if (!users) return [];
 
-    // الترتيب الأساسي: النقاط (الأعلى أولاً)، ثم عدد الدروس المكتملة (كعامل ترجيحي داخلي فقط)
-    const sorted = users.map((u: any) => {
-      const progressEntries = Object.values(u.progress || {});
-      const totalPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
-      const totalLessons = progressEntries.reduce((acc: number, curr: any) => acc + (curr.completedLessons?.length || 0), 0);
-      
+    let list = users.map((u: any) => {
+      let displayPoints = 0;
+      let displayLessons = 0;
+      let activationDate = null;
+
+      if (selectedCourseId === "all") {
+        // الحسبة العامة: مجموع كل النقاط
+        const progressEntries = Object.values(u.progress || {});
+        displayPoints = progressEntries.reduce((acc: number, curr: any) => acc + (curr.points || 0), 0);
+        displayLessons = progressEntries.reduce((acc: number, curr: any) => acc + (curr.completedLessons?.length || 0), 0);
+      } else {
+        // حسبة الدورة المحددة فقط
+        const progress = u.progress?.[selectedCourseId] || {};
+        displayPoints = progress.points || 0;
+        displayLessons = progress.completedLessons?.length || 0;
+        
+        // استخراج تاريخ التفعيل لهذه الدورة لتحديد الدفعة
+        activationDate = u.enrollmentDetails?.[selectedCourseId]?.activatedAt || null;
+      }
+
       return {
         id: u.id,
         name: u.name,
         photoURL: u.photoURL,
-        totalPoints,
-        totalLessons
+        totalPoints: displayPoints,
+        totalLessons: displayLessons,
+        activationDate: activationDate ? new Date(activationDate) : null
       };
-    }).sort((a, b) => {
+    });
+
+    // فلترة حسب الدفعة (Cohorts) إذا تم اختيار دورة ودقعة محددة
+    if (selectedCourseId !== "all" && selectedBatchId !== "all" && batches && batches.length > 0) {
+      const currentBatchIdx = batches.findIndex(b => b.id === selectedBatchId);
+      if (currentBatchIdx !== -1) {
+        const batchStart = new Date(batches[currentBatchIdx].startDate);
+        const nextBatchStart = batches[currentBatchIdx + 1] ? new Date(batches[currentBatchIdx + 1].startDate) : null;
+
+        list = list.filter(student => {
+           if (!student.activationDate) return false;
+           // يجب أن يكون تاريخ تفعيله بعد بداية هذه الدفعة وقبل بداية الدفعة التالية
+           const isAfterStart = student.activationDate >= batchStart;
+           const isBeforeNext = nextBatchStart ? student.activationDate < nextBatchStart : true;
+           return isAfterStart && isBeforeNext;
+        });
+      }
+    } else if (selectedCourseId !== "all") {
+      // إذا تم اختيار دورة ولم يتم اختيار دفعة، نظهر فقط الطلاب المشتركين في هذه الدورة
+      list = list.filter(student => student.totalPoints > 0 || student.totalLessons > 0);
+    }
+
+    // الترتيب النهائي
+    const sorted = list.sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
       return b.totalLessons - a.totalLessons;
     });
 
-    // احتساب الرتبة باستخدام Dense Ranking (الترتيب الكثيف)
-    // بحيث المتساوين في النقاط يأخذون نفس الرتبة والمركز الذي يليهم يكون الرقم التالي مباشرة
+    // احتساب الرتبة (Dense Ranking)
     let currentRank = 1;
     return sorted.map((student, index, array) => {
       if (index > 0 && student.totalPoints < array[index - 1].totalPoints) {
@@ -74,7 +127,7 @@ export default function LeaderboardPage() {
       }
       return { ...student, displayRank: currentRank };
     });
-  }, [users]);
+  }, [users, selectedCourseId, selectedBatchId, batches]);
 
   const visibleLeaderboard = useMemo(() => {
     return leaderboard.slice(0, visibleCount);
@@ -114,11 +167,6 @@ export default function LeaderboardPage() {
                     <LogIn className="w-6 h-6" /> تسجيل الدخول
                  </Link>
               </Button>
-              <Button asChild variant="outline" size="lg" className="h-16 px-10 rounded-2xl font-black text-xl border-primary/10">
-                 <Link href="/auth/register" className="gap-2">
-                    <UserPlus className="w-6 h-6" /> إنشاء حساب جديد
-                 </Link>
-              </Button>
            </div>
         </div>
       </div>
@@ -135,16 +183,50 @@ export default function LeaderboardPage() {
            </div>
            <h1 className="text-2xl md:text-5xl font-black font-headline text-primary">نخبة طلاب سراج</h1>
            <p className="text-muted-foreground text-xs md:text-lg max-w-2xl mx-auto font-medium leading-relaxed px-4">
-             قائمة الشرف للطلاب الأكثر تفاعلاً وإنجازاً. تنافس مع زملائك واحصد النقاط لتتصدر القائمة الذهبية.
+             استكشف أبطال المنصة. يمكنك الفلترة حسب الدورة أو الدفعة لمشاهدة الترتيب المخصص.
            </p>
         </header>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+            <div className="space-y-2">
+               <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">تصفية حسب الدورة</Label>
+               <Select value={selectedCourseId} onValueChange={(val) => { setSelectedCourseId(val); setSelectedBatchId("all"); }}>
+                  <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
+                     <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent dir="rtl">
+                     <SelectItem value="all">كل دورات المنصة (الترتيب العام)</SelectItem>
+                     {courses?.map((c: any) => (
+                       <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
+            </div>
+
+            <div className={cn("space-y-2 transition-all", selectedCourseId === "all" ? "opacity-30 pointer-events-none" : "opacity-100")}>
+               <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mr-1">تصفية حسب الدفعة</Label>
+               <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
+                  <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
+                     <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent dir="rtl">
+                     <SelectItem value="all">جميع الدفعات</SelectItem>
+                     {batches?.map((b: any) => (
+                        <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
+            </div>
+        </div>
+
         <div className="space-y-8">
           <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem]">
-            <CardHeader className="bg-muted/20 border-b border-border/50 p-5 md:p-8 text-right flex flex-row items-center justify-between">
+            <CardHeader className="bg-muted/20 border-b border-border/40 p-6 md:p-8 text-right flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-lg md:text-2xl font-black text-primary font-headline">لوحة المتصدرين</CardTitle>
-                <CardDescription className="font-bold mt-1 text-[10px] md:text-sm">تُحدث النقاط تلقائياً بناءً على نشاطك الدراسي</CardDescription>
+                <CardTitle className="text-lg md:text-2xl font-black text-primary font-headline">لوحة الأبطال</CardTitle>
+                <CardDescription className="font-bold mt-1 text-[10px] md:sm">
+                   {selectedCourseId === "all" ? "الترتيب العام لكل طلاب سراج" : "ترتيب الطلاب في الدورة والدفعة المختارة"}
+                </CardDescription>
               </div>
               <Trophy className="w-6 h-6 md:w-10 md:h-10 text-secondary opacity-30 shrink-0" />
             </CardHeader>
@@ -159,18 +241,16 @@ export default function LeaderboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visibleLeaderboard.map((student) => {
+                    {visibleLeaderboard.length > 0 ? visibleLeaderboard.map((student) => {
                       const rank = student.displayRank;
                       return (
                         <TableRow key={student.id} className={cn(
                           "hover:bg-primary/5 transition-colors border-b border-primary/5",
-                          rank === 1 && "bg-yellow-50/30",
-                          rank === 2 && "bg-slate-50/30",
-                          rank === 3 && "bg-orange-50/30"
+                          rank === 1 && "bg-yellow-50/30"
                         )}>
                           <TableCell className="text-center px-1 md:px-2">
                             <div className={cn(
-                              "w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto font-black text-xs md:text-sm transition-transform hover:scale-110 shadow-sm",
+                              "w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center mx-auto font-black text-xs md:text-sm shadow-sm",
                               rank === 1 ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
                               rank === 2 ? "bg-slate-100 text-slate-700 border border-slate-200" :
                               rank === 3 ? "bg-orange-100 text-orange-700 border border-orange-200" :
@@ -184,39 +264,34 @@ export default function LeaderboardPage() {
                           </TableCell>
                           <TableCell className="py-3 md:py-6 px-1 md:px-4">
                             <div className="flex items-center gap-2 md:gap-4 text-right">
-                              <Avatar className={cn(
-                                "h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square",
-                                rank === 1 ? "border-yellow-400" : "border-white"
-                              )}>
+                              <Avatar className={cn("h-10 w-10 md:h-14 md:w-14 border-2 shadow-md shrink-0 aspect-square")}>
                                 <AvatarImage src={student.photoURL || undefined} className="object-cover" />
                                 <AvatarFallback className="bg-primary/5 text-primary font-black text-[10px] md:text-lg">{student.name?.charAt(0)}</AvatarFallback>
                               </Avatar>
                               <div className="overflow-hidden">
-                                <div className="font-black text-primary text-xs md:text-lg truncate max-w-[80px] md:max-w-none">{student.name}</div>
-                                <div className="text-[7px] md:text-[10px] text-muted-foreground font-bold tracking-wider uppercase truncate">
-                                  {rank === 1 ? "البطل الذهبي" : rank === 2 ? "المنافس الفضي" : rank === 3 ? "المثابر البرونزي" : "طالب سراج"}
-                                </div>
+                                <div className="font-black text-primary text-xs md:text-lg truncate max-w-[120px] md:max-w-none">{student.name}</div>
+                                <div className="text-[7px] md:text-[10px] text-muted-foreground font-bold tracking-wider uppercase truncate">طالب سراج المبدع</div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell className="text-center px-1 md:px-2">
-                            <div className={cn(
-                              "inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl shadow-inner",
-                              rank === 1 ? "bg-yellow-100/50" : "bg-secondary/10"
-                            )}>
-                               <Medal className={cn(
-                                 "w-3 h-3 md:w-5 md:h-5",
-                                 rank === 1 ? "text-yellow-600 fill-yellow-600" : "text-secondary fill-transparent"
-                               )} />
-                               <span className={cn(
-                                 "text-xs md:text-lg font-black",
-                                 rank === 1 ? "text-yellow-700" : "text-secondary"
-                               )} dir="ltr">{mounted ? student.totalPoints : '0'}</span>
+                            <div className="inline-flex items-center gap-1 md:gap-2 px-2 md:px-5 py-1 md:py-2 rounded-xl md:rounded-2xl bg-secondary/10">
+                               <Medal className="w-3 h-3 md:w-5 md:h-5 text-secondary" />
+                               <span className="text-xs md:text-lg font-black text-secondary" dir="ltr">{student.totalPoints}</span>
                             </div>
                           </TableCell>
                         </TableRow>
                       );
-                    })}
+                    }) : (
+                      <TableRow>
+                         <TableCell colSpan={3} className="py-24 text-center">
+                            <div className="space-y-3 opacity-30">
+                               <Users className="w-12 h-12 mx-auto" />
+                               <p className="font-black">لا يوجد طلاب في هذه الدفعة حالياً</p>
+                            </div>
+                         </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -225,13 +300,8 @@ export default function LeaderboardPage() {
 
           {leaderboard.length > visibleCount && (
             <div className="flex justify-center pt-4">
-              <Button 
-                onClick={handleLoadMore} 
-                variant="outline" 
-                className="h-12 md:h-14 px-8 md:px-10 rounded-xl md:rounded-2xl border-primary/10 bg-white font-black text-primary hover:bg-primary/5 gap-2 shadow-lg text-xs md:text-base"
-              >
-                <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-secondary" />
-                عرض المزيد من الأبطال
+              <Button onClick={handleLoadMore} variant="outline" className="h-12 md:h-14 px-8 md:px-10 rounded-xl md:rounded-2xl border-primary/10 bg-white font-black text-primary hover:bg-primary/5 gap-2 shadow-lg text-xs md:text-base">
+                <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-secondary" /> عرض المزيد من الأبطال
               </Button>
             </div>
           )}

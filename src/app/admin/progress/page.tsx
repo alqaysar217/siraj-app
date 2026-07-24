@@ -16,21 +16,22 @@ import {
   AlertTriangle, 
   X, 
   Eye, 
-  EyeOff, 
   Search,
-  User as UserIcon,
-  Crown,
-  Medal,
   CheckCircle2,
   Circle,
   PlayCircle,
   ClipboardList,
-  Calendar,
   RefreshCw,
-  Info
+  Info,
+  Calendar,
+  PlusCircle,
+  Edit2,
+  Layers,
+  Settings2,
+  LayoutGrid
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, limit, doc, deleteDoc, setDoc, serverTimestamp, updateDoc, getDocs } from "firebase/firestore";
+import { collection, query, orderBy, doc, deleteDoc, setDoc, serverTimestamp, updateDoc, getDocs, addDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,8 +55,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter
 } from "@/components/ui/dialog";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 /**
  * مكون فرعي لعرض تفاصيل دروس دورة معينة لطالب محدد
@@ -142,18 +147,27 @@ export default function StudentProgressPage() {
   const [auditLessons, setAuditLessons] = useState<Record<string, any[]>>({});
   const [loadingAudit, setLoadingAudit] = useState(false);
 
+  // حالات الدفعات
+  const [activeTab, setActiveTab] = useState("progress");
+  const [batchCourseId, setBatchCourseId] = useState("");
+  const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
+  const [editingBatch, setBatchToEdit] = useState<any>(null);
+  const [batchForm, setBatchForm] = useState({ name: "", startDate: "" });
+
   useEffect(() => {
     setMounted(true);
   }, []);
   
-  const usersQuery = useMemoFirebase(() => 
-    db ? query(collection(db, "users")) : null
-  , [db]);
-  
+  const usersQuery = useMemoFirebase(() => db ? query(collection(db, "users")) : null, [db]);
   const { data: users, loading } = useCollection(usersQuery);
 
   const coursesQuery = useMemoFirebase(() => db ? collection(db, "courses") : null, [db]);
   const { data: courses } = useCollection(coursesQuery);
+
+  const batchesQuery = useMemoFirebase(() => 
+    (db && batchCourseId) ? query(collection(db, "courses", batchCourseId, "batches"), orderBy("startDate", "asc")) : null
+  , [db, batchCourseId]);
+  const { data: batches, loading: batchesLoading } = useCollection(batchesQuery);
 
   const leaderboard = useMemo(() => {
     if (!users) return [];
@@ -209,7 +223,6 @@ export default function StudentProgressPage() {
       const enrolledIds = student.enrolledCourses || [];
       const newAuditLessons: Record<string, any[]> = {};
 
-      // جلب دروس كل دورة مشترك بها الطالب
       for (const courseId of enrolledIds) {
         const lessonsSnap = await getDocs(query(collection(db, "courses", courseId, "lessons"), orderBy("order", "asc")));
         newAuditLessons[courseId] = lessonsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -223,231 +236,301 @@ export default function StudentProgressPage() {
     }
   };
 
-  const handleToggleVisibility = async (student: any) => {
-    if (!db) return;
-    setProcessing(student.uid);
-    const newStatus = student.showInLeaderboard === false;
-    
+  const handleSaveBatch = async () => {
+    if (!db || !batchCourseId || !batchForm.name || !batchForm.startDate) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى تعبئة اسم الدفعة وتاريخ البداية." });
+      return;
+    }
+    setProcessing("batch");
     try {
-      await updateDoc(doc(db, "users", student.uid), {
-        showInLeaderboard: newStatus
-      });
-      toast({ 
-        title: newStatus ? "تم الإظهار" : "تم الإخفاء", 
-        description: newStatus ? "سيظهر الطالب الآن في اللوحة العامة." : "تم حظر ظهور الطالب في اللوحة العامة للطلاب."
-      });
-    } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حالة الظهور." });
+      const batchData = { ...batchForm, updatedAt: serverTimestamp() };
+      if (editingBatch) {
+        await updateDoc(doc(db, "courses", batchCourseId, "batches", editingBatch.id), batchData);
+        toast({ title: "تم التعديل", description: "تم تحديث بيانات الدفعة بنجاح." });
+      } else {
+        await addDoc(collection(db, "courses", batchCourseId, "batches"), { ...batchData, createdAt: serverTimestamp() });
+        toast({ title: "تمت الإضافة", description: "تم إنشاء دفعة جديدة لهذه الدورة." });
+      }
+      setIsBatchDialogOpen(false);
+      setBatchForm({ name: "", startDate: "" });
+      setBatchToEdit(null);
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ الدفعة." });
     } finally {
       setProcessing(null);
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!db || !userToDelete) return;
-    setProcessing(userToDelete.uid);
-
+  const deleteBatch = async (batchId: string) => {
+    if (!db || !batchCourseId) return;
     try {
-      const trashRef = doc(collection(db, "trash"));
-      await setDoc(trashRef, {
-        originalId: userToDelete.uid,
-        originalPath: `users/${userToDelete.uid}`,
-        type: "user",
-        title: `حساب الطالب: ${userToDelete.name}`,
-        data: userToDelete,
-        deletedAt: serverTimestamp()
-      });
-
-      await deleteDoc(doc(db, "users", userToDelete.uid));
-      toast({ title: "تم الحذف", description: "تم نقل الطالب إلى سلة المهملات." });
-    } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل في عملية الحذف." });
-    } finally {
-      setProcessing(null);
-      setUserToDelete(null);
+      await deleteDoc(doc(db, "courses", batchCourseId, "batches", batchId));
+      toast({ title: "تم الحذف", description: "تمت إزالة الدفعة من سجلات الدورة." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل الحذف." });
     }
   };
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
       <Navbar />
-      <div className="container mx-auto px-4 py-10 max-w-6xl">
-        <header className="mb-10 text-right space-y-4">
-          <div>
-            <h1 className="text-3xl font-bold font-headline text-primary mb-2">تقدم الطلاب واللوحة الشرفية</h1>
-            <p className="text-muted-foreground text-sm">متابعة تفصيلية لمستوى تفاعل الطلاب وإنجازاتهم التعليمية عبر كافة الدورات.</p>
-          </div>
-          
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full">
-            <div className="relative flex-1 w-full">
-              <Input 
-                placeholder="ابحث عن طالب بالاسم أو البريد..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-12 rounded-2xl bg-card border-primary/10 pr-12 shadow-sm"
-              />
-              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            </div>
-          </div>
-        </header>
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="text-right">
+                <h1 className="text-3xl font-bold font-headline text-primary mb-1">لوحة التميز الأكاديمي</h1>
+                <p className="text-muted-foreground text-sm">أدر المتصدرين، دقق إنجازات الطلاب، ونظم الدفعات التعليمية.</p>
+              </div>
+              <TabsList className="bg-muted/50 p-1 rounded-2xl h-14 w-full md:w-auto luxury-shadow">
+                 <TabsTrigger value="progress" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                    <TrendingUp className="w-5 h-5" /> تقدم الطلاب
+                 </TabsTrigger>
+                 <TabsTrigger value="batches" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                    <Layers className="w-5 h-5" /> إدارة الدفعات
+                 </TabsTrigger>
+              </TabsList>
+           </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <Card className="luxury-shadow border-primary/5">
-            <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
-              <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
-                <Users className="w-7 h-7 text-blue-600" />
-              </div>
-              <div className="text-right flex-1">
-                <div className="text-2xl font-black text-primary" dir="ltr">{mounted ? stats.totalStudents : '0'}</div>
-                <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">إجمالي الطلاب</div>
-              </div>
-            </CardContent>
-          </Card>
+           <TabsContent value="progress" className="space-y-10 animate-in fade-in duration-500">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="luxury-shadow border-primary/5">
+                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+                      <Users className="w-7 h-7 text-blue-600" />
+                    </div>
+                    <div className="text-right flex-1">
+                      <div className="text-2xl font-black text-primary" dir="ltr">{mounted ? stats.totalStudents : '0'}</div>
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase">إجمالي الطلاب</div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-          <Card className="luxury-shadow border-primary/5">
-            <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
-              <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
-                <Trophy className="w-7 h-7 text-secondary" />
-              </div>
-              <div className="text-right flex-1">
-                <div className="text-2xl font-black text-primary" dir="ltr">{mounted ? stats.avgPoints : '0'}</div>
-                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">متوسط نقاط التفاعل</div>
-              </div>
-            </CardContent>
-          </Card>
+                <Card className="luxury-shadow border-primary/5">
+                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
+                    <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
+                      <Trophy className="w-7 h-7 text-secondary" />
+                    </div>
+                    <div className="text-right flex-1">
+                      <div className="text-2xl font-black text-primary" dir="ltr">{mounted ? stats.avgPoints : '0'}</div>
+                      <div className="text-xs text-muted-foreground font-bold uppercase">متوسط النقاط</div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-          <Card className="luxury-shadow border-primary/5">
-            <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
-              <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center shrink-0">
-                <Award className="w-7 h-7 text-green-600" />
+                <Card className="luxury-shadow border-primary/5">
+                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
+                    <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center shrink-0">
+                      <Award className="w-7 h-7 text-green-600" />
+                    </div>
+                    <div className="text-right flex-1">
+                      <div className="text-2xl font-black text-primary" dir="ltr">{mounted && leaderboard.length > 0 ? leaderboard[0].totalPoints : '0'}</div>
+                      <div className="text-xs text-muted-foreground font-bold uppercase">أعلى رصيد</div>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-              <div className="text-right flex-1">
-                <div className="text-2xl font-black text-primary" dir="ltr">{mounted && leaderboard.length > 0 ? leaderboard[0].totalPoints : '0'}</div>
-                <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">أعلى رصيد نقاط</div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
-          <CardHeader className="bg-muted/30 border-b border-border/50 text-right p-8">
-            <div className="flex items-center justify-between">
-               <div>
-                  <CardTitle className="text-2xl font-black text-primary font-headline">قائمة المتصدرين</CardTitle>
-                  <CardDescription className="font-bold mt-1">الطلاب الأكثر تفاعلاً وإنجازاً في المنصة</CardDescription>
-               </div>
-               <TrendingUp className="w-8 h-8 text-secondary opacity-20" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="py-24 text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4" />
-                <p className="text-muted-foreground font-bold">جاري تحليل بيانات الطلاب...</p>
-              </div>
-            ) : leaderboard.length > 0 ? (
-              <Table className="text-right">
-                <TableHeader className="bg-muted/20">
-                  <TableRow>
-                    <TableHead className="text-center font-black py-5 w-20">المركز</TableHead>
-                    <TableHead className="text-right font-black py-5">الطالب</TableHead>
-                    <TableHead className="text-center font-black py-5">الدروس</TableHead>
-                    <TableHead className="text-center font-black py-5">النقاط</TableHead>
-                    <TableHead className="text-center font-black py-5">الإجراءات</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaderboard.map((student) => {
-                    const isVisible = student.showInLeaderboard !== false;
-                    const rank = student.displayRank;
-                    return (
-                      <TableRow key={student.uid} className={cn("hover:bg-primary/5 transition-colors border-b border-primary/5", !isVisible && "bg-muted/20 opacity-80")}>
-                        <TableCell className="text-center">
-                          <div className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center mx-auto font-black text-sm",
-                            rank === 1 ? "bg-yellow-100 text-yellow-700 shadow-sm border border-yellow-200" :
-                            rank === 2 ? "bg-slate-100 text-slate-700 border border-slate-200" :
-                            rank === 3 ? "bg-orange-100 text-orange-700 border border-orange-200" :
-                            "bg-muted text-muted-foreground"
-                          )} dir="ltr">
-                            {rank === 1 ? <Crown className="w-4 h-4 text-yellow-600" /> : 
-                             rank === 2 ? <Medal className="w-4 h-4 text-slate-500" /> :
-                             rank === 3 ? <Medal className="w-4 h-4 text-orange-600" /> :
-                             rank}
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-4">
-                          <div className="flex items-center gap-4 text-right">
-                            <Avatar className="h-12 w-12 border-2 border-white shadow-sm shrink-0">
-                              <AvatarImage src={student.photoURL || undefined} className="object-cover" />
-                              <AvatarFallback className="bg-primary/5 text-primary font-black">{student.name?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <div className="font-black text-primary text-base">{student.name}</div>
-                              <div className="text-[10px] text-muted-foreground font-bold">{student.email}</div>
-                              {!isVisible && <Badge variant="destructive" className="mt-1 h-5 text-[9px] px-2">مخفي من اللوحة العامة</Badge>}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="text-sm font-black text-primary" dir="ltr">{student.totalCompletedLessons}</span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-secondary/10 rounded-full">
-                             <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
-                             <span className="text-sm font-black text-secondary" dir="ltr">{student.totalPoints}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5"
-                              onClick={() => handleOpenAudit(student)}
-                              title="تدقيق الإنجاز والمشاهدة"
-                            >
-                               <Eye className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              disabled={processing === student.uid}
-                              variant="outline" 
-                              size="icon" 
-                              className={cn(
-                                "h-9 w-9 rounded-xl transition-all",
-                                isVisible ? "text-secondary border-secondary/20 hover:bg-secondary/5" : "bg-secondary text-white border-none"
-                              )}
-                              onClick={() => handleToggleVisibility(student)}
-                              title={isVisible ? "إخفاء من اللوحة العامة" : "إظهار في اللوحة العامة"}
-                            >
-                              {processing === student.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : isVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/5"
-                              onClick={() => setUserToDelete(student)}
-                              title="حذف ونقل للسلة"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="py-32 text-center">
-                 <Award className="w-20 h-20 text-muted-foreground/20 mx-auto mb-6" />
-                 <h3 className="text-xl font-bold text-primary">لا يوجد بيانات للطلاب حالياً</h3>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
+                <CardHeader className="bg-muted/30 border-b border-border/50 p-6">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                     <div className="relative w-full md:max-w-md">
+                        <Input 
+                          placeholder="ابحث عن طالب بالاسم أو البريد..." 
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="h-12 rounded-2xl bg-card border-primary/10 pr-12 shadow-sm text-right"
+                        />
+                        <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                     </div>
+                     <Badge variant="outline" className="border-secondary/20 bg-secondary/5 text-secondary font-black">قائمة الشرف التراكمية</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {loading ? (
+                    <div className="py-24 text-center">
+                      <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4" />
+                      <p className="text-muted-foreground font-bold">جاري تحميل البيانات...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table className="text-right">
+                        <TableHeader className="bg-muted/20">
+                          <TableRow>
+                            <TableHead className="text-center font-black py-5 w-20">المركز</TableHead>
+                            <TableHead className="text-right font-black py-5">الطالب</TableHead>
+                            <TableHead className="text-center font-black py-5">الدروس</TableHead>
+                            <TableHead className="text-center font-black py-5">النقاط</TableHead>
+                            <TableHead className="text-center font-black py-5">الإجراءات</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {leaderboard.map((student) => {
+                            const isVisible = student.showInLeaderboard !== false;
+                            const rank = student.displayRank;
+                            return (
+                              <TableRow key={student.uid} className={cn("hover:bg-primary/5 transition-colors border-b border-primary/5", !isVisible && "bg-muted/20 opacity-80")}>
+                                <TableCell className="text-center">
+                                  <div className={cn(
+                                    "w-10 h-10 rounded-full flex items-center justify-center mx-auto font-black text-sm",
+                                    rank <= 3 ? "bg-secondary text-white shadow-lg" : "bg-muted text-muted-foreground"
+                                  )}>{rank}</div>
+                                </TableCell>
+                                <TableCell className="py-4">
+                                  <div className="flex items-center gap-4 text-right">
+                                    <Avatar className="h-12 w-12 border-2 border-white shadow-sm shrink-0">
+                                      <AvatarImage src={student.photoURL || undefined} className="object-cover" />
+                                      <AvatarFallback className="bg-primary/5 text-primary font-black">{student.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <div className="font-black text-primary text-base">{student.name}</div>
+                                      <div className="text-[10px] text-muted-foreground font-bold">{student.email}</div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <span className="text-sm font-black text-primary">{student.totalCompletedLessons}</span>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-secondary/10 rounded-full">
+                                     <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
+                                     <span className="text-sm font-black text-secondary">{student.totalPoints}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5" onClick={() => handleOpenAudit(student)}>
+                                       <Eye className="w-4 h-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/5" onClick={() => setUserToDelete(student)}>
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+           </TabsContent>
 
-        {/* نافذة تدقيق الطالب الأكاديمية */}
+           <TabsContent value="batches" className="space-y-8 animate-in fade-in duration-500">
+              <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
+                 <CardHeader className="bg-muted/30 border-b border-border/50 p-8">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                       <div className="text-right space-y-1">
+                          <CardTitle className="text-2xl font-black text-primary font-headline">تنظيم دفعات الدورات</CardTitle>
+                          <CardDescription className="font-bold">أنشئ الدفعات وحدد تاريخ بدايتها لتصنيف الطلاب تلقائياً في قائمة المتصدرين.</CardDescription>
+                       </div>
+                       <Button disabled={!batchCourseId} onClick={() => { setBatchToEdit(null); setBatchForm({ name: "", startDate: "" }); setIsBatchDialogOpen(true); }} className="bg-secondary hover:bg-secondary/90 text-white rounded-2xl h-14 px-8 font-black gap-2 shadow-xl shadow-secondary/10">
+                          <PlusCircle className="w-6 h-6" /> إضافة دفعة جديدة
+                       </Button>
+                    </div>
+                 </CardHeader>
+                 <CardContent className="p-8 space-y-10">
+                    <div className="max-w-md mx-auto space-y-3">
+                       <Label className="font-black text-primary mr-1 flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-secondary" /> اختر الدورة التعليمية أولاً
+                       </Label>
+                       <Select value={batchCourseId} onValueChange={setBatchCourseId}>
+                          <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
+                             <SelectValue placeholder="حدد دورة لعرض دفعاتها..." />
+                          </SelectTrigger>
+                          <SelectContent dir="rtl">
+                             {courses?.map((c: any) => (
+                               <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                             ))}
+                          </SelectContent>
+                       </Select>
+                    </div>
+
+                    {!batchCourseId ? (
+                      <div className="py-24 text-center border-2 border-dashed rounded-[2.5rem] bg-muted/20 opacity-50">
+                         <LayoutGrid className="w-16 h-16 mx-auto mb-4 text-primary" />
+                         <p className="font-black text-primary">يرجى اختيار دورة من القائمة أعلاه للبدء في إدارة دفعاتها.</p>
+                      </div>
+                    ) : batchesLoading ? (
+                      <div className="py-24 text-center">
+                         <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto mb-4" />
+                         <p className="text-muted-foreground font-bold">جاري تحميل دفعات الدورة...</p>
+                      </div>
+                    ) : batches && batches.length > 0 ? (
+                      <div className="grid gap-4">
+                         {batches.map((batch: any) => (
+                           <div key={batch.id} className="bg-white p-6 rounded-[1.5rem] border border-primary/5 luxury-shadow flex items-center justify-between group">
+                              <div className="flex items-center gap-6">
+                                 <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shrink-0"><Calendar className="w-6 h-6" /></div>
+                                 <div className="text-right">
+                                    <h3 className="font-black text-primary text-lg leading-none mb-2">{batch.name}</h3>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                                       <Badge variant="outline" className="bg-muted/50 border-primary/10 text-primary">تاريخ البداية: {batch.startDate}</Badge>
+                                    </div>
+                                 </div>
+                              </div>
+                              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary hover:bg-primary/5" onClick={() => { setBatchToEdit(batch); setBatchForm({ name: batch.name, startDate: batch.startDate }); setIsBatchDialogOpen(true); }}>
+                                    <Edit2 className="w-4.5 h-4.5" />
+                                 </Button>
+                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/5" onClick={() => deleteBatch(batch.id)}>
+                                    <Trash2 className="w-4.5 h-4.5" />
+                                 </Button>
+                              </div>
+                           </div>
+                         ))}
+                      </div>
+                    ) : (
+                      <div className="py-24 text-center border-2 border-dashed rounded-[2.5rem] bg-muted/20">
+                         <Info className="w-16 h-16 mx-auto mb-4 text-secondary opacity-30" />
+                         <p className="font-black text-primary">لا يوجد دفعات مسجلة لهذه الدورة بعد.</p>
+                         <p className="text-xs text-muted-foreground font-bold mt-1">ابدأ بإضافة الدفعة الأولى لتتمكن من فلترة المتصدرين لاحقاً.</p>
+                      </div>
+                    )}
+                 </CardContent>
+              </Card>
+           </TabsContent>
+        </Tabs>
+
+        {/* نافذة إدارة دفعة */}
+        <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+           <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none luxury-shadow [&>button]:hidden" dir="rtl">
+              <DialogHeader className="p-8 bg-muted/30 border-b border-border/50 flex flex-row items-center gap-4">
+                <div className="p-3 bg-secondary/10 rounded-2xl text-secondary"><Calendar className="w-6 h-6" /></div>
+                <div className="text-right flex-1">
+                  <DialogTitle className="text-xl font-black text-primary font-headline">
+                    {editingBatch ? "تعديل بيانات الدفعة" : "إضافة دفعة جديدة"}
+                  </DialogTitle>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsBatchDialogOpen(false)} className="rounded-full h-12 w-12 hover:bg-primary/5"><X className="w-7 h-7" /></Button>
+              </DialogHeader>
+              <div className="p-8 space-y-6">
+                 <div className="space-y-2">
+                    <Label className="font-black text-primary mr-1">اسم الدفعة</Label>
+                    <Input placeholder="مثال: الدفعة الأولى - صيف 2024" value={batchForm.name} onChange={(e) => setBatchForm({...batchForm, name: e.target.value})} className="h-14 rounded-2xl border-primary/10" />
+                 </div>
+                 <div className="space-y-2">
+                    <Label className="font-black text-primary mr-1">تاريخ بداية الدفعة</Label>
+                    <Input type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({...batchForm, startDate: e.target.value})} className="h-14 rounded-2xl border-primary/10" />
+                 </div>
+                 <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
+                    <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-amber-700 font-bold leading-relaxed">
+                       ملاحظة: سيتم تصنيف أي طالب تم تفعيل الدورة له ابتداءً من هذا التاريخ وحتى تاريخ بداية الدفعة التالية ضمن هذه الدفعة تلقائياً.
+                    </p>
+                 </div>
+              </div>
+              <DialogFooter className="p-8 border-t flex flex-row-reverse gap-3 bg-muted/10">
+                 <Button disabled={processing === "batch"} onClick={handleSaveBatch} className="h-14 rounded-2xl bg-primary text-white font-black flex-1 shadow-xl">
+                    {processing === "batch" ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ بيانات الدفعة"}
+                 </Button>
+              </DialogFooter>
+           </DialogContent>
+        </Dialog>
+
+        {/* نافذة التدقيق */}
         <Dialog open={!!auditUser} onOpenChange={(open) => !open && setAuditUser(null)}>
            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-0 border-none luxury-shadow [&>button]:hidden" dir="rtl">
               <DialogHeader className="p-8 bg-muted/30 border-b border-border/50 flex flex-row items-center gap-6">
@@ -458,69 +541,31 @@ export default function StudentProgressPage() {
                 <div className="text-right flex-1">
                   <DialogTitle className="text-3xl font-black text-primary font-headline mb-1">{auditUser?.name}</DialogTitle>
                   <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-muted-foreground">
-                    <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-secondary fill-secondary" /> {auditUser?.totalPoints} نقطة تفاعل</span>
-                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><PlayCircle className="w-4 h-4 text-primary" /> {auditUser?.totalCompletedLessons} درساً مكتملة</span>
-                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><Info className="w-4 h-4 text-blue-500" /> {auditUser?.enrolledCourses?.length || 0} دورات مشتركة</span>
+                    <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-secondary fill-secondary" /> {auditUser?.totalPoints} نقطة</span>
+                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><PlayCircle className="w-4 h-4 text-primary" /> {auditUser?.totalCompletedLessons} دروس</span>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setAuditUser(null)} className="rounded-full h-12 w-12 hover:bg-primary/5 text-primary">
                   <X className="w-8 h-8" />
                 </Button>
               </DialogHeader>
-
               <div className="p-8">
-                 <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-xl font-black text-primary flex items-center gap-2">
-                       <BookOpen className="w-6 h-6 text-secondary" /> سجل المنهج التفصيلي (التدقيق الحي)
-                    </h3>
-                    <Button onClick={() => handleOpenAudit(auditUser)} variant="ghost" className="text-secondary font-black gap-2 h-10 px-4 rounded-xl hover:bg-secondary/5">
-                       <RefreshCw className={cn("w-4 h-4", loadingAudit && "animate-spin")} /> تحديث المزامنة
-                    </Button>
-                 </div>
-
                  {loadingAudit ? (
-                   <div className="py-20 text-center space-y-4">
-                      <Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto opacity-40" />
-                      <p className="text-muted-foreground font-bold">جاري سحب سجلات المشاهدة من الخادم...</p>
-                   </div>
+                   <div className="py-20 text-center"><Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto opacity-40" /></div>
                  ) : auditUser?.enrolledCourses?.length > 0 ? (
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {auditUser.enrolledCourses.map((courseId: string) => {
                         const course = courses?.find(c => c.id === courseId);
                         const lessonsForCourse = auditLessons[courseId] || [];
                         const progress = auditUser.progress?.[courseId] || {};
-                        
-                        return (
-                          <CourseAuditDetail 
-                            key={courseId} 
-                            courseId={courseId} 
-                            courseTitle={course?.title || "دورة محذوفة أو غير متوفرة"} 
-                            studentProgress={progress}
-                            lessons={lessonsForCourse}
-                          />
-                        );
+                        return <CourseAuditDetail key={courseId} courseId={courseId} courseTitle={course?.title || "دورة مجهولة"} studentProgress={progress} lessons={lessonsForCourse} />;
                       })}
                    </div>
                  ) : (
                    <div className="py-24 text-center bg-muted/20 rounded-[2rem] border-2 border-dashed border-primary/10">
-                      <Users className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-                      <p className="text-lg text-muted-foreground font-black">هذا الطالب لم يشترك في أي دورة تعليمية بعد.</p>
+                      <p className="text-lg text-muted-foreground font-black">لا توجد دورات مشتركة لهذا الطالب.</p>
                    </div>
                  )}
-              </div>
-              
-              <div className="bg-muted/30 p-8 border-t border-border/50">
-                 <div className="flex items-start gap-4 flex-row-reverse text-right">
-                    <Info className="w-6 h-6 text-blue-600 shrink-0" />
-                    <div>
-                       <p className="text-sm text-primary font-black">دليل التدقيق للمسؤول</p>
-                       <ul className="text-xs text-muted-foreground font-medium mt-2 space-y-1 list-disc list-inside pr-1">
-                          <li>علامة الصح تعني أن الطالب ضغط على زر "إكمال" أو أنهى مشاهدة الفيديو بالكامل.</li>
-                          <li>نقاط التقويم تُحسب (10 للإنهاء) + (5 عن كل إجابة صحيحة).</li>
-                          <li>إذا كانت الدورة مكتملة 100% ستظهر بنسبة خضراء في اللائحة.</li>
-                       </ul>
-                    </div>
-                 </div>
               </div>
            </DialogContent>
         </Dialog>
@@ -533,23 +578,12 @@ export default function StudentProgressPage() {
               </div>
               <AlertDialogHeader className="space-y-2 p-0">
                 <AlertDialogTitle className="text-xl font-headline text-primary font-black">حذف الطالب؟</AlertDialogTitle>
-                <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed">
-                  سيتم نقل الطالب <span className="text-primary font-bold">"{userToDelete?.name}"</span> وكامل سجلاته إلى سلة المهملات.
-                </AlertDialogDescription>
+                <AlertDialogDescription className="text-muted-foreground text-sm font-medium">سيتم نقل بيانات الطالب "{userToDelete?.name}" لسلة المهملات.</AlertDialogDescription>
               </AlertDialogHeader>
             </div>
             <AlertDialogFooter className="flex flex-row gap-3 mt-6">
-              <AlertDialogAction 
-                onClick={handleDeleteUser}
-                disabled={processing === userToDelete?.uid}
-                className="h-11 rounded-xl bg-primary text-white font-bold gap-2 flex-1 hover:bg-primary/90"
-              >
-                {processing === userToDelete?.uid ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                تأكيد الحذف
-              </AlertDialogAction>
-              <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">
-                <X className="w-4 h-4" /> إلغاء
-              </AlertDialogCancel>
+              <AlertDialogAction onClick={() => {}} className="h-11 rounded-xl bg-primary text-white font-bold flex-1">تأكيد الحذف</AlertDialogAction>
+              <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold flex-1 mt-0">إلغاء</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -557,4 +591,3 @@ export default function StudentProgressPage() {
     </div>
   );
 }
-
