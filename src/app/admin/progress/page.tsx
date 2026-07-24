@@ -16,6 +16,7 @@ import {
   AlertTriangle, 
   X, 
   Eye, 
+  EyeOff,
   Search,
   CheckCircle2,
   Circle,
@@ -29,7 +30,9 @@ import {
   Layers,
   Settings2,
   LayoutGrid,
-  Save
+  Save,
+  Crown,
+  Medal
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy, doc, deleteDoc, setDoc, serverTimestamp, updateDoc, getDocs, addDoc } from "firebase/firestore";
@@ -237,6 +240,25 @@ export default function StudentProgressPage() {
     }
   };
 
+  const handleToggleVisibility = async (student: any) => {
+    if (!db) return;
+    setProcessing(student.id);
+    const newStatus = student.showInLeaderboard === false; // تعكس الحالة الحالية
+    try {
+      await updateDoc(doc(db, "users", student.id), {
+        showInLeaderboard: newStatus
+      });
+      toast({ 
+        title: newStatus ? "تم الإظهار" : "تم الإخفاء", 
+        description: newStatus ? "الطالب سيظهر الآن في لوحة المتصدرين." : "تم استبعاد الطالب من القائمة العامة." 
+      });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل تحديث حالة الظهور." });
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   const handleSaveBatch = async () => {
     if (!db || !batchCourseId || !batchForm.name || !batchForm.startDate) {
       toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى تعبئة اسم الدفعة وتاريخ البداية." });
@@ -269,6 +291,30 @@ export default function StudentProgressPage() {
       toast({ title: "تم الحذف", description: "تمت إزالة الدفعة من سجلات الدورة." });
     } catch (e) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل الحذف." });
+    }
+  };
+
+  const handleDeleteStudent = async () => {
+    if (!db || !userToDelete) return;
+    setProcessing(userToDelete.id);
+    try {
+      // نقل للسلة
+      const trashRef = doc(collection(db, "trash"));
+      await setDoc(trashRef, {
+        originalId: userToDelete.id,
+        originalPath: `users/${userToDelete.id}`,
+        type: "user",
+        title: `حساب الطالب: ${userToDelete.name}`,
+        data: userToDelete,
+        deletedAt: serverTimestamp()
+      });
+      await deleteDoc(doc(db, "users", userToDelete.id));
+      toast({ title: "تم النقل للسلة", description: "تم نقل بيانات الطالب لسلة المهملات." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حذف الطالب." });
+    } finally {
+      setProcessing(null);
+      setUserToDelete(null);
     }
   };
 
@@ -370,12 +416,20 @@ export default function StudentProgressPage() {
                             const isVisible = student.showInLeaderboard !== false;
                             const rank = student.displayRank;
                             return (
-                              <TableRow key={student.uid} className={cn("hover:bg-primary/5 transition-colors border-b border-primary/5", !isVisible && "bg-muted/20 opacity-80")}>
+                              <TableRow key={student.uid} className={cn("hover:bg-primary/5 transition-colors border-b border-primary/5", !isVisible && "bg-red-50/20 opacity-80")}>
                                 <TableCell className="text-center">
                                   <div className={cn(
-                                    "w-10 h-10 rounded-full flex items-center justify-center mx-auto font-black text-sm",
-                                    rank <= 3 ? "bg-secondary text-white shadow-lg" : "bg-muted text-muted-foreground"
-                                  )}>{rank}</div>
+                                    "w-10 h-10 rounded-xl flex items-center justify-center mx-auto font-black text-sm shadow-sm",
+                                    rank === 1 ? "bg-yellow-100 text-yellow-700 border border-yellow-200" : 
+                                    rank === 2 ? "bg-slate-100 text-slate-700 border border-slate-200" :
+                                    rank === 3 ? "bg-orange-100 text-orange-700 border border-orange-200" :
+                                    "bg-muted text-muted-foreground"
+                                  )}>
+                                    {rank === 1 ? <Crown className="w-5 h-5" /> : 
+                                     rank === 2 ? <Medal className="w-5 h-5" /> :
+                                     rank === 3 ? <Medal className="w-5 h-5" /> :
+                                     rank}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="py-4">
                                   <div className="flex items-center gap-4 text-right">
@@ -384,7 +438,10 @@ export default function StudentProgressPage() {
                                       <AvatarFallback className="bg-primary/5 text-primary font-black">{student.name?.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                      <div className="font-black text-primary text-base">{student.name}</div>
+                                      <div className="font-black text-primary text-base flex items-center gap-2">
+                                        {student.name}
+                                        {!isVisible && <Badge variant="destructive" className="h-4 text-[8px] px-1">مخفي</Badge>}
+                                      </div>
                                       <div className="text-[10px] text-muted-foreground font-bold">{student.email}</div>
                                     </div>
                                   </div>
@@ -400,10 +457,32 @@ export default function StudentProgressPage() {
                                 </TableCell>
                                 <TableCell className="text-center">
                                   <div className="flex items-center justify-center gap-2">
-                                    <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5" onClick={() => handleOpenAudit(student)}>
-                                       <Eye className="w-4 h-4" />
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className={cn("h-9 w-9 rounded-xl", isVisible ? "text-green-600 hover:bg-green-50" : "text-orange-600 hover:bg-orange-50")}
+                                      onClick={() => handleToggleVisibility(student)}
+                                      title={isVisible ? "إخفاء من المتصدرين" : "إظهار في المتصدرين"}
+                                      disabled={processing === student.id}
+                                    >
+                                       {processing === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/5" onClick={() => setUserToDelete(student)}>
+                                    <Button 
+                                      variant="outline" 
+                                      size="icon" 
+                                      className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5" 
+                                      onClick={() => handleOpenAudit(student)}
+                                      title="تدقيق الإنجاز"
+                                    >
+                                       <Search className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-9 w-9 rounded-xl text-destructive hover:bg-destructive/5" 
+                                      onClick={() => setUserToDelete(student)}
+                                      title="حذف الحساب"
+                                    >
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </div>
@@ -583,7 +662,7 @@ export default function StudentProgressPage() {
               </AlertDialogHeader>
             </div>
             <AlertDialogFooter className="flex flex-row gap-3 mt-6">
-              <AlertDialogAction onClick={() => {}} className="h-11 rounded-xl bg-primary text-white font-bold flex-1">تأكيد الحذف</AlertDialogAction>
+              <AlertDialogAction onClick={handleDeleteStudent} className="h-11 rounded-xl bg-primary text-white font-bold flex-1">تأكيد الحذف</AlertDialogAction>
               <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">إلغاء</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -592,3 +671,4 @@ export default function StudentProgressPage() {
     </div>
   );
 }
+
