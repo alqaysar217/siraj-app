@@ -143,6 +143,7 @@ export default function StudentProgressPage() {
   
   // حالات الإدارة
   const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [batchToDelete, setBatchToDelete] = useState<any>(null);
   const [processing, setProcessing] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   
@@ -243,7 +244,7 @@ export default function StudentProgressPage() {
   const handleToggleVisibility = async (student: any) => {
     if (!db) return;
     setProcessing(student.id);
-    const newStatus = student.showInLeaderboard === false; // تعكس الحالة الحالية
+    const newStatus = student.showInLeaderboard === false; 
     try {
       await updateDoc(doc(db, "users", student.id), {
         showInLeaderboard: newStatus
@@ -271,7 +272,7 @@ export default function StudentProgressPage() {
         await updateDoc(doc(db, "courses", batchCourseId, "batches", editingBatch.id), batchData);
         toast({ title: "تم التعديل", description: "تم تحديث بيانات الدفعة بنجاح." });
       } else {
-        await addDoc(collection(db, "courses", batchCourseId, "batches"), { ...batchData, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "courses", batchCourseId, "batches"), { ...batchForm, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         toast({ title: "تمت الإضافة", description: "تم إنشاء دفعة جديدة لهذه الدورة." });
       }
       setIsBatchDialogOpen(false);
@@ -284,13 +285,17 @@ export default function StudentProgressPage() {
     }
   };
 
-  const deleteBatch = async (batchId: string) => {
-    if (!db || !batchCourseId) return;
+  const confirmDeleteBatch = async () => {
+    if (!db || !batchCourseId || !batchToDelete) return;
+    setProcessing("deleting_batch");
     try {
-      await deleteDoc(doc(db, "courses", batchCourseId, "batches", batchId));
+      await deleteDoc(doc(db, "courses", batchCourseId, "batches", batchToDelete.id));
       toast({ title: "تم الحذف", description: "تمت إزالة الدفعة من سجلات الدورة." });
     } catch (e) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل الحذف." });
+    } finally {
+      setProcessing(null);
+      setBatchToDelete(null);
     }
   };
 
@@ -298,7 +303,6 @@ export default function StudentProgressPage() {
     if (!db || !userToDelete) return;
     setProcessing(userToDelete.id);
     try {
-      // نقل للسلة
       const trashRef = doc(collection(db, "trash"));
       await setDoc(trashRef, {
         originalId: userToDelete.id,
@@ -327,52 +331,52 @@ export default function StudentProgressPage() {
            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="text-right">
                 <h1 className="text-3xl font-bold font-headline text-primary mb-1">لوحة التميز الأكاديمي</h1>
-                <p className="text-muted-foreground text-sm">أدر المتصدرين، دقق إنجازات الطلاب، ونظم الدفعات التعليمية.</p>
+                <p className="text-muted-foreground text-sm font-bold leading-relaxed">أدر المتصدرين، دقق إنجازات الطلاب، ونظم الدفعات التعليمية.</p>
               </div>
               <TabsList className="bg-muted/50 p-1 rounded-2xl h-14 w-full md:w-auto luxury-shadow">
-                 <TabsTrigger value="progress" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                 <TabsTrigger value="progress" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
                     <TrendingUp className="w-5 h-5" /> تقدم الطلاب
                  </TabsTrigger>
-                 <TabsTrigger value="batches" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white">
+                 <TabsTrigger value="batches" className="rounded-xl px-8 font-black gap-2 data-[state=active]:bg-primary data-[state=active]:text-white transition-all">
                     <Layers className="w-5 h-5" /> إدارة الدفعات
                  </TabsTrigger>
               </TabsList>
            </div>
 
-           <TabsContent value="progress" className="space-y-10 animate-in fade-in duration-500">
+           <TabsContent value="progress" className="space-y-10 animate-in fade-in duration-500" dir="rtl">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="luxury-shadow border-primary/5">
-                  <CardContent className="p-6 flex items-center gap-4">
+                <Card className="luxury-shadow border-primary/5 bg-white/50 backdrop-blur-sm">
+                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
                     <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
                       <Users className="w-7 h-7 text-blue-600" />
                     </div>
                     <div className="text-right flex-1">
                       <div className="text-2xl font-black text-primary" dir="ltr">{mounted ? stats.totalStudents : '0'}</div>
-                      <div className="text-[10px] text-muted-foreground font-bold uppercase">إجمالي الطلاب</div>
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">إجمالي الطلاب</div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="luxury-shadow border-primary/5">
-                  <CardContent className="p-6 flex items-center gap-4">
+                <Card className="luxury-shadow border-primary/5 bg-white/50 backdrop-blur-sm">
+                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
                     <div className="w-14 h-14 rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
                       <Trophy className="w-7 h-7 text-secondary" />
                     </div>
                     <div className="text-right flex-1">
                       <div className="text-2xl font-black text-primary" dir="ltr">{mounted ? stats.avgPoints : '0'}</div>
-                      <div className="text-xs text-muted-foreground font-bold uppercase">متوسط النقاط</div>
+                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">متوسط النقاط</div>
                     </div>
                   </CardContent>
                 </Card>
 
-                <Card className="luxury-shadow border-primary/5">
-                  <CardContent className="p-6 flex items-center gap-4">
+                <Card className="luxury-shadow border-primary/5 bg-white/50 backdrop-blur-sm">
+                  <CardContent className="p-6 flex items-center gap-4 flex-row-reverse">
                     <div className="w-14 h-14 rounded-2xl bg-green-50 flex items-center justify-center shrink-0">
                       <Award className="w-7 h-7 text-green-600" />
                     </div>
                     <div className="text-right flex-1">
                       <div className="text-2xl font-black text-primary" dir="ltr">{mounted && leaderboard.length > 0 ? leaderboard[0].totalPoints : '0'}</div>
-                      <div className="text-xs text-muted-foreground font-bold uppercase">أعلى رصيد</div>
+                      <div className="text-xs text-muted-foreground font-bold uppercase tracking-wider">أعلى رصيد</div>
                     </div>
                   </CardContent>
                 </Card>
@@ -390,7 +394,7 @@ export default function StudentProgressPage() {
                         />
                         <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                      </div>
-                     <Badge variant="outline" className="border-secondary/20 bg-secondary/5 text-secondary font-black">قائمة الشرف التراكمية</Badge>
+                     <Badge variant="outline" className="border-secondary/20 bg-secondary/5 text-secondary font-black px-4 py-1">قائمة الشرف التراكمية</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -405,7 +409,7 @@ export default function StudentProgressPage() {
                         <TableHeader className="bg-muted/20">
                           <TableRow>
                             <TableHead className="text-center font-black py-5 w-20">المركز</TableHead>
-                            <TableHead className="text-right font-black py-5">الطالب</TableHead>
+                            <TableHead className="text-right font-black py-5 px-6">الطالب</TableHead>
                             <TableHead className="text-center font-black py-5">الدروس</TableHead>
                             <TableHead className="text-center font-black py-5">النقاط</TableHead>
                             <TableHead className="text-center font-black py-5">الإجراءات</TableHead>
@@ -431,18 +435,18 @@ export default function StudentProgressPage() {
                                      rank}
                                   </div>
                                 </TableCell>
-                                <TableCell className="py-4">
+                                <TableCell className="py-4 px-6">
                                   <div className="flex items-center gap-4 text-right">
                                     <Avatar className="h-12 w-12 border-2 border-white shadow-sm shrink-0">
                                       <AvatarImage src={student.photoURL || undefined} className="object-cover" />
                                       <AvatarFallback className="bg-primary/5 text-primary font-black">{student.name?.charAt(0)}</AvatarFallback>
                                     </Avatar>
-                                    <div>
-                                      <div className="font-black text-primary text-base flex items-center gap-2">
+                                    <div className="overflow-hidden">
+                                      <div className="font-black text-primary text-base flex items-center gap-2 truncate">
                                         {student.name}
-                                        {!isVisible && <Badge variant="destructive" className="h-4 text-[8px] px-1">مخفي</Badge>}
+                                        {!isVisible && <Badge variant="destructive" className="h-4 text-[8px] px-1 font-black">مخفي</Badge>}
                                       </div>
-                                      <div className="text-[10px] text-muted-foreground font-bold">{student.email}</div>
+                                      <div className="text-[10px] text-muted-foreground font-bold truncate">{student.email}</div>
                                     </div>
                                   </div>
                                 </TableCell>
@@ -450,7 +454,7 @@ export default function StudentProgressPage() {
                                   <span className="text-sm font-black text-primary">{student.totalCompletedLessons}</span>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-secondary/10 rounded-full">
+                                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-secondary/10 rounded-full border border-secondary/5">
                                      <Star className="w-3.5 h-3.5 text-secondary fill-secondary" />
                                      <span className="text-sm font-black text-secondary">{student.totalPoints}</span>
                                   </div>
@@ -460,7 +464,7 @@ export default function StudentProgressPage() {
                                     <Button 
                                       variant="ghost" 
                                       size="icon" 
-                                      className={cn("h-9 w-9 rounded-xl", isVisible ? "text-green-600 hover:bg-green-50" : "text-orange-600 hover:bg-orange-50")}
+                                      className={cn("h-9 w-9 rounded-xl transition-colors", isVisible ? "text-green-600 hover:bg-green-50" : "text-orange-600 hover:bg-orange-50")}
                                       onClick={() => handleToggleVisibility(student)}
                                       title={isVisible ? "إخفاء من المتصدرين" : "إظهار في المتصدرين"}
                                       disabled={processing === student.id}
@@ -470,7 +474,7 @@ export default function StudentProgressPage() {
                                     <Button 
                                       variant="outline" 
                                       size="icon" 
-                                      className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5" 
+                                      className="h-9 w-9 rounded-xl border-primary/20 text-primary hover:bg-primary/5 shadow-sm" 
                                       onClick={() => handleOpenAudit(student)}
                                       title="تدقيق الإنجاز"
                                     >
@@ -498,15 +502,15 @@ export default function StudentProgressPage() {
               </Card>
            </TabsContent>
 
-           <TabsContent value="batches" className="space-y-8 animate-in fade-in duration-500">
+           <TabsContent value="batches" className="space-y-8 animate-in fade-in duration-500" dir="rtl">
               <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm overflow-hidden rounded-[2rem]">
                  <CardHeader className="bg-muted/30 border-b border-border/50 p-8">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                        <div className="text-right space-y-1">
                           <CardTitle className="text-2xl font-black text-primary font-headline">تنظيم دفعات الدورات</CardTitle>
-                          <CardDescription className="font-bold">أنشئ الدفعات وحدد تاريخ بدايتها لتصنيف الطلاب تلقائياً في قائمة المتصدرين.</CardDescription>
+                          <CardDescription className="font-bold leading-relaxed">أنشئ الدفعات وحدد تاريخ بدايتها لتصنيف الطلاب تلقائياً في قائمة المتصدرين.</CardDescription>
                        </div>
-                       <Button disabled={!batchCourseId} onClick={() => { setBatchToEdit(null); setBatchForm({ name: "", startDate: "" }); setIsBatchDialogOpen(true); }} className="bg-secondary hover:bg-secondary/90 text-white rounded-2xl h-14 px-8 font-black gap-2 shadow-xl shadow-secondary/10">
+                       <Button disabled={!batchCourseId} onClick={() => { setBatchToEdit(null); setBatchForm({ name: "", startDate: "" }); setIsBatchDialogOpen(true); }} className="bg-secondary hover:bg-secondary/90 text-white rounded-2xl h-14 px-8 font-black gap-2 shadow-xl shadow-secondary/10 transition-all active:scale-95">
                           <PlusCircle className="w-6 h-6" /> إضافة دفعة جديدة
                        </Button>
                     </div>
@@ -517,7 +521,7 @@ export default function StudentProgressPage() {
                           <BookOpen className="w-4 h-4 text-secondary" /> اختر الدورة التعليمية أولاً
                        </Label>
                        <Select value={batchCourseId} onValueChange={setBatchCourseId}>
-                          <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-bold" dir="rtl">
+                          <SelectTrigger className="h-14 rounded-2xl bg-white border-primary/10 shadow-sm font-black text-primary" dir="rtl">
                              <SelectValue placeholder="حدد دورة لعرض دفعاتها..." />
                           </SelectTrigger>
                           <SelectContent dir="rtl">
@@ -541,13 +545,13 @@ export default function StudentProgressPage() {
                     ) : batches && batches.length > 0 ? (
                       <div className="grid gap-4">
                          {batches.map((batch: any) => (
-                           <div key={batch.id} className="bg-white p-6 rounded-[1.5rem] border border-primary/5 luxury-shadow flex items-center justify-between group">
+                           <div key={batch.id} className="bg-white p-6 rounded-[1.5rem] border border-primary/5 luxury-shadow flex items-center justify-between group animate-in slide-in-from-right-2 duration-300">
                               <div className="flex items-center gap-6">
                                  <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shrink-0"><Calendar className="w-6 h-6" /></div>
                                  <div className="text-right">
                                     <h3 className="font-black text-primary text-lg leading-none mb-2">{batch.name}</h3>
                                     <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                                       <Badge variant="outline" className="bg-muted/50 border-primary/10 text-primary">تاريخ البداية: {batch.startDate}</Badge>
+                                       <Badge variant="outline" className="bg-muted/50 border-primary/10 text-primary px-3">تاريخ البداية: {batch.startDate}</Badge>
                                     </div>
                                  </div>
                               </div>
@@ -555,7 +559,7 @@ export default function StudentProgressPage() {
                                  <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary hover:bg-primary/5" onClick={() => { setBatchToEdit(batch); setBatchForm({ name: batch.name, startDate: batch.startDate }); setIsBatchDialogOpen(true); }}>
                                     <Edit2 className="w-4.5 h-4.5" />
                                  </Button>
-                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/5" onClick={() => deleteBatch(batch.id)}>
+                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/5" onClick={() => setBatchToDelete(batch)}>
                                     <Trash2 className="w-4.5 h-4.5" />
                                  </Button>
                               </div>
@@ -575,7 +579,7 @@ export default function StudentProgressPage() {
         </Tabs>
 
         {/* نافذة إدارة دفعة */}
-        <Dialog open={isBatchDialogOpen} onOpenChange={setIsBatchDialogOpen}>
+        <Dialog open={isBatchDialogOpen} onOpenChange={(open) => !open && (setIsBatchDialogOpen(false), setBatchToEdit(null))}>
            <DialogContent className="max-w-md rounded-[2.5rem] p-0 overflow-hidden border-none luxury-shadow [&>button]:hidden" dir="rtl">
               <DialogHeader className="p-8 bg-muted/30 border-b border-border/50 flex flex-row items-center gap-4">
                 <div className="p-3 bg-secondary/10 rounded-2xl text-secondary"><Calendar className="w-6 h-6" /></div>
@@ -589,11 +593,11 @@ export default function StudentProgressPage() {
               <div className="p-8 space-y-6">
                  <div className="space-y-2">
                     <Label className="font-black text-primary mr-1">اسم الدفعة</Label>
-                    <Input placeholder="مثال: الدفعة الأولى - صيف 2024" value={batchForm.name} onChange={(e) => setBatchForm({...batchForm, name: e.target.value})} className="h-14 rounded-2xl border-primary/10" />
+                    <Input placeholder="مثال: الدفعة الأولى - صيف 2024" value={batchForm.name} onChange={(e) => setBatchForm({...batchForm, name: e.target.value})} className="h-14 rounded-2xl border-primary/10 bg-muted/10" />
                  </div>
                  <div className="space-y-2">
                     <Label className="font-black text-primary mr-1">تاريخ بداية الدفعة</Label>
-                    <Input type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({...batchForm, startDate: e.target.value})} className="h-14 rounded-2xl border-primary/10" />
+                    <Input type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({...batchForm, startDate: e.target.value})} className="h-14 rounded-2xl border-primary/10 bg-muted/10" />
                  </div>
                  <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
                     <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -603,7 +607,7 @@ export default function StudentProgressPage() {
                  </div>
               </div>
               <DialogFooter className="p-8 border-t flex flex-row-reverse gap-3 bg-muted/10">
-                 <Button disabled={processing === "batch"} onClick={handleSaveBatch} className="h-14 rounded-2xl bg-primary text-white font-black flex-1 shadow-xl">
+                 <Button disabled={!!processing} onClick={handleSaveBatch} className="h-14 rounded-2xl bg-primary text-white font-black flex-1 shadow-xl shadow-primary/10 transition-all active:scale-95">
                     {processing === "batch" ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ بيانات الدفعة"}
                  </Button>
               </DialogFooter>
@@ -618,11 +622,11 @@ export default function StudentProgressPage() {
                   <AvatarImage src={auditUser?.photoURL || undefined} className="object-cover" />
                   <AvatarFallback className="bg-primary text-white text-2xl font-black">{auditUser?.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <div className="text-right flex-1">
-                  <DialogTitle className="text-3xl font-black text-primary font-headline mb-1">{auditUser?.name}</DialogTitle>
+                <div className="text-right flex-1 overflow-hidden">
+                  <DialogTitle className="text-3xl font-black text-primary font-headline mb-1 truncate">{auditUser?.name}</DialogTitle>
                   <div className="flex flex-wrap items-center gap-4 text-sm font-bold text-muted-foreground">
                     <span className="flex items-center gap-1.5"><Star className="w-4 h-4 text-secondary fill-secondary" /> {auditUser?.totalPoints} نقطة</span>
-                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><PlayCircle className="w-4 h-4 text-primary" /> {auditUser?.totalCompletedLessons} دروس</span>
+                    <span className="flex items-center gap-1.5 border-r pr-4 border-primary/10"><PlayCircle className="w-4 h-4 text-primary" /> {auditUser?.totalCompletedLessons} دروس مكتملة</span>
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setAuditUser(null)} className="rounded-full h-12 w-12 hover:bg-primary/5 text-primary">
@@ -650,6 +654,7 @@ export default function StudentProgressPage() {
            </DialogContent>
         </Dialog>
 
+        {/* تنبيه حذف الطالب */}
         <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
           <AlertDialogContent dir="rtl" className="rounded-3xl border-none luxury-shadow max-w-[400px] p-6 bg-card/95 backdrop-blur-xl">
             <div className="flex flex-col items-center text-center">
@@ -657,18 +662,40 @@ export default function StudentProgressPage() {
                 <AlertTriangle className="w-8 h-8 text-secondary" />
               </div>
               <AlertDialogHeader className="space-y-2 p-0">
-                <AlertDialogTitle className="text-xl font-headline text-primary font-black">حذف الطالب؟</AlertDialogTitle>
-                <AlertDialogDescription className="text-muted-foreground text-sm font-medium">سيتم نقل بيانات الطالب "{userToDelete?.name}" لسلة المهملات.</AlertDialogDescription>
+                <AlertDialogTitle className="text-xl font-headline text-primary font-black text-center">حذف الطالب؟</AlertDialogTitle>
+                <AlertDialogDescription className="text-muted-foreground text-sm font-medium text-center">سيتم نقل بيانات الطالب <span className="text-primary font-bold">"{userToDelete?.name}"</span> لسلة المهملات.</AlertDialogDescription>
               </AlertDialogHeader>
             </div>
             <AlertDialogFooter className="flex flex-row gap-3 mt-6">
-              <AlertDialogAction onClick={handleDeleteStudent} className="h-11 rounded-xl bg-primary text-white font-bold flex-1">تأكيد الحذف</AlertDialogAction>
+              <AlertDialogAction onClick={handleDeleteStudent} className="h-11 rounded-xl bg-primary text-white font-bold flex-1 hover:bg-primary/90">تأكيد الحذف</AlertDialogAction>
               <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">إلغاء</AlertDialogCancel>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* تنبيه حذف الدفعة */}
+        <AlertDialog open={!!batchToDelete} onOpenChange={(open) => !open && setBatchToDelete(null)}>
+          <AlertDialogContent dir="rtl" className="rounded-3xl border-none luxury-shadow max-w-[400px] p-6 bg-card/95 backdrop-blur-xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="w-8 h-8 text-destructive" />
+              </div>
+              <AlertDialogHeader className="space-y-2 p-0">
+                <AlertDialogTitle className="text-xl font-headline text-primary font-black text-center">حذف الدفعة؟</AlertDialogTitle>
+                <AlertDialogDescription className="text-muted-foreground text-sm font-medium text-center">
+                   أنت على وشك حذف <span className="text-primary font-bold">"{batchToDelete?.name}"</span>. 
+                   <br /> سيتم إعادة تصنيف الطلاب بناءً على تواريخ الدفعات الأخرى المتاحة.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+            <AlertDialogFooter className="flex flex-row gap-3 mt-6">
+              <AlertDialogAction onClick={confirmDeleteBatch} className="h-11 rounded-xl bg-primary text-white font-bold flex-1 hover:bg-primary/90">تأكيد الحذف</AlertDialogAction>
+              <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">إلغاء</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </div>
   );
 }
-
