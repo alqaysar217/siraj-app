@@ -277,7 +277,7 @@ export default function StudentProgressPage() {
       <Navbar />
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+        <Tabs dir="rtl" value={activeTab} onValueChange={setActiveTab} className="space-y-8">
            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <div className="text-right">
                 <h1 className="text-3xl font-bold font-headline text-primary mb-1">لوحة التميز الأكاديمي</h1>
@@ -592,4 +592,3 @@ export default function StudentProgressPage() {
     </div>
   );
 }
-
