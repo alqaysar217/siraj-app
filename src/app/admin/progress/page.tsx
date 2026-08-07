@@ -1,4 +1,3 @@
-
 "use client";
 
 import Navbar from "@/components/navbar";
@@ -32,8 +31,7 @@ import {
   LayoutGrid,
   Save,
   Crown,
-  Medal,
-  LockOpen
+  Medal
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy, doc, deleteDoc, setDoc, serverTimestamp, updateDoc, getDocs, addDoc } from "firebase/firestore";
@@ -158,7 +156,7 @@ export default function StudentProgressPage() {
   const [batchCourseId, setBatchCourseId] = useState("");
   const [isBatchDialogOpen, setIsBatchDialogOpen] = useState(false);
   const [editingBatch, setBatchToEdit] = useState<any>(null);
-  const [batchForm, setBatchForm] = useState({ name: "", startDate: "", maxUnlockedUnit: "99" });
+  const [batchForm, setBatchForm] = useState({ name: "", startDate: "" });
 
   useEffect(() => {
     setMounted(true);
@@ -268,22 +266,16 @@ export default function StudentProgressPage() {
     }
     setProcessing("batch");
     try {
-      const batchData = { 
-        name: batchForm.name, 
-        startDate: batchForm.startDate, 
-        maxUnlockedUnit: Number(batchForm.maxUnlockedUnit) || 99,
-        updatedAt: serverTimestamp() 
-      };
-      
+      const batchData = { ...batchForm, updatedAt: serverTimestamp() };
       if (editingBatch) {
         await updateDoc(doc(db, "courses", batchCourseId, "batches", editingBatch.id), batchData);
         toast({ title: "تم التعديل", description: "تم تحديث بيانات الدفعة بنجاح." });
       } else {
-        await addDoc(collection(db, "courses", batchCourseId, "batches"), { ...batchData, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "courses", batchCourseId, "batches"), { ...batchForm, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         toast({ title: "تمت الإضافة", description: "تم إنشاء دفعة جديدة لهذه الدورة." });
       }
       setIsBatchDialogOpen(false);
-      setBatchForm({ name: "", startDate: "", maxUnlockedUnit: "99" });
+      setBatchForm({ name: "", startDate: "" });
       setBatchToEdit(null);
     } catch (e) {
       toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ الدفعة." });
@@ -515,9 +507,9 @@ export default function StudentProgressPage() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                        <div className="text-right space-y-1">
                           <CardTitle className="text-2xl font-black text-primary font-headline">تنظيم دفعات الدورات</CardTitle>
-                          <CardDescription className="font-bold leading-relaxed">أنشئ الدفعات وحدد تاريخ بدايتها للتحكم في ظهور الوحدات يوماً بيوم.</CardDescription>
+                          <CardDescription className="font-bold leading-relaxed">أنشئ الدفعات وحدد تاريخ بدايتها لتصنيف الطلاب تلقائياً في قائمة المتصدرين.</CardDescription>
                        </div>
-                       <Button disabled={!batchCourseId} onClick={() => { setBatchToEdit(null); setBatchForm({ name: "", startDate: "", maxUnlockedUnit: "99" }); setIsBatchDialogOpen(true); }} className="bg-secondary hover:bg-secondary/90 text-white rounded-2xl h-14 px-8 font-black gap-2 shadow-xl shadow-secondary/10 transition-all active:scale-95">
+                       <Button disabled={!batchCourseId} onClick={() => { setBatchToEdit(null); setBatchForm({ name: "", startDate: "" }); setIsBatchDialogOpen(true); }} className="bg-secondary hover:bg-secondary/90 text-white rounded-2xl h-14 px-8 font-black gap-2 shadow-xl shadow-secondary/10 transition-all active:scale-95">
                           <PlusCircle className="w-6 h-6" /> إضافة دفعة جديدة
                        </Button>
                     </div>
@@ -559,14 +551,13 @@ export default function StudentProgressPage() {
                                  <div className="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary shrink-0"><Calendar className="w-6 h-6" /></div>
                                  <div className="text-right">
                                     <h3 className="font-black text-primary text-lg leading-none mb-2">{batch.name}</h3>
-                                    <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-muted-foreground">
+                                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                                        <Badge variant="outline" className="bg-muted/50 border-primary/10 text-primary px-3">تاريخ البداية: {batch.startDate}</Badge>
-                                       <Badge className="bg-secondary/10 text-secondary border-none px-3">مفتوح حتى الوحدة رقم: {batch.maxUnlockedUnit || 99}</Badge>
                                     </div>
                                  </div>
                               </div>
                               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary hover:bg-primary/5" onClick={() => { setBatchToEdit(batch); setBatchForm({ name: batch.name, startDate: batch.startDate, maxUnlockedUnit: String(batch.maxUnlockedUnit || 99) }); setIsBatchDialogOpen(true); }}>
+                                 <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-primary hover:bg-primary/5" onClick={() => { setBatchToEdit(batch); setBatchForm({ name: batch.name, startDate: batch.startDate }); setIsBatchDialogOpen(true); }}>
                                     <Edit2 className="w-4.5 h-4.5" />
                                  </Button>
                                  <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/5" onClick={() => setBatchToDelete(batch)}>
@@ -609,21 +600,6 @@ export default function StudentProgressPage() {
                     <Label className="font-black text-primary mr-1">تاريخ بداية الدفعة</Label>
                     <Input type="date" value={batchForm.startDate} onChange={(e) => setBatchForm({...batchForm, startDate: e.target.value})} className="h-14 rounded-2xl border-primary/10 bg-muted/10" />
                  </div>
-                 
-                 <div className="space-y-2">
-                    <Label className="font-black text-primary mr-1 flex items-center gap-2">
-                       <LockOpen className="w-4 h-4 text-secondary" /> فتح الوحدات حتى الرقم:
-                    </Label>
-                    <Input 
-                       type="number" 
-                       placeholder="مثلاً: 2 لفتح أول وحدتين فقط" 
-                       value={batchForm.maxUnlockedUnit} 
-                       onChange={(e) => setBatchForm({...batchForm, maxUnlockedUnit: e.target.value})} 
-                       className="h-14 rounded-2xl border-primary/10 bg-muted/10 font-black text-secondary" 
-                    />
-                    <p className="text-[10px] text-muted-foreground font-bold mt-1">أي وحدة يتجاوز ترتيبها هذا الرقم ستختفي لطلاب هذه الدفعة فقط.</p>
-                 </div>
-
                  <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
                     <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-[10px] text-amber-700 font-bold leading-relaxed">
