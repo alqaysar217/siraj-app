@@ -43,7 +43,7 @@ import {
   BadgeCheck
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp, getDocs } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -233,13 +233,16 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
 
+  // حالات خاصة بنظام الدفعات وفلترة الوحدات
+  const [batchMaxUnit, setBatchMaxUnit] = useState(99);
+
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
 
   const lessonsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "courses", id, "lessons"), orderBy("order", "asc")) : null
   , [db, id]);
-  const { data: lessons, loading: lessonsLoading } = useCollection(lessonsQuery);
+  const { data: rawLessons, loading: lessonsLoading } = useCollection(lessonsQuery);
 
   const bankQuery = useMemoFirebase(() => db ? collection(db, "bankAccounts") : null, [db]);
   const { data: bankAccounts } = useCollection(bankQuery);
@@ -248,6 +251,48 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     db ? query(collection(db, "reviews"), where("courseId", "==", id)) : null
   , [db, id]);
   const { data: rawReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
+
+  // منطق تحديد الدفعة وحساب الوحدات المفتوحة
+  useEffect(() => {
+    if (!db || !profile || !id) return;
+    
+    async function determineBatch() {
+      const activationDateStr = profile?.enrollmentDetails?.[id]?.activatedAt;
+      if (!activationDateStr) {
+        setBatchMaxUnit(99); // طالب قديم أو تفعيل يدوي بدون سجل
+        return;
+      }
+
+      const activationDate = new Date(activationDateStr);
+      const batchesSnap = await getDocs(query(collection(db, "courses", id, "batches"), orderBy("startDate", "asc")));
+      const batches = batchesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (batches.length === 0) {
+        setBatchMaxUnit(99);
+        return;
+      }
+
+      // البحث عن الدفعة المناسبة بناءً على تاريخ التفعيل
+      let foundBatch: any = null;
+      for (let i = 0; i < batches.length; i++) {
+        const batchStart = new Date(batches[i].startDate);
+        const nextBatchStart = batches[i + 1] ? new Date(batches[i + 1].startDate) : null;
+
+        if (activationDate >= batchStart && (!nextBatchStart || activationDate < nextBatchStart)) {
+          foundBatch = batches[i];
+          break;
+        }
+      }
+
+      if (foundBatch) {
+        setBatchMaxUnit(Number(foundBatch.maxUnlockedUnit) || 99);
+      } else {
+        setBatchMaxUnit(99);
+      }
+    }
+
+    determineBatch();
+  }, [db, profile, id]);
 
   const courseReviews = useMemo(() => {
     if (!rawReviews) return [];
@@ -271,6 +316,21 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (isAdmin) return true;
     return Array.isArray(profile?.enrolledCourses) && profile.enrolledCourses.includes(id);
   }, [profile, id, isAdmin]);
+
+  // فلترة الدروس بناءً على الدفعة
+  const lessons = useMemo(() => {
+    if (!rawLessons) return null;
+    if (isAdmin) return rawLessons;
+
+    // تجميع الوحدات الفريدة أولاً لتحديد ترتيب كل وحدة
+    const uniqueUnits = Array.from(new Set(rawLessons.map((l: any) => l.unitTitle || "مقدمة")));
+    
+    return rawLessons.filter((lesson: any) => {
+      const unitTitle = lesson.unitTitle || "مقدمة";
+      const unitIndex = uniqueUnits.indexOf(unitTitle) + 1; // ترتيب الوحدة (1, 2, 3...)
+      return unitIndex <= batchMaxUnit;
+    });
+  }, [rawLessons, isAdmin, batchMaxUnit]);
 
   const userProgress = useMemo(() => profile?.progress?.[id] || { completedLessons: [], points: 0, quizScores: {}, lastLessonId: null }, [profile, id]);
   
@@ -486,7 +546,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  if (courseLoading || lessonsLoading || userLoading || (!selectedLessonId && !isFinishing)) {
+  if (courseLoading || (lessonsLoading && !lessons) || userLoading || (!selectedLessonId && !isFinishing)) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
