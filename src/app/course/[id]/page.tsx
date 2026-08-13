@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -285,22 +286,32 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return allCompletedIds.length >= lessons.length;
   }, [lessons, allCompletedIds]);
 
+  // منطق تهيئة الدرس الأول لجميع المستخدمين (ضيف أو مسجل)
   useEffect(() => {
-    if (!userLoading && lessons?.length && profile && !hasInitializedRef.current) {
-      const savedProgress = profile.progress?.[id] || {};
-      const lastId = savedProgress.lastLessonId;
-      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-      
-      if (isAllLessonsCompleted && !lastId) {
-        setIsFinishing(true);
-        setSelectedLessonId(null);
+    if (!userLoading && !lessonsLoading && lessons?.length && !hasInitializedRef.current) {
+      if (profile) {
+        // مستخدم مسجل
+        const savedProgress = profile.progress?.[id] || {};
+        const lastId = savedProgress.lastLessonId;
+        const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
+        
+        if (isAllLessonsCompleted && !lastId) {
+          setIsFinishing(true);
+          setSelectedLessonId(null);
+        } else {
+          setSelectedLessonId(startId);
+        }
+        setLocalCompleted(savedProgress.completedLessons || []);
       } else {
-        setSelectedLessonId(startId);
+        // ضيف - حدد أول درس تلقائياً لتمكينه من رؤية المنهج
+        setSelectedLessonId(lessons[0].id);
       }
-      setLocalCompleted(savedProgress.completedLessons || []);
+      hasInitializedRef.current = true;
+    } else if (!userLoading && !lessonsLoading && lessons?.length === 0 && !hasInitializedRef.current) {
+      // دورة فارغة - ننهي حالة التهيئة لكي تفتح الصفحة
       hasInitializedRef.current = true;
     }
-  }, [lessons, profile, id, userLoading, isAllLessonsCompleted]);
+  }, [lessons, lessonsLoading, profile, id, userLoading, isAllLessonsCompleted]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -414,7 +425,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const CurriculumList = () => (
     <div className="space-y-6" dir="rtl">
       <Accordion type="single" collapsible className="space-y-4">
-        {lessons && lessons.length > 0 && Object.entries(
+        {lessons && lessons.length > 0 ? Object.entries(
           lessons.reduce((acc: any, lesson: any) => {
             const unit = lesson.unitTitle || "مقدمة المنهج";
             if (!acc[unit]) acc[unit] = [];
@@ -453,7 +464,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               })}
             </AccordionContent>
           </AccordionItem>
-        ))}
+        )) : (
+          <div className="text-center py-10 opacity-40 italic text-sm font-bold">
+            لم يتم رفع دروس لهذه الدورة بعد.
+          </div>
+        )}
 
         {lessons && lessons.length > 0 && (
           <div className="mt-4 border rounded-2xl overflow-hidden bg-card border-secondary/20 luxury-shadow">
@@ -485,8 +500,16 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  if (courseLoading || lessonsLoading || userLoading || (!selectedLessonId && !isFinishing)) {
-    return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
+  // تم تخفيف شرط التحميل ليفتح للضيوف وللدورات الفارغة
+  if (courseLoading || userLoading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 animate-spin text-secondary" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -585,10 +608,13 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 </div>
               </>
             ) : (
-              <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8">
+              <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center">
                  <Lock className="w-16 h-16 text-primary opacity-40 mb-4" />
-                 <h2 className="text-2xl font-black text-primary">المحتوى مغلق</h2>
-                 <p className="text-muted-foreground font-bold mt-2">اشترك في الدورة لفتح هذا الدرس وبقية المنهج.</p>
+                 <h2 className="text-2xl font-black text-primary">المحتوى التعليمي سيتم توفره قريباً</h2>
+                 <p className="text-muted-foreground font-bold mt-2">يعمل فريق سراج حالياً على رفع وتجهيز الدروس لهذه الدورة.</p>
+                 <Button asChild variant="outline" className="mt-6 rounded-xl border-primary/10 text-primary">
+                    <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=أهلاً سراج، متى سيتم توفر دروس دورة: ${course?.title}`} target="_blank">استفسر عن موعد الانطلاق</a>
+                 </Button>
               </div>
             )}
           </div>
