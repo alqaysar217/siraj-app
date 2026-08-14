@@ -286,11 +286,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return allCompletedIds.length >= lessons.length;
   }, [lessons, allCompletedIds]);
 
-  // منطق تهيئة الدرس الأول لجميع المستخدمين (ضيف أو مسجل)
   useEffect(() => {
     if (!userLoading && !lessonsLoading && lessons?.length && !hasInitializedRef.current) {
       if (profile) {
-        // مستخدم مسجل
         const savedProgress = profile.progress?.[id] || {};
         const lastId = savedProgress.lastLessonId;
         const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
@@ -303,12 +301,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
         }
         setLocalCompleted(savedProgress.completedLessons || []);
       } else {
-        // ضيف - حدد أول درس تلقائياً لتمكينه من رؤية المنهج
         setSelectedLessonId(lessons[0].id);
       }
       hasInitializedRef.current = true;
     } else if (!userLoading && !lessonsLoading && lessons?.length === 0 && !hasInitializedRef.current) {
-      // دورة فارغة - ننهي حالة التهيئة لكي تفتح الصفحة
       hasInitializedRef.current = true;
     }
   }, [lessons, lessonsLoading, profile, id, userLoading, isAllLessonsCompleted]);
@@ -500,7 +496,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  // تم تخفيف شرط التحميل ليفتح للضيوف وللدورات الفارغة
   if (courseLoading || userLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -511,6 +506,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       </div>
     );
   }
+
+  // إنشاء نص رسالة الواتساب المتكاملة كما طلب محمود
+  const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'زائر'}) ببريد (${profile?.email || 'غير مسجل'})، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -542,7 +540,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز الكبير! 🎓</h2>
                     <p className="text-muted-foreground font-bold">لقد أكملت كافة متطلبات دورة "{course?.title}" بنجاح.</p>
                   </div>
-                  <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=أهلاً سراج، أتممت دورة ${course?.title} وأرغب في استلام الشهادة الموثقة.`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
+                  <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=${encodeURIComponent(whatsappMessage)}`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
                     <Award className="w-6 h-6" /> طلب الشهادة الموثقة عبر واتساب
                   </Button>
                 </Card>
@@ -613,7 +611,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                  <h2 className="text-2xl font-black text-primary">المحتوى التعليمي سيتم توفره قريباً</h2>
                  <p className="text-muted-foreground font-bold mt-2">يعمل فريق سراج حالياً على رفع وتجهيز الدروس لهذه الدورة.</p>
                  <Button asChild variant="outline" className="mt-6 rounded-xl border-primary/10 text-primary">
-                    <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=أهلاً سراج، متى سيتم توفر دروس دورة: ${course?.title}`} target="_blank">استفسر عن موعد الانطلاق</a>
+                    <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank">استفسر عن موعد الانطلاق</a>
                  </Button>
               </div>
             )}
@@ -707,7 +705,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         بعد إتمام عملية التحويل، يرجى إرسال <span className="text-secondary font-black">صورة سند التحويل</span> عبر الواتساب لتفعيل الدورة في حسابك فوراً.
                      </p>
                      <Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg">
-                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=أهلاً سراج، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`} target="_blank">
+                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank">
                            <MessageCircle className="w-5 h-5" /> إرسال السند عبر واتساب
                         </a>
                      </Button>
