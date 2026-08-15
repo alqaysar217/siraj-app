@@ -11,11 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { 
   PlayCircle, 
   BookOpen, 
-  Clock, 
   Loader2, 
   Star, 
   Award, 
@@ -30,12 +28,10 @@ import {
   Building2, 
   ArrowRight, 
   MessageSquare, 
-  Send, 
   Info, 
   FileText, 
   CreditCard, 
-  ShieldAlert,
-  Users
+  ShieldAlert
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -61,8 +57,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [activeTab, setActiveTab] = useState("details");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
 
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
   const [hasReviewed, setHasReviewed] = useState(false);
 
@@ -111,22 +105,35 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
+  // خوارزمية المتابعة الذكية المحسنة
   useEffect(() => {
-    if (!userLoading && !courseLoading && lessons?.length && !hasInitializedRef.current) {
-      const savedProgress = profile?.progress?.[id] || {};
-      const lastId = savedProgress.lastLessonId;
-      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-      
-      if (isAllLessonsCompleted && !lastId) {
-        setIsFinishing(true);
-        setSelectedLessonId(null);
-      } else {
-        setSelectedLessonId(startId);
+    if (userLoading || courseLoading || !lessons || hasInitializedRef.current) return;
+
+    if (!profile) {
+      if (lessons.length > 0) {
+        setSelectedLessonId(lessons[0].id);
+        hasInitializedRef.current = true;
       }
-      setLocalCompleted(savedProgress.completedLessons || []);
-      hasInitializedRef.current = true;
+      return;
     }
-  }, [lessons, profile, id, userLoading, courseLoading, isAllLessonsCompleted]);
+
+    const completedIds = profile.progress?.[id]?.completedLessons || [];
+    
+    // ابحث عن أول درس لم يكتمل بعد في الترتيب
+    const nextUncompletedLesson = lessons.find(l => !completedIds.includes(l.id));
+
+    if (nextUncompletedLesson) {
+      setSelectedLessonId(nextUncompletedLesson.id);
+      setIsFinishing(false);
+    } else if (lessons.length > 0) {
+      // إذا اكتملت كل الدروس، أظهر شاشة النهاية
+      setIsFinishing(true);
+      setSelectedLessonId(null);
+    }
+
+    setLocalCompleted(completedIds);
+    hasInitializedRef.current = true;
+  }, [lessons, profile, id, userLoading, courseLoading]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -170,7 +177,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (currentLesson.type === "video") setTimeout(goToNext, 2000);
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
-  if (courseLoading || userLoading || lessonsLoading) {
+  if (courseLoading || userLoading) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 
@@ -202,7 +209,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             <>
               {currentLesson.type === "quiz" ? <QuizPlayer quizData={currentLesson.quizData || []} alreadyAnswered={!!userProgress.quizScores?.[currentLesson.id]} onComplete={handleLessonComplete} /> : 
               <div className="rounded-2xl overflow-hidden luxury-shadow bg-black aspect-video"><VideoPlayer videoId={currentLesson.youtubeId} onComplete={handleLessonComplete} canSeek={isAdmin || allCompletedIds.includes(currentLesson.id)} key={currentLesson.id} /></div>}
-              <div className="flex gap-4"><Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}><ArrowRight className="w-5 h-5 ml-1" /><span>{(!isEnrolled && currentLessonIndex === 0) ? "اشترك لفتح البقية" : "الدرس التالي"}</span></Button>
+              <div className="flex gap-4"><Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}><ArrowRight className="w-5 h-5 ml-1" /><span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span></Button>
               <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg">السابق</Button></div>
               <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج</Button>
             </>
