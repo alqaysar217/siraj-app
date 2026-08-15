@@ -187,7 +187,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (currentLesson.type === "video") setTimeout(goToNext, 2000);
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
-  // حالة التحميل المعدلة للسماح للضيوف بالدخول
   if (courseLoading || userLoading) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
@@ -244,8 +243,43 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             <div className="bg-secondary/5 p-6 rounded-[2rem] border border-dashed border-secondary/20 text-center space-y-3"><p className="text-sm md:text-base text-primary font-bold">للبدء في رحلتك التعليمية وفتح كافة دروس المنهج، يرجى التواصل معنا وطلب التفعيل المباشر.</p><Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg"><a href={whatsappUrl} target="_blank"><MessageCircle className="w-5 h-5" />الاشتراك/تفعيل</a></Button></div></section>
           </TabsContent>
           <TabsContent value="curriculum" className="p-6 md:p-8"><CurriculumAccordion lessons={lessons || []} allCompletedIds={allCompletedIds} selectedLessonId={selectedLessonId} selectLesson={selectLesson} isLessonLocked={isLessonLocked} setIsFinishing={setIsFinishing} setSelectedLessonId={setSelectedLessonId} isAllLessonsCompleted={isAllLessonsCompleted} isFinishing={isFinishing} /></TabsContent>
-          <TabsContent value="reviews" className="p-6 md:p-8 space-y-6">{courseReviews.map((review: any, i: number) => (
-            <div key={i} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4"><div className="flex items-center gap-3"><Avatar className="h-10 w-10"><AvatarImage src={review.userPhoto || undefined} /><AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback></Avatar><div className="text-right"><div className="text-sm font-black text-primary">{review.userName}</div><div className="flex items-center gap-0.5 mt-0.5">{[...Array(5)].map((_, s) => <Star key={s} className={cn("w-2.5 h-2.5", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />)}</div></div></div><p className="text-xs text-muted-foreground font-bold italic">"{review.comment}"</p></div>))}</TabsContent>
+          <TabsContent value="reviews" className="p-6 md:p-8 space-y-6">
+            {courseReviews.map((review: any, i: number) => (
+              <div key={i} className="bg-white p-6 rounded-3xl border border-primary/5 luxury-shadow space-y-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={review.userPhoto || undefined} />
+                    <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-right">
+                    <div className="text-sm font-black text-primary">{review.userName}</div>
+                    <div className="flex items-center gap-0.5 mt-0.5">
+                      {[...Array(5)].map((_, s) => (
+                        <Star key={s} className={cn("w-2.5 h-2.5", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground font-bold italic leading-relaxed">"{review.comment}"</p>
+                
+                {review.adminReply && (
+                  <div className="mt-4 p-4 bg-primary/5 rounded-2xl border-r-4 border-secondary text-right animate-in slide-in-from-right-2 duration-500">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Avatar className="h-6 w-6 border border-secondary/20 shadow-sm">
+                        <AvatarImage src="/logo.png" className="object-contain p-1" />
+                        <AvatarFallback className="bg-secondary text-white text-[8px]">إدارة</AvatarFallback>
+                      </Avatar>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] font-black text-secondary uppercase tracking-wider">رد إدارة سراج</span>
+                        <ShieldCheck className="w-3 h-3 text-blue-500 fill-blue-50" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-primary font-bold leading-relaxed">{review.adminReply}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </TabsContent>
         </Tabs>
       </div>
 
