@@ -16,24 +16,32 @@ let auth: Auth;
 let db: Firestore;
 
 /**
- * تهيئة فايربيس بنظام "المثيل الوحيد" الفوري.
- * تم إضافة experimentalForceLongPolling لحل مشكلة تعذر الوصول للسيرفر في الشبكات غير المستقرة.
+ * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر.
+ * نستخدم متغيراً عالمياً (window) في بيئة التطوير لمنع تكرار التهيئة عند تحديث الكود (HMR).
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   const existingApps = getApps();
   app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfig);
   
-  try {
-    db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      }),
-      // هذا السطر يحل مشكلة "Could not reach Cloud Firestore backend"
-      experimentalForceLongPolling: true,
-    });
-    console.log("🚀 تم تشغيل محرك البيانات المستقر لمنصة سراج");
-  } catch (e) {
-    db = getFirestore(app);
+  // حماية من تكرار تهيئة Firestore في Next.js لتجنب خطأ Primary Lease
+  const globalDb = (window as any)._firebaseDb;
+  
+  if (globalDb) {
+    db = globalDb;
+  } else {
+    try {
+      db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        }),
+        // حل مشكلة تعذر الوصول للسيرفر في الشبكات الضعيفة
+        experimentalForceLongPolling: true,
+      });
+      (window as any)._firebaseDb = db;
+      console.log("🚀 تم تشغيل محرك البيانات المستقر لمنصة سراج");
+    } catch (e) {
+      db = getFirestore(app);
+    }
   }
   
   auth = getAuth(app);

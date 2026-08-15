@@ -49,7 +49,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const { profile, user, isAdmin, loading: userLoading } = useUser();
   const { toast } = useToast();
   
-  // مراجع للتحكم في منطق المتابعة التلقائية
   const hasInitializedRef = useRef(false);
   const userHasInteractedRef = useRef(false);
   
@@ -58,9 +57,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [isFinishing, setIsFinishing] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
-
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [hasReviewed, setHasReviewed] = useState(false);
 
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
@@ -76,7 +72,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const reviewsQuery = useMemoFirebase(() => 
     db ? query(collection(db, "reviews"), where("courseId", "==", id)) : null
   , [db, id]);
-  const { data: rawReviews, loading: reviewsLoading } = useCollection(reviewsQuery);
+  const { data: rawReviews } = useCollection(reviewsQuery);
 
   const courseReviews = useMemo(() => {
     if (!rawReviews) return [];
@@ -84,13 +80,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       .filter((r: any) => r.status !== 'hidden' || isAdmin)
       .sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
   }, [rawReviews, isAdmin]);
-
-  useEffect(() => {
-    if (courseReviews && user) {
-      const existing = courseReviews.find((r: any) => r.userId === user.uid);
-      if (existing) setHasReviewed(true);
-    }
-  }, [courseReviews, user]);
 
   const isEnrolled = useMemo(() => {
     if (isAdmin) return true;
@@ -107,35 +96,23 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
-  // خوارزمية المتابعة الذكية المطورة
   useEffect(() => {
-    // ننتظر حتى تكتمل بيانات الدروس والمستخدم
     if (userLoading || courseLoading || !lessons) return;
-
-    // إذا كان الزائر ضيفاً
-    if (!profile) {
-      if (lessons.length > 0 && !selectedLessonId) {
-        setSelectedLessonId(lessons[0].id);
-      }
+    if (!profile && lessons.length > 0 && !selectedLessonId) {
+      setSelectedLessonId(lessons[0].id);
       return;
     }
-
-    // إذا كان الطالب قد تفاعل يدوياً مع القائمة، لا نغير اختياره تلقائياً
     if (userHasInteractedRef.current) return;
 
-    const completedIds = profile.progress?.[id]?.completedLessons || [];
-    
-    // ابحث عن أول درس لم يكتمل بعد في الترتيب المنطقي
+    const completedIds = profile?.progress?.[id]?.completedLessons || [];
     const nextUncompletedLesson = lessons.find(l => !completedIds.includes(l.id));
 
     if (nextUncompletedLesson) {
-      // نقفز إليه فقط إذا لم نكن قد حددنا درساً بعد أو إذا كانت البيانات قد حدثت من السيرفر
       if (selectedLessonId !== nextUncompletedLesson.id) {
         setSelectedLessonId(nextUncompletedLesson.id);
         setIsFinishing(false);
       }
     } else if (lessons.length > 0 && !isFinishing) {
-      // إذا اكتملت كل الدروس، أظهر شاشة النهاية
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
@@ -145,13 +122,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   }, [lessons, profile, id, userLoading, courseLoading, selectedLessonId, isFinishing]);
 
   const selectLesson = useCallback((lessonId: string, isManual = true) => {
-    if (isManual) userHasInteractedRef.current = true; // نمنع القفز التلقائي بعد تفاعل المستخدم
+    if (isManual) userHasInteractedRef.current = true;
     setIsFinishing(false);
     setSelectedLessonId(lessonId);
-    if (db && user && isEnrolled) {
-      updateDoc(doc(db, "users", user.uid), { [`progress.${id}.lastLessonId`]: lessonId }).catch(() => {});
-    }
-  }, [db, user, isEnrolled, id]);
+  }, []);
 
   const isLessonLocked = useCallback((lesson: any, index: number) => {
     if (isAdmin) return false;
