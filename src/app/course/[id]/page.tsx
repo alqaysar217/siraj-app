@@ -288,21 +288,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
   useEffect(() => {
     if (!userLoading && !lessonsLoading && lessons?.length && !hasInitializedRef.current) {
-      if (profile) {
-        const savedProgress = profile.progress?.[id] || {};
-        const lastId = savedProgress.lastLessonId;
-        const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
-        
-        if (isAllLessonsCompleted && !lastId) {
-          setIsFinishing(true);
-          setSelectedLessonId(null);
-        } else {
-          setSelectedLessonId(startId);
-        }
-        setLocalCompleted(savedProgress.completedLessons || []);
+      const savedProgress = profile?.progress?.[id] || {};
+      const lastId = savedProgress.lastLessonId;
+      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
+      
+      if (isAllLessonsCompleted && !lastId) {
+        setIsFinishing(true);
+        setSelectedLessonId(null);
       } else {
-        setSelectedLessonId(lessons[0].id);
+        setSelectedLessonId(startId);
       }
+      setLocalCompleted(savedProgress.completedLessons || []);
       hasInitializedRef.current = true;
     } else if (!userLoading && !lessonsLoading && lessons?.length === 0 && !hasInitializedRef.current) {
       hasInitializedRef.current = true;
@@ -507,8 +503,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  // إنشاء نص رسالة الواتساب المتكاملة كما طلب محمود
-  const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'زائر'}) ببريد (${profile?.email || 'غير مسجل'})، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`;
+  const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -702,11 +697,11 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   </div>
                   <div className="bg-secondary/5 p-6 rounded-[2rem] border border-dashed border-secondary/20 text-center space-y-3">
                      <p className="text-sm md:text-base text-primary font-bold leading-relaxed">
-                        بعد إتمام عملية التحويل، يرجى إرسال <span className="text-secondary font-black">صورة سند التحويل</span> عبر الواتساب لتفعيل الدورة في حسابك فوراً.
+                        للبدء في رحلتك التعليمية وفتح كافة دروس المنهج، يرجى الضغط على الزر أدناه للتواصل معنا وطلب التفعيل المباشر لحسابك.
                      </p>
                      <Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg">
                         <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank">
-                           <MessageCircle className="w-5 h-5" /> إرسال السند عبر واتساب
+                           <MessageCircle className="w-5 h-5" /> الاشتراك وتفعيل الدورة الآن
                         </a>
                      </Button>
                   </div>
