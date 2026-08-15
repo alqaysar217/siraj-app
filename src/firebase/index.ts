@@ -1,4 +1,3 @@
-
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
@@ -18,22 +17,22 @@ let db: Firestore;
 
 /**
  * تهيئة فايربيس بنظام "المثيل الوحيد" الفوري.
- * يتم التنفيذ بمجرد استيراد الملف لضمان جاهزية الكاش قبل رندرة المكونات.
+ * تم إضافة experimentalForceLongPolling لحل مشكلة تعذر الوصول للسيرفر في الشبكات غير المستقرة.
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   const existingApps = getApps();
   app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfig);
   
-  // تهيئة Firestore مع تفعيل التخزين المحلي الدائم وتعدد التبويبات
   try {
     db = initializeFirestore(app, {
       localCache: persistentLocalCache({
         tabManager: persistentMultipleTabManager()
-      })
+      }),
+      // هذا السطر يحل مشكلة "Could not reach Cloud Firestore backend"
+      experimentalForceLongPolling: true,
     });
-    console.log("🚀 تم تشغيل محرك البيانات المحلي فائق السرعة لمنصة سراج");
+    console.log("🚀 تم تشغيل محرك البيانات المستقر لمنصة سراج");
   } catch (e) {
-    // في حال كانت القاعدة مهيئة مسبقاً (مثلاً أثناء التطوير HMR)
     db = getFirestore(app);
   }
   
