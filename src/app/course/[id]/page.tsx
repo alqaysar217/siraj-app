@@ -294,18 +294,18 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
         ? profile.progress[id].completedLessons 
         : [];
       
-      // 2. البحث عن أول درس غير مكتمل في المنهج
+      // 2. البحث عن أول درس غير مكتمل في المنهج بالترتيب
       const firstUncompleted = lessons.find(l => !completed.includes(l.id));
 
       if (firstUncompleted) {
         // وجدنا درساً لم يشاهده بعد، ننتقل إليه فوراً
         setSelectedLessonId(firstUncompleted.id);
-      } else if (completed.length >= lessons.length) {
+      } else if (completed.length >= lessons.length && lessons.length > 0) {
         // إذا كان كل شيء مكتملاً، نظهر شاشة النهاية
         setIsFinishing(true);
         setSelectedLessonId(null);
       } else {
-        // حالة احتياطية (مثل الضيوف)
+        // حالة احتياطية (مثل الضيوف أو عند عدم وجود دروس مكتملة أصلاً)
         setSelectedLessonId(lessons[0].id);
       }
 
