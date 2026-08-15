@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -137,7 +136,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         <div className="space-y-2">
           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">تقويم الوحدة التعليمية</h2>
           <p className="text-muted-foreground text-sm md:text-lg leading-relaxed max-w-lg mx-auto">
-            تنبيه: يتم احتساب نقاط هذا تقويم من أول محاولة إجابة فقط.
+            تنبيه: يتم احتساب نقاط هذا التقويم من أول محاولة إجابة فقط.
           </p>
         </div>
         <Button onClick={() => setStarted(true)} className="h-14 px-12 rounded-2xl bg-primary text-white font-bold text-lg shadow-lg">
@@ -286,24 +285,27 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return allCompletedIds.length >= lessons.length;
   }, [lessons, allCompletedIds]);
 
+  // تهيئة الدرس المختار عند التحميل (خوارزمية المتابعة الذكية)
   useEffect(() => {
     if (!userLoading && !lessonsLoading && lessons?.length && !hasInitializedRef.current) {
       const savedProgress = profile?.progress?.[id] || {};
-      const lastId = savedProgress.lastLessonId;
-      const startId = (lastId && lessons.some(l => l.id === lastId)) ? lastId : lessons[0].id;
       
-      if (isAllLessonsCompleted && !lastId) {
+      // البحث عن أول درس غير مكتمل لنقله إليه مباشرة
+      const firstUncompleted = lessons.find(l => !allCompletedIds.includes(l.id));
+
+      if (firstUncompleted) {
+        setSelectedLessonId(firstUncompleted.id);
+      } else if (isAllLessonsCompleted) {
         setIsFinishing(true);
         setSelectedLessonId(null);
       } else {
-        setSelectedLessonId(startId);
+        setSelectedLessonId(lessons[0].id);
       }
+
       setLocalCompleted(savedProgress.completedLessons || []);
       hasInitializedRef.current = true;
-    } else if (!userLoading && !lessonsLoading && lessons?.length === 0 && !hasInitializedRef.current) {
-      hasInitializedRef.current = true;
     }
-  }, [lessons, lessonsLoading, profile, id, userLoading, isAllLessonsCompleted]);
+  }, [lessons, lessonsLoading, profile, id, userLoading, isAllLessonsCompleted, allCompletedIds]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -322,9 +324,12 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return !allCompletedIds.includes(prevLesson?.id);
   }, [isAdmin, allCompletedIds, lessons]);
 
+  const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
+  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
+
   const goToNext = useCallback(() => {
     if (!isEnrolled && currentLessonIndex === 0) {
-      setActiveTab("details");
+      window.open(whatsappUrl, '_blank');
       return;
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
@@ -334,7 +339,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
-  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted]);
+  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted, whatsappUrl]);
 
   const goToPrev = () => {
     if (isFinishing) {
@@ -492,7 +497,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  if (courseLoading || userLoading) {
+  if (courseLoading || userLoading || lessonsLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
@@ -502,9 +507,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       </div>
     );
   }
-
-  const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`;
-  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -583,7 +585,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 <div className="space-y-4">
                   <div className="flex gap-4 w-full">
                     <Button 
-                      onClick={(!isEnrolled && currentLessonIndex === 0) ? () => window.open(whatsappUrl, '_blank') : goToNext} 
+                      onClick={goToNext} 
                       className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}
                     >
                       <ArrowRight className="w-5 h-5 ml-1" />
@@ -610,7 +612,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                  <h2 className="text-2xl font-black text-primary">المحتوى التعليمي سيتم توفره قريباً</h2>
                  <p className="text-muted-foreground font-bold mt-2">يعمل فريق سراج حالياً على رفع وتجهيز الدروس لهذه الدورة.</p>
                  <Button asChild variant="outline" className="mt-6 rounded-xl border-primary/10 text-primary">
-                    <a href={whatsappUrl} target="_blank">استفسر عن موعد الانطلاق</a>
+                    <a href={whatsappUrl} target="_blank">الاشتراك/تفعيل</a>
                  </Button>
               </div>
             )}
@@ -745,7 +747,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                                 <div className="text-sm font-black text-primary">{review.userName}</div>
                                 <div className="flex items-center gap-0.5 mt-0.5">
                                    {[...Array(5)].map((_, s) => (
-                                     <Star key={s} className={cn("w-3 h-3", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
+                                     <Star key={s} className={cn("w-2.5 h-2.5", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
                                    ))}
                                 </div>
                              </div>
@@ -757,7 +759,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                                <div className="flex items-center gap-2 mb-1">
                                   <Avatar className="h-6 w-6 border border-secondary/20 shadow-sm">
                                      <AvatarImage src="/logo.png" className="object-contain p-1" />
-                                     <AvatarFallback className="bg-secondary text-white text-[8px]">إدارة</AvatarFallback>                                  </Avatar>
+                                     <AvatarFallback className="bg-secondary text-white text-[8px]">إدارة</AvatarFallback>
+                                  </Avatar>
                                   <div className="flex items-center gap-1">
                                      <span className="text-[10px] font-black text-secondary uppercase tracking-wider">رد إدارة سراج</span>
                                      <ShieldCheck className="w-3 h-3 text-blue-500 fill-blue-50" />
