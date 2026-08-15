@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -285,27 +286,33 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return allCompletedIds.length >= lessons.length;
   }, [lessons, allCompletedIds]);
 
-  // تهيئة الدرس المختار عند التحميل (خوارزمية المتابعة الذكية)
+  // خوارزمية المتابعة الذكية المطورة (Smart Following Algorithm)
   useEffect(() => {
     if (!userLoading && !lessonsLoading && lessons?.length && !hasInitializedRef.current) {
-      const savedProgress = profile?.progress?.[id] || {};
+      // 1. تحديد الدروس المكتملة فعلياً
+      const completed = Array.isArray(profile?.progress?.[id]?.completedLessons) 
+        ? profile.progress[id].completedLessons 
+        : [];
       
-      // البحث عن أول درس غير مكتمل لنقله إليه مباشرة
-      const firstUncompleted = lessons.find(l => !allCompletedIds.includes(l.id));
+      // 2. البحث عن أول درس غير مكتمل في المنهج
+      const firstUncompleted = lessons.find(l => !completed.includes(l.id));
 
       if (firstUncompleted) {
+        // وجدنا درساً لم يشاهده بعد، ننتقل إليه فوراً
         setSelectedLessonId(firstUncompleted.id);
-      } else if (isAllLessonsCompleted) {
+      } else if (completed.length >= lessons.length) {
+        // إذا كان كل شيء مكتملاً، نظهر شاشة النهاية
         setIsFinishing(true);
         setSelectedLessonId(null);
       } else {
+        // حالة احتياطية (مثل الضيوف)
         setSelectedLessonId(lessons[0].id);
       }
 
-      setLocalCompleted(savedProgress.completedLessons || []);
+      setLocalCompleted(completed);
       hasInitializedRef.current = true;
     }
-  }, [lessons, lessonsLoading, profile, id, userLoading, isAllLessonsCompleted, allCompletedIds]);
+  }, [lessons, lessonsLoading, profile, id, userLoading]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -759,8 +766,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                                <div className="flex items-center gap-2 mb-1">
                                   <Avatar className="h-6 w-6 border border-secondary/20 shadow-sm">
                                      <AvatarImage src="/logo.png" className="object-contain p-1" />
-                                     <AvatarFallback className="bg-secondary text-white text-[8px]">إدارة</AvatarFallback>
-                                  </Avatar>
+                                     <AvatarFallback className="bg-secondary text-white text-[8px]">إدارة</AvatarFallback>                                  </Avatar>
                                   <div className="flex items-center gap-1">
                                      <span className="text-[10px] font-black text-secondary uppercase tracking-wider">رد إدارة سراج</span>
                                      <ShieldCheck className="w-3 h-3 text-blue-500 fill-blue-50" />
