@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { AlertCircle, PartyPopper, XCircle, RotateCcw, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
