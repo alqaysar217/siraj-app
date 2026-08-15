@@ -137,7 +137,7 @@ function QuizPlayer({ quizData, onComplete, alreadyAnswered }: { quizData: any[]
         <div className="space-y-2">
           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">تقويم الوحدة التعليمية</h2>
           <p className="text-muted-foreground text-sm md:text-lg leading-relaxed max-w-lg mx-auto">
-            تنبيه: يتم احتساب نقاط هذا التقويم من أول محاولة إجابة فقط.
+            تنبيه: يتم احتساب نقاط هذا تقويم من أول محاولة إجابة فقط.
           </p>
         </div>
         <Button onClick={() => setStarted(true)} className="h-14 px-12 rounded-2xl bg-primary text-white font-bold text-lg shadow-lg">
@@ -504,6 +504,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   }
 
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، قمت بالتحويل وأرغب بتفعيل دورة: ${course?.title}`;
+  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -535,7 +536,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز الكبير! 🎓</h2>
                     <p className="text-muted-foreground font-bold">لقد أكملت كافة متطلبات دورة "{course?.title}" بنجاح.</p>
                   </div>
-                  <Button onClick={() => window.open(`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g,'')}?text=${encodeURIComponent(whatsappMessage)}`)} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
+                  <Button onClick={() => window.open(whatsappUrl, '_blank')} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20">
                     <Award className="w-6 h-6" /> طلب الشهادة الموثقة عبر واتساب
                   </Button>
                 </Card>
@@ -581,7 +582,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 )}
                 <div className="space-y-4">
                   <div className="flex gap-4 w-full">
-                    <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
+                    <Button 
+                      onClick={(!isEnrolled && currentLessonIndex === 0) ? () => window.open(whatsappUrl, '_blank') : goToNext} 
+                      className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}
+                    >
                       <ArrowRight className="w-5 h-5 ml-1" />
                       <span>{(!isEnrolled && currentLessonIndex === 0) ? "اشترك لفتح البقية" : "الدرس التالي"}</span>
                     </Button>
@@ -606,7 +610,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                  <h2 className="text-2xl font-black text-primary">المحتوى التعليمي سيتم توفره قريباً</h2>
                  <p className="text-muted-foreground font-bold mt-2">يعمل فريق سراج حالياً على رفع وتجهيز الدروس لهذه الدورة.</p>
                  <Button asChild variant="outline" className="mt-6 rounded-xl border-primary/10 text-primary">
-                    <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank">استفسر عن موعد الانطلاق</a>
+                    <a href={whatsappUrl} target="_blank">استفسر عن موعد الانطلاق</a>
                  </Button>
               </div>
             )}
@@ -700,8 +704,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         للبدء في رحلتك التعليمية وفتح كافة دروس المنهج، يرجى الضغط على الزر أدناه للتواصل معنا وطلب التفعيل المباشر لحسابك.
                      </p>
                      <Button asChild className="bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black h-12 rounded-xl px-8 gap-2 shadow-lg">
-                        <a href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`} target="_blank">
-                           <MessageCircle className="w-5 h-5" /> الاشتراك وتفعيل الدورة الآن
+                        <a href={whatsappUrl} target="_blank">
+                           <MessageCircle className="w-5 h-5" /> الاشتراك/تفعيل
                         </a>
                      </Button>
                   </div>
