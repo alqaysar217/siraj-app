@@ -62,18 +62,26 @@ export default function LoginPage() {
   const getDeviceFingerprint = () => {
     if (typeof window === 'undefined') return "Unknown";
     let storedId = localStorage.getItem('siraj_device_token');
-    if (!storedId) {
-      // الكشف عن نظام التشغيل لتسهيل الإدارة
-      const ua = navigator.userAgent;
-      let os = "Device";
-      if (ua.match(/Android/i)) os = "Android";
-      else if (ua.match(/iPhone|iPad|iPod/i)) os = "iPhone";
-      else if (ua.match(/Windows/i)) os = "Windows";
-      else if (ua.match(/Macintosh|Mac OS/i)) os = "MacOS";
-      else if (ua.match(/Linux/i)) os = "Linux";
-      
+    
+    // سحب نظام التشغيل بدقة
+    const ua = navigator.userAgent;
+    let os = "Device";
+    if (/android/i.test(ua)) os = "Android";
+    else if (/iPad|iPhone|iPod/.test(ua)) os = "iPhone";
+    else if (/Windows/i.test(ua)) os = "Windows";
+    else if (/Mac/i.test(ua)) os = "MacOS";
+    else if (/Linux/i.test(ua)) os = "Linux";
+
+    if (!storedId || !storedId.includes('-')) {
       storedId = `${os}-${Math.random().toString(36).substring(2, 7)}`;
       localStorage.setItem('siraj_device_token', storedId);
+    } else {
+      // تحديث مسمى النظام في البصمة المخزنة إذا كانت قديمة
+      const parts = storedId.split('-');
+      if (parts[0] === "Device" && os !== "Device") {
+        storedId = `${os}-${parts[1]}`;
+        localStorage.setItem('siraj_device_token', storedId);
+      }
     }
     return storedId;
   };
@@ -116,18 +124,17 @@ export default function LoginPage() {
       if (userSnap.exists()) {
         const userData = userSnap.data();
         
-        // 1. فحص الحظر
         if (userData.status === 'banned') {
           await signOut(auth);
           throw new Error("banned");
         }
 
-        // 2. فحص قفل الأجهزة (جهازين بحد أقصى للطلاب)
         const currentDevices = userData.deviceIds || [];
         const isDeviceKnown = currentDevices.includes(deviceId);
         
+        // استثناء الإدارة من قفل الأجهزة
         if (userData.role !== 'admin' && !isDeviceKnown && currentDevices.length >= 2) {
-          await signOut(auth); // طرده فوراً
+          await signOut(auth);
           toast({ 
             variant: "destructive", 
             title: "تجاوزت حد الأجهزة", 

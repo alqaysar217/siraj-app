@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
+  Monitor,
   Trash2,
   Ban,
   UserCheck,
@@ -247,10 +248,14 @@ export default function AccountManagementPage() {
                                    {[0, 1].map(i => {
                                       const deviceStr = user.deviceIds?.[i] || "";
                                       const isRegistered = !!deviceStr;
-                                      const osName = deviceStr.split('-')[0];
+                                      const rawOsName = deviceStr.split('-')[0];
+                                      const isLegacy = rawOsName === "Device";
+                                      const isDesktop = rawOsName === "Windows" || rawOsName === "MacOS";
+                                      const osName = isLegacy ? "سابق" : rawOsName;
+                                      
                                       return (
                                         <div key={i} title={deviceStr} className={`p-1.5 rounded-lg border flex flex-col items-center gap-0.5 ${isRegistered ? 'bg-green-50 border-green-100 text-green-700' : 'bg-muted border-border text-muted-foreground/30'}`}>
-                                          <Smartphone className="w-3 h-3" />
+                                          {isDesktop ? <Monitor className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
                                           {isRegistered && <span className="text-[6px] font-black leading-none">{osName}</span>}
                                         </div>
                                       );
@@ -261,7 +266,7 @@ export default function AccountManagementPage() {
                                       </div>
                                    )}
                                 </div>
-                                <p className={cn("text-[8px] font-bold", deviceCount > 2 ? "text-destructive" : "text-muted-foreground")}>
+                                <p className={cn("text-[8px] font-bold", (deviceCount > 2 && user.role !== 'admin') ? "text-destructive" : "text-muted-foreground")}>
                                    {deviceCount} / 2 مسجل
                                 </p>
                              </div>
