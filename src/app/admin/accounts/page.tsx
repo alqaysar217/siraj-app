@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from "react";
@@ -40,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export default function AccountManagementPage() {
   const db = useFirestore();
@@ -201,6 +201,7 @@ export default function AccountManagementPage() {
                   <TableBody>
                     {filteredUsers.map((user: any) => {
                       const userUid = user.id;
+                      const deviceCount = user.deviceIds?.length || 0;
                       return (
                         <TableRow key={user.id} className={`hover:bg-primary/5 transition-colors ${user.status === 'banned' ? 'opacity-60 bg-red-50/30' : ''}`}>
                           <TableCell className="py-4">
@@ -241,14 +242,29 @@ export default function AccountManagementPage() {
                             </Button>
                           </TableCell>
                           <TableCell className="py-4 text-center">
-                             <div className="flex justify-center gap-1">
-                                {[0, 1].map(i => (
-                                  <div key={i} className={`p-1.5 rounded-lg border ${user.deviceIds?.[i] ? 'bg-green-50 border-green-100 text-green-700' : 'bg-muted border-border text-muted-foreground/30'}`}>
-                                    <Smartphone className="w-3 h-3" />
-                                  </div>
-                                ))}
+                             <div className="flex flex-col items-center gap-1">
+                                <div className="flex justify-center gap-1">
+                                   {[0, 1].map(i => {
+                                      const deviceStr = user.deviceIds?.[i] || "";
+                                      const isRegistered = !!deviceStr;
+                                      const osName = deviceStr.split('-')[0];
+                                      return (
+                                        <div key={i} title={deviceStr} className={`p-1.5 rounded-lg border flex flex-col items-center gap-0.5 ${isRegistered ? 'bg-green-50 border-green-100 text-green-700' : 'bg-muted border-border text-muted-foreground/30'}`}>
+                                          <Smartphone className="w-3 h-3" />
+                                          {isRegistered && <span className="text-[6px] font-black leading-none">{osName}</span>}
+                                        </div>
+                                      );
+                                   })}
+                                   {deviceCount > 2 && (
+                                      <div className="p-1.5 rounded-lg border bg-red-50 border-red-100 text-red-600 flex items-center justify-center" title="تجاوز الحد المسموح">
+                                         <ShieldAlert className="w-3 h-3" />
+                                      </div>
+                                   )}
+                                </div>
+                                <p className={cn("text-[8px] font-bold", deviceCount > 2 ? "text-destructive" : "text-muted-foreground")}>
+                                   {deviceCount} / 2 مسجل
+                                </p>
                              </div>
-                             <p className="text-[8px] mt-1 font-bold text-muted-foreground">{user.deviceIds?.length || 0} / 2 مسجل</p>
                           </TableCell>
                           <TableCell className="py-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">

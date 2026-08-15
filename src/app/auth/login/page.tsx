@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,7 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/navbar";
 import { useAuth, useFirestore } from "@/firebase/provider";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, Clock, MessageCircle } from "lucide-react";
@@ -64,7 +63,16 @@ export default function LoginPage() {
     if (typeof window === 'undefined') return "Unknown";
     let storedId = localStorage.getItem('siraj_device_token');
     if (!storedId) {
-      storedId = `Device-${Math.random().toString(36).substring(2, 7)}`;
+      // الكشف عن نظام التشغيل لتسهيل الإدارة
+      const ua = navigator.userAgent;
+      let os = "Device";
+      if (ua.match(/Android/i)) os = "Android";
+      else if (ua.match(/iPhone|iPad|iPod/i)) os = "iPhone";
+      else if (ua.match(/Windows/i)) os = "Windows";
+      else if (ua.match(/Macintosh|Mac OS/i)) os = "MacOS";
+      else if (ua.match(/Linux/i)) os = "Linux";
+      
+      storedId = `${os}-${Math.random().toString(36).substring(2, 7)}`;
       localStorage.setItem('siraj_device_token', storedId);
     }
     return storedId;
@@ -107,9 +115,28 @@ export default function LoginPage() {
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
+        
+        // 1. فحص الحظر
         if (userData.status === 'banned') {
+          await signOut(auth);
           throw new Error("banned");
         }
+
+        // 2. فحص قفل الأجهزة (جهازين بحد أقصى للطلاب)
+        const currentDevices = userData.deviceIds || [];
+        const isDeviceKnown = currentDevices.includes(deviceId);
+        
+        if (userData.role !== 'admin' && !isDeviceKnown && currentDevices.length >= 2) {
+          await signOut(auth); // طرده فوراً
+          toast({ 
+            variant: "destructive", 
+            title: "تجاوزت حد الأجهزة", 
+            description: "عذراً، يسمح بفتح الحساب من جهازين فقط. يرجى مراجعة الإدارة لتصفير أجهزتك القديمة." 
+          });
+          setLoading(false);
+          return;
+        }
+
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId)
