@@ -34,7 +34,12 @@ export default function RegisterPage() {
     let os = "Web";
     if (/android/i.test(ua)) os = "Android";
     else if (/iPad|iPhone|iPod/.test(ua)) os = "iOS";
-    return `${os}-${window.screen.width}x${window.screen.height}`;
+    else if (/Windows/i.test(ua)) os = "Windows";
+    else if (/Mac/i.test(ua)) os = "MacOS";
+    
+    const screenWidth = window.screen?.width || 0;
+    const screenHeight = window.screen?.height || 0;
+    return `${os}-${screenWidth}x${screenHeight}`;
   };
 
   const handleRegister = async () => {
@@ -60,7 +65,7 @@ export default function RegisterPage() {
       const deviceId = getStableDeviceID();
       const sessionId = `sess_${Date.now()}`;
       
-      // 2. إنشاء الملف الشخصي في Firestore بشكل قطعي
+      // 2. إنشاء الملف الشخصي في Firestore
       const profileData = {
         uid: user.uid,
         name: name.trim(),
@@ -79,10 +84,13 @@ export default function RegisterPage() {
       localStorage.setItem('siraj_session_id', sessionId);
       setSuccess(true);
       
-      // تأخير بسيط لضمان استقرار سفاري
-      setTimeout(() => router.replace("/dashboard"), 1500);
+      // تأخير كافٍ لضمان استقرار سفاري آيفون وتزامن السيرفر
+      setTimeout(() => {
+        router.replace("/dashboard");
+      }, 1500);
 
     } catch (error: any) {
+      console.error("Register error:", error);
       let msg = "حدث خطأ غير متوقع.";
       if (error.code === "auth/email-already-in-use") msg = "البريد مسجل مسبقاً.";
       toast({ variant: "destructive", title: "فشل التسجيل", description: msg });
@@ -100,7 +108,7 @@ export default function RegisterPage() {
               <CheckCircle2 className="w-12 h-12 text-green-600" />
             </div>
             <CardTitle className="text-3xl font-black font-headline text-primary">تم الانضمام! 🎉</CardTitle>
-            <p className="font-bold mt-2">جاري تحويلك لمساحتك التعليمية...</p>
+            <p className="font-bold mt-2 text-muted-foreground">جاري تحويلك لمساحتك التعليمية...</p>
             <div className="mt-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-secondary" /></div>
           </Card>
         </div>
@@ -118,20 +126,20 @@ export default function RegisterPage() {
               <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
             </div>
             <CardTitle className="text-3xl font-black font-headline text-primary">حساب جديد</CardTitle>
-            <CardDescription className="font-bold">استثمر في مستقبلك اليوم</CardDescription>
+            <CardDescription className="font-bold text-muted-foreground">استثمر في مستقبلك اليوم</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8">
             <div className="space-y-2">
               <Label className="font-bold flex items-center gap-2 mr-1"><User className="w-4 h-4 text-secondary" /> الاسم الكامل</Label>
-              <Input placeholder="مثال: محمود الحساني" className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input placeholder="مثال: محمود الحساني" className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
             </div>
             <div className="space-y-2">
               <Label className="font-bold flex items-center gap-2 mr-1"><Mail className="w-4 h-4 text-secondary" /> البريد الإلكتروني</Label>
-              <Input type="email" placeholder="example@gmail.com" className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input type="email" placeholder="example@gmail.com" className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} />
             </div>
             <div className="space-y-2">
               <Label className="font-bold flex items-center gap-2 mr-1"><Lock className="w-4 h-4 text-secondary" /> كلمة المرور</Label>
-              <Input type="password" placeholder="••••••••" className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input type="password" placeholder="••••••••" className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} />
             </div>
             <Button disabled={loading} onClick={handleRegister} className="w-full h-14 rounded-2xl bg-secondary text-white font-black text-xl shadow-xl mt-4">
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "تأكيد الانضمام"}

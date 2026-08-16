@@ -13,7 +13,7 @@ import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { Loader2, Mail, Lock, Clock, MessageCircle } from "lucide-react";
+import { Loader2, Mail, Lock, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WHATSAPP_NUMBER = "+967735952927";
@@ -22,14 +22,13 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [lockRemaining, setLockRemaining] = useState(0);
   
   const auth = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
-  // 1. بصمة الجهاز المستقرة (الجهاز وليس المتصفح)
+  // بصمة الجهاز المستقرة - تعمل بدقة على الآيفون والأندرويد والحاسوب
   const getStableDeviceID = () => {
     if (typeof window === 'undefined') return "unknown";
     const ua = navigator.userAgent;
@@ -39,35 +38,13 @@ export default function LoginPage() {
     else if (/Windows/i.test(ua)) os = "Windows";
     else if (/Mac/i.test(ua)) os = "MacOS";
     
-    // دمج النظام مع دقة الشاشة لتمييز الجهاز حتى لو تغير المتصفح
-    return `${os}-${window.screen.width}x${window.screen.height}`;
+    const screenWidth = window.screen?.width || 0;
+    const screenHeight = window.screen?.height || 0;
+    return `${os}-${screenWidth}x${screenHeight}`;
   };
-
-  useEffect(() => {
-    const lockUntil = parseInt(localStorage.getItem('login_lock_until') || '0');
-    const now = Date.now();
-    if (lockUntil > now) setLockRemaining(Math.ceil((lockUntil - now) / 1000));
-  }, []);
-
-  useEffect(() => {
-    if (lockRemaining > 0) {
-      const timer = setInterval(() => {
-        setLockRemaining((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            localStorage.removeItem('login_lock_until');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [lockRemaining]);
 
   const handleLogin = async () => {
     if (!auth || !db) return;
-    if (lockRemaining > 0) return;
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
@@ -102,7 +79,7 @@ export default function LoginPage() {
         const currentDevices = userData.deviceIds || [];
         const isDeviceKnown = currentDevices.includes(deviceId);
         
-        // تطبيق قيد الـ 2 أجهزة للأجهزة المستقرة
+        // تطبيق قيد الـ 2 أجهزة
         if (userData.role !== 'admin' && !isDeviceKnown && currentDevices.length >= 2) {
           await signOut(auth);
           toast({ 
@@ -114,16 +91,21 @@ export default function LoginPage() {
           return;
         }
 
-        // تحديث الجلسة وتسجيل الجهاز الجديد إن وجد
+        // تحديث الجلسة وتسجيل الجهاز الجديد
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId)
         });
 
         localStorage.setItem('siraj_session_id', newSessionId);
-        router.replace("/dashboard");
+        
+        // تأخير بسيط لضمان استقرار سفاري آيفون قبل التوجيه
+        setTimeout(() => {
+          router.replace("/dashboard");
+        }, 1000);
+
       } else {
-        // في حال فشل إنشاء الملف وقت التسجيل، يتم إنشاؤه الآن
+        // إنشاء ملف ناقص في حال وجود خلل سابق
         const sessionId = `sess_${Date.now()}`;
         await updateDoc(userDocRef, { 
           uid: user.uid,
@@ -132,9 +114,12 @@ export default function LoginPage() {
           deviceIds: [deviceId]
         });
         localStorage.setItem('siraj_session_id', sessionId);
-        router.replace("/dashboard");
+        setTimeout(() => {
+          router.replace("/dashboard");
+        }, 1000);
       }
     } catch (error: any) {
+      console.error("Login error:", error);
       let msg = "البريد أو كلمة السر غير صحيحة.";
       if (error.code === 'auth/user-not-found') msg = "هذا الحساب غير موجود.";
       
@@ -153,7 +138,7 @@ export default function LoginPage() {
               <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
             </div>
             <CardTitle className="text-3xl font-black font-headline text-primary">تسجيل الدخول</CardTitle>
-            <CardDescription className="font-bold">منصة سراج التعليمية</CardDescription>
+            <CardDescription className="font-bold text-muted-foreground">منصة سراج التعليمية</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8">
             <div className="space-y-2">
@@ -185,7 +170,7 @@ export default function LoginPage() {
             </div>
 
             <Button 
-              disabled={loading || lockRemaining > 0} 
+              disabled={loading} 
               onClick={handleLogin} 
               className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 transition-transform active:scale-95"
             >

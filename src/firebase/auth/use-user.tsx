@@ -9,8 +9,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 /**
- * خطاف إدارة المستخدم المطور (سراج v2)
- * يضمن استقرار الجلسة، التعامل مع تعدد الأجهزة، وترميم الملفات المفقودة
+ * خطاف إدارة المستخدم المطور (سراج v3)
+ * يضمن استقرار الجلسة، التعامل مع تعدد الأجهزة، وترميم الملفات المفقودة بشكل فوري
  */
 export function useUser() {
   const auth = useAuth();
@@ -47,7 +47,7 @@ export function useUser() {
           const data = docSnap.data();
           setProfile(data);
 
-          // نظام الأمان للطلاب فقط (الأدمن مستثنى)
+          // نظام الأمان للطلاب فقط
           if (data.role === 'student' && !isKickingRef.current) {
             
             // أ- فحص الحظر
@@ -71,7 +71,6 @@ export function useUser() {
           setLoading(false);
         } else {
           // ج- نظام الترميم التلقائي (Auto-Repair)
-          // في حال وجود Auth ولكن الملف مفقود في Firestore
           try {
             const repairData = {
               uid: user.uid,
@@ -92,12 +91,21 @@ export function useUser() {
       },
       (error) => {
         console.error("Profile sync error", error);
+        // في حال وجود خطأ في المزامنة (مثل انقطاع الإنترنت في الآيفون)، لا نعلق الطالب في شاشة التحميل
         setLoading(false);
       }
     );
 
-    return () => unsubscribeProfile();
-  }, [db, user, auth]);
+    // حماية إضافية للآيفون: إغلاق حالة التحميل بعد 5 ثوانٍ مهما حدث
+    const backupTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 5000);
+
+    return () => {
+      unsubscribeProfile();
+      clearTimeout(backupTimeout);
+    };
+  }, [db, user, auth, toast]);
 
   return { 
     user, 
