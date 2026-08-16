@@ -30,11 +30,15 @@ service cloud.firestore {
         allow read: if true;
         allow write: if isAdmin();
       }
-      // إضافة صلاحيات الدفعات الجديدة
       match /batches/{batchId} {
         allow read: if true;
         allow write: if isAdmin();
       }
+    }
+
+    // صلاحيات مجموعة درجات الواتساب
+    match /whatsapp_grades/{docId} {
+      allow read, write: if isAdmin();
     }
 
     match /instructors/{instructorId} {
@@ -54,7 +58,7 @@ service cloud.firestore {
       allow read: if true; 
       allow write: if isAdmin();
       match /chapters/{chapterId} {
-        allow read: if true;
+        allow read: if true; 
         allow write: if isAdmin();
       }
     }

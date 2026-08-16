@@ -1,27 +1,23 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import { useState, useMemo, useRef, Suspense } from "react";
 import Navbar from "@/components/navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
-  ClipboardCheck, 
   Plus, 
   Trash2, 
   Download, 
   Loader2, 
-  Users, 
-  PlusCircle, 
-  X, 
   UserPlus, 
   GraduationCap, 
   CheckCircle2, 
-  ChevronRight,
-  Filter,
+  PlusCircle, 
+  X,
   Image as ImageIcon
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useDoc } from "@/firebase";
@@ -34,9 +30,6 @@ import { Badge } from "@/components/ui/badge";
 import { toPng } from "html-to-image";
 import { cn } from "@/lib/utils";
 
-/**
- * واجهة رصد درجات الواتساب الاحترافية
- */
 function WhatsAppGradesContent() {
   const db = useFirestore();
   const { toast } = useToast();
@@ -133,7 +126,6 @@ function WhatsAppGradesContent() {
     setIsExporting(true);
     setGenderFilter(targetGender);
     
-    // تأخير بسيط لضمان تحديث الواجهة قبل الالتقاط
     setTimeout(async () => {
       try {
         const dataUrl = await toPng(exportRef.current!, { 
@@ -145,7 +137,7 @@ function WhatsAppGradesContent() {
         link.download = `درجات_سراج_${targetGender === 'male' ? 'الشباب' : 'البنات'}_${Date.now()}.png`;
         link.href = dataUrl;
         link.click();
-        toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات، جاهزة للإرسال عبر واتساب." });
+        toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات." });
       } catch (err) {
         toast({ variant: "destructive", title: "فشل التصدير", description: "حدث خطأ أثناء توليد الصورة." });
       } finally {
@@ -163,33 +155,35 @@ function WhatsAppGradesContent() {
   const selectedCourse = courses?.find(c => c.id === selectedCourseId);
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-7xl text-right" dir="rtl">
-      <header className="mb-10 space-y-2">
-        <h1 className="text-3xl font-black font-headline text-primary">رصد درجات الواتساب</h1>
-        <p className="text-muted-foreground font-bold">أدر درجات الطلاب التقويمية وصدّرها كصور احترافية لمجموعات الواتساب.</p>
+    <div className="container mx-auto px-4 py-8 max-w-7xl text-right" dir="rtl">
+      <header className="mb-8 space-y-2">
+        <h1 className="text-2xl md:text-3xl font-black font-headline text-primary">رصد درجات الواتساب</h1>
+        <p className="text-muted-foreground text-xs font-bold">أدر درجات الطلاب وصدّرها كصور احترافية لمجموعات الواتساب.</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-         <Card className="md:col-span-3 luxury-shadow border-none bg-card/50 backdrop-blur-sm rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-muted/30 border-b p-6 flex flex-row items-center justify-between">
-               <div className="flex items-center gap-4 flex-1">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-10">
+         <Card className="lg:col-span-3 luxury-shadow border-none bg-card/50 backdrop-blur-sm rounded-[1.5rem] md:rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b p-4 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+               <div className="w-full md:w-72">
                   <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-                    <SelectTrigger className="h-12 rounded-xl bg-white border-primary/10 shadow-sm font-black w-full md:w-72" dir="rtl">
+                    <SelectTrigger className="h-12 rounded-xl bg-white border-primary/10 shadow-sm font-black w-full" dir="rtl">
                       <SelectValue placeholder="اختر الدورة لبدء الرصد..." />
                     </SelectTrigger>
-                    <SelectContent dir="rtl">
+                    <SelectContent dir="rtl" className="max-w-[90vw]">
                       {courses?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
+                        <SelectItem key={c.id} value={c.id} className="truncate">
+                           <span className="truncate block max-w-[200px] md:max-w-xs text-xs md:text-sm">{c.title}</span>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                </div>
                {selectedCourseId && (
-                 <div className="flex items-center gap-2">
-                    <Button onClick={() => setIsExerciseModalOpen(true)} variant="outline" className="rounded-xl border-primary/10 gap-2 font-bold h-10 text-xs">
+                 <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+                    <Button onClick={() => setIsExerciseModalOpen(true)} variant="outline" size="sm" className="rounded-xl border-primary/10 gap-2 font-bold h-10 text-[10px] shrink-0">
                        <PlusCircle className="w-4 h-4 text-secondary" /> أضف تمرين
                     </Button>
-                    <Button onClick={() => setIsStudentModalOpen(true)} className="bg-primary text-white rounded-xl gap-2 font-bold h-10 text-xs">
+                    <Button onClick={() => setIsStudentModalOpen(true)} size="sm" className="bg-primary text-white rounded-xl gap-2 font-bold h-10 text-[10px] shrink-0">
                        <UserPlus className="w-4 h-4" /> أضف طالب
                     </Button>
                  </div>
@@ -199,35 +193,35 @@ function WhatsAppGradesContent() {
                {!selectedCourseId ? (
                  <div className="py-24 text-center">
                     <GraduationCap className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-                    <p className="text-muted-foreground font-bold">يرجى اختيار دورة تعليمية أولاً لعرض جدول الرصد.</p>
+                    <p className="text-muted-foreground font-bold text-sm">يرجى اختيار دورة تعليمية أولاً لعرض الجدول.</p>
                  </div>
                ) : gradeLoading ? (
                  <div className="py-24 text-center"><Loader2 className="w-10 h-10 animate-spin text-secondary mx-auto" /></div>
                ) : (
                  <div className="overflow-x-auto">
-                    <Table className="text-right">
+                    <Table className="text-right min-w-[500px]">
                        <TableHeader className="bg-muted/10">
                           <TableRow>
-                             <TableHead className="text-right font-black py-4 w-48">اسم الطالب</TableHead>
-                             <TableHead className="text-center font-black py-4">الجنس</TableHead>
+                             <TableHead className="text-right font-black py-4 w-40">اسم الطالب</TableHead>
+                             <TableHead className="text-center font-black py-4 w-16 px-1">الجنس</TableHead>
                              {exercises.map((ex: any) => (
-                               <TableHead key={ex.id} className="text-center font-black py-4 min-w-[100px]">
+                               <TableHead key={ex.id} className="text-center font-black py-4 min-w-[80px] px-1">
                                   <div className="flex flex-col items-center">
-                                     <span className="text-[10px] md:text-xs">{ex.title}</span>
-                                     <span className="text-[8px] opacity-50">من {ex.maxGrade}</span>
-                                     <button onClick={() => deleteExercise(ex)} className="mt-1 text-destructive opacity-0 hover:opacity-100"><X className="w-3 h-3" /></button>
+                                     <span className="text-[10px] line-clamp-1">{ex.title}</span>
+                                     <span className="text-[8px] opacity-50">/{ex.maxGrade}</span>
+                                     <button onClick={() => deleteExercise(ex)} className="mt-1 text-destructive opacity-40 hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
                                   </div>
                                </TableHead>
                              ))}
-                             <TableHead className="text-center font-black py-4 w-10"></TableHead>
+                             <TableHead className="text-center font-black py-4 w-10 px-1"></TableHead>
                           </TableRow>
                        </TableHeader>
                        <TableBody>
                           {students.length > 0 ? students.map((st: any) => (
-                            <TableRow key={st.id} className="hover:bg-primary/5 transition-colors">
-                               <TableCell className="font-bold text-primary">{st.name}</TableCell>
-                               <TableCell className="text-center">
-                                  <Badge className={cn("text-[8px] font-black", st.gender === 'male' ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700")}>
+                            <TableRow key={st.id} className="hover:bg-primary/5 transition-colors border-b border-primary/5">
+                               <TableCell className="font-bold text-primary text-xs py-4">{st.name}</TableCell>
+                               <TableCell className="text-center px-1">
+                                  <Badge className={cn("text-[7px] font-black px-1.5 py-0.5", st.gender === 'male' ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700")}>
                                      {st.gender === 'male' ? 'ذكر' : 'أنثى'}
                                   </Badge>
                                </TableCell>
@@ -235,14 +229,14 @@ function WhatsAppGradesContent() {
                                  <TableCell key={ex.id} className="p-1">
                                     <Input 
                                       type="number"
-                                      className="h-10 text-center rounded-lg border-primary/5 bg-muted/20 font-black text-secondary focus:bg-white"
+                                      className="h-9 text-center rounded-lg border-primary/5 bg-muted/20 font-black text-secondary focus:bg-white text-xs w-full"
                                       value={st.grades?.[ex.id] || ""}
                                       onChange={(e) => updateGrade(st.id, ex.id, e.target.value)}
                                     />
                                  </TableCell>
                                ))}
-                               <TableCell>
-                                  <Button onClick={() => deleteStudent(st)} variant="ghost" size="icon" className="h-8 w-8 text-destructive/30 hover:text-destructive">
+                               <TableCell className="px-1">
+                                  <Button onClick={() => deleteStudent(st)} variant="ghost" size="icon" className="h-8 w-8 text-destructive/20 hover:text-destructive">
                                      <Trash2 className="w-3.5 h-3.5" />
                                   </Button>
                                </TableCell>
@@ -250,7 +244,7 @@ function WhatsAppGradesContent() {
                           )) : (
                             <TableRow>
                                <TableCell colSpan={exercises.length + 3} className="py-20 text-center">
-                                  <p className="text-muted-foreground text-xs font-bold">لا يوجد طلاب مضافين لهذا الجدول بعد.</p>
+                                  <p className="text-muted-foreground text-[10px] font-bold">لا يوجد طلاب مضافين لهذا الجدول بعد.</p>
                                </TableCell>
                             </TableRow>
                           )}
@@ -263,43 +257,42 @@ function WhatsAppGradesContent() {
 
          <aside className="space-y-6">
             <Card className="luxury-shadow border-none bg-secondary/5 rounded-3xl p-6 text-center">
-               <h3 className="text-lg font-black text-primary mb-4 flex items-center justify-center gap-2">
-                  <Download className="w-5 h-5 text-secondary" /> تصدير النتائج
+               <h3 className="text-base font-black text-primary mb-4 flex items-center justify-center gap-2">
+                  <Download className="w-4 h-4 text-secondary" /> تصدير النتائج
                </h3>
                <div className="grid gap-3">
                   <Button 
                     disabled={!selectedCourseId || isExporting} 
                     onClick={() => handleExport("male")}
-                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-sm gap-2"
+                    className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs gap-2"
                   >
-                    <ImageIcon className="w-4 h-4" /> تصدير درجات الشباب
+                    <ImageIcon className="w-4 h-4" /> تصدير الشباب
                   </Button>
                   <Button 
                     disabled={!selectedCourseId || isExporting} 
                     onClick={() => handleExport("female")}
-                    className="w-full h-12 bg-pink-600 hover:bg-pink-700 text-white rounded-2xl font-black text-sm gap-2"
+                    className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-2xl font-black text-xs gap-2"
                   >
-                    <ImageIcon className="w-4 h-4" /> تصدير درجات البنات
+                    <ImageIcon className="w-4 h-4" /> تصدير البنات
                   </Button>
                </div>
-               <p className="text-[10px] text-muted-foreground mt-4 font-bold">سيتم إنشاء صورة جاهزة تحتوي فقط على الفئة المختارة بتصميم فاخر.</p>
             </Card>
 
-            <div className="bg-primary/5 p-6 rounded-3xl border border-dashed border-primary/20 space-y-4">
-               <h4 className="font-black text-primary text-sm flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-secondary" /> إحصائيات سريعة</h4>
-               <div className="flex justify-between items-center text-xs font-bold">
-                  <span className="text-muted-foreground">عدد الطلاب:</span>
+            <div className="bg-primary/5 p-5 rounded-3xl border border-dashed border-primary/20 space-y-3">
+               <h4 className="font-black text-primary text-xs flex items-center gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-secondary" /> ملخص البيانات</h4>
+               <div className="flex justify-between items-center text-[10px] font-bold">
+                  <span className="text-muted-foreground">إجمالي الطلاب:</span>
                   <span className="text-primary">{students.length}</span>
                </div>
-               <div className="flex justify-between items-center text-xs font-bold">
-                  <span className="text-muted-foreground">عدد التمارين:</span>
+               <div className="flex justify-between items-center text-[10px] font-bold">
+                  <span className="text-muted-foreground">إجمالي التمارين:</span>
                   <span className="text-primary">{exercises.length}</span>
                </div>
             </div>
          </aside>
       </div>
 
-      {/* نموذج تصدير الصور (مخفي برمجياً ويظهر عند الالتقاط فقط) */}
+      {/* نموذج تصدير الصور (مخفي برمجياً) */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
          <div 
            ref={exportRef} 
@@ -308,7 +301,6 @@ function WhatsAppGradesContent() {
          >
             <div className="border-4 border-primary/10 rounded-[3rem] p-10 bg-white luxury-shadow relative overflow-hidden">
                <div className="absolute top-0 left-0 w-32 h-32 bg-secondary/5 rounded-br-full" />
-               
                <div className="flex items-center justify-between mb-12 relative z-10">
                   <div className="space-y-1">
                      <h2 className="text-3xl font-black text-primary">كشف درجات التمارين التقويمية</h2>
@@ -317,14 +309,13 @@ function WhatsAppGradesContent() {
                         {genderFilter === 'male' ? 'قائمة الشباب' : 'قائمة البنات'} • منصة سراج التعليمية
                      </p>
                   </div>
-                  <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center p-3">
+                  <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center p-3 shadow-lg">
                      <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
                   </div>
                </div>
-
                <Table className="border-collapse text-right w-full">
                   <TableHeader>
-                    <TableRow className="bg-primary text-white hover:bg-primary border-none">
+                    <TableRow className="bg-primary text-white border-none">
                       <TableHead className="text-right font-black py-6 px-4 rounded-tr-2xl text-lg">اسم الطالب</TableHead>
                       {exercises.map((ex: any) => (
                         <TableHead key={ex.id} className="text-center font-black text-lg py-6">{ex.title}</TableHead>
@@ -337,9 +328,8 @@ function WhatsAppGradesContent() {
                       let total = 0;
                       exercises.forEach((ex: any) => { total += Number(st.grades?.[ex.id] || 0); });
                       const maxTotal = exercises.reduce((acc: number, ex: any) => acc + ex.maxGrade, 0);
-                      
                       return (
-                        <TableRow key={st.id} className="border-b border-primary/5 hover:bg-transparent">
+                        <TableRow key={st.id} className="border-b border-primary/5">
                           <TableCell className="font-black text-primary py-5 px-4 text-lg">{st.name}</TableCell>
                           {exercises.map((ex: any) => (
                             <TableCell key={ex.id} className="text-center font-black text-secondary text-lg">
@@ -356,50 +346,46 @@ function WhatsAppGradesContent() {
                     })}
                   </TableBody>
                </Table>
-
-               <div className="mt-12 text-center border-t border-primary/5 pt-8">
-                  <p className="text-xs font-black text-primary opacity-30 uppercase tracking-[0.3em]">www.siraj.io • 2024</p>
-               </div>
             </div>
          </div>
       </div>
 
       {/* Dialogs */}
       <Dialog open={isExerciseModalOpen} onOpenChange={setIsExerciseModalOpen}>
-         <DialogContent className="rounded-[2.5rem] p-8 border-none luxury-shadow" dir="rtl">
-            <DialogHeader className="text-right mb-6">
-               <DialogTitle className="text-2xl font-black text-primary">إضافة تمرين جديد</DialogTitle>
+         <DialogContent className="rounded-[2rem] p-6 border-none luxury-shadow max-w-[90vw]" dir="rtl">
+            <DialogHeader className="text-right mb-4">
+               <DialogTitle className="text-xl font-black text-primary">إضافة تمرين جديد</DialogTitle>
             </DialogHeader>
-            <div className="space-y-6">
-               <div className="space-y-2">
-                  <Label className="font-bold mr-1">عنوان التمرين (مثلاً: تمرين 1)</Label>
-                  <Input value={exerciseForm.title} onChange={(e) => setExerciseForm({...exerciseForm, title: e.target.value})} className="h-14 rounded-2xl border-primary/10" placeholder="اكتب اسم التمرين..." />
+            <div className="space-y-5">
+               <div className="space-y-1">
+                  <Label className="font-bold text-xs">عنوان التمرين</Label>
+                  <Input value={exerciseForm.title} onChange={(e) => setExerciseForm({...exerciseForm, title: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="مثلاً: تمرين 1" />
                </div>
-               <div className="space-y-2">
-                  <Label className="font-bold mr-1">الدرجة النهائية</Label>
-                  <Input type="number" value={exerciseForm.maxGrade} onChange={(e) => setExerciseForm({...exerciseForm, maxGrade: e.target.value})} className="h-14 rounded-2xl border-primary/10 text-center font-black" />
+               <div className="space-y-1">
+                  <Label className="font-bold text-xs">الدرجة النهائية</Label>
+                  <Input type="number" value={exerciseForm.maxGrade} onChange={(e) => setExerciseForm({...exerciseForm, maxGrade: e.target.value})} className="h-12 rounded-xl border-primary/10 text-center font-black" />
                </div>
             </div>
-            <DialogFooter className="mt-8">
-               <Button onClick={handleAddExercise} className="h-14 rounded-2xl bg-primary text-white font-black flex-1 text-lg">تثبيت التمرين</Button>
+            <DialogFooter className="mt-6">
+               <Button onClick={handleAddExercise} className="h-12 rounded-xl bg-primary text-white font-black flex-1">تثبيت التمرين</Button>
             </DialogFooter>
          </DialogContent>
       </Dialog>
 
       <Dialog open={isStudentModalOpen} onOpenChange={setIsStudentModalOpen}>
-         <DialogContent className="rounded-[2.5rem] p-8 border-none luxury-shadow" dir="rtl">
-            <DialogHeader className="text-right mb-6">
-               <DialogTitle className="text-2xl font-black text-primary">إضافة طالب للرصد</DialogTitle>
+         <DialogContent className="rounded-[2rem] p-6 border-none luxury-shadow max-w-[90vw]" dir="rtl">
+            <DialogHeader className="text-right mb-4">
+               <DialogTitle className="text-xl font-black text-primary">إضافة طالب للرصد</DialogTitle>
             </DialogHeader>
-            <div className="space-y-6">
-               <div className="space-y-2">
-                  <Label className="font-bold mr-1">اسم الطالب الكامل</Label>
-                  <Input value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} className="h-14 rounded-2xl border-primary/10" placeholder="الاسم كما في الواتساب..." />
+            <div className="space-y-5">
+               <div className="space-y-1">
+                  <Label className="font-bold text-xs">اسم الطالب</Label>
+                  <Input value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="الاسم كما في الواتساب" />
                </div>
-               <div className="space-y-2">
-                  <Label className="font-bold mr-1">الجنس</Label>
+               <div className="space-y-1">
+                  <Label className="font-bold text-xs">الجنس</Label>
                   <Select value={studentForm.gender} onValueChange={(val) => setStudentForm({...studentForm, gender: val})}>
-                     <SelectTrigger className="h-14 rounded-2xl border-primary/10 font-bold" dir="rtl">
+                     <SelectTrigger className="h-12 rounded-xl border-primary/10 font-bold" dir="rtl">
                         <SelectValue />
                      </SelectTrigger>
                      <SelectContent dir="rtl">
@@ -409,8 +395,8 @@ function WhatsAppGradesContent() {
                   </Select>
                </div>
             </div>
-            <DialogFooter className="mt-8">
-               <Button onClick={handleAddStudent} className="h-14 rounded-2xl bg-primary text-white font-black flex-1 text-lg">إضافة للقائمة</Button>
+            <DialogFooter className="mt-6">
+               <Button onClick={handleAddStudent} className="h-12 rounded-xl bg-primary text-white font-black flex-1">إضافة للقائمة</Button>
             </DialogFooter>
          </DialogContent>
       </Dialog>
