@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Loader2, Play, Pause, Volume2, VolumeX, Maximize, Minimize, AlertCircle, Lock, Gauge } from "lucide-react";
+import { Loader2, Play, Pause, Volume2, VolumeX, Maximize, Minimize, AlertCircle, Lock, Gauge, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 
@@ -77,7 +77,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 4000);
   }, []);
 
-  // تم إزالة playbackRate من هنا لمنع إعادة بناء المشغل عند تغيير السرعة
   const initPlayer = useCallback(() => {
     if (!videoId || !window.YT || !window.YT.Player || playerRef.current) return;
     
@@ -100,7 +99,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         onReady: (event: any) => {
           setIsReady(true);
           setDuration(event.target.getDuration());
-          // ضبط السرعة الأولية المختارة
           event.target.setPlaybackRate(playbackRate);
           event.target.playVideo();
         },
@@ -119,7 +117,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     });
   }, [videoId, showControls]);
 
-  // تحديث السرعة برمجياً دون إعادة تشغيل الفيديو
+  // تحديث السرعة دون إعادة الفيديو (ميزة السرعة التي تم إصلاحها)
   useEffect(() => {
     if (isReady && playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(playbackRate);
@@ -150,11 +148,11 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       setIsFullscreen(isFs);
       if (!isFs && !isPseudoFullscreen) {
         try {
-          if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.unlock === 'function') {
+          if (screen.orientation && screen.orientation.unlock) {
             screen.orientation.unlock();
           }
         } catch (e) {
-          // تجاهل الخطأ في المتصفحات التي تمنع فك قفل التدوير
+          // تجاهل الخطأ في المتصفحات التي تمنع فك قفل التدوير (إصلاح الـ SecurityError)
         }
       }
     };
@@ -196,12 +194,10 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         throw new Error("unsupported");
       }
 
-      if (typeof screen !== 'undefined' && screen.orientation && (screen.orientation as any).lock) {
+      if (screen.orientation && screen.orientation.lock) {
         try {
-          await (screen.orientation as any).lock('landscape');
-        } catch (e) {
-          // صامت
-        }
+          await screen.orientation.lock('landscape');
+        } catch (e) {}
       }
     } catch (err) {
       setIsPseudoFullscreen(true);
@@ -213,6 +209,17 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     if (!canSeek || !playerRef.current) return;
     playerRef.current.seekTo(values[0], true);
     setCurrentTime(values[0]);
+  };
+
+  // دالة الرجوع للخلف 10 ثوانٍ (الميزة الجديدة)
+  const handleRewind = (e: any) => {
+    e.stopPropagation();
+    if (!playerRef.current || typeof playerRef.current.getCurrentTime !== 'function') return;
+    const time = playerRef.current.getCurrentTime();
+    const newTime = Math.max(0, time - 10);
+    playerRef.current.seekTo(newTime, true);
+    setCurrentTime(newTime);
+    showControls();
   };
 
   const toggleSpeed = (e: any) => {
@@ -271,10 +278,17 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
                {!canSeek && <Lock className="w-3 h-3 text-white/40" />}
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 md:gap-6">
                 <button className="text-white active:scale-90 transition-transform" onClick={() => playerRef.current?.getPlayerState() === 1 ? playerRef.current.pauseVideo() : playerRef.current.playVideo()}>
                   {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
                 </button>
+                
+                {/* زر الرجوع للخلف 10 ثوانٍ */}
+                <button onClick={handleRewind} className="text-white active:scale-90 transition-transform flex flex-col items-center group">
+                  <RotateCcw className="w-5 h-5 group-hover:text-secondary transition-colors" />
+                  <span className="text-[7px] font-black mt-[-1px]">10s</span>
+                </button>
+
                 <div className="text-[11px] font-mono text-white/90" dir="ltr">
                   <span className="text-secondary font-bold">{formatTime(currentTime)}</span>
                   <span className="opacity-30 px-1">/</span>
