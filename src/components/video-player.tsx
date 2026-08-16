@@ -77,7 +77,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 4000);
   }, []);
 
-  // تحسين دالة التهيئة لمنع إعادة تشغيل الفيديو عند تغيير السرعة
   const initPlayer = useCallback(() => {
     if (!videoId || !window.YT || !window.YT.Player || playerRef.current) return;
     
@@ -101,7 +100,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           setIsReady(true);
           setDuration(event.target.getDuration());
           event.target.setPlaybackRate(playbackRate);
-          // محاولة التشغيل التلقائي فور الجاهزية
           event.target.playVideo();
         },
         onStateChange: (event: any) => {
@@ -117,9 +115,8 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         }
       },
     });
-  }, [videoId]); // تمت إزالة playbackRate من هنا لمنع إعادة التهيئة عند تغييره
+  }, [videoId, playbackRate, showControls]);
 
-  // مراقب لتحديث سرعة التشغيل دون إعادة تشغيل الفيديو
   useEffect(() => {
     if (isReady && playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(playbackRate);
@@ -149,8 +146,12 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       const isFs = !!document.fullscreenElement;
       setIsFullscreen(isFs);
       if (!isFs && !isPseudoFullscreen) {
-        if (screen.orientation && screen.orientation.unlock) {
-          screen.orientation.unlock().catch(() => {});
+        try {
+          if (typeof screen !== 'undefined' && screen.orientation && typeof screen.orientation.unlock === 'function') {
+            screen.orientation.unlock();
+          }
+        } catch (e) {
+          // حماية صامتة في حال منع المتصفح الوصول للأمر
         }
       }
     };
@@ -168,7 +169,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     };
   }, [videoId, mounted, initPlayer, isPseudoFullscreen]);
 
-  // دالة التكبير والتعريض (بقيت كما هي تماماً دون تغيير في منطقها)
   const toggleFullScreen = async () => {
     if (!containerRef.current) return;
 
@@ -193,8 +193,12 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         throw new Error("unsupported");
       }
 
-      if (screen.orientation && (screen.orientation as any).lock) {
-        await (screen.orientation as any).lock('landscape').catch(() => {});
+      if (typeof screen !== 'undefined' && screen.orientation && (screen.orientation as any).lock) {
+        try {
+          await (screen.orientation as any).lock('landscape');
+        } catch (e) {
+          // فشل القفل ليس حرجاً، يستمر الفيديو
+        }
       }
     } catch (err) {
       setIsPseudoFullscreen(true);
@@ -212,7 +216,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     e.stopPropagation();
     const nextRate = playbackRate === 1 ? 1.25 : playbackRate === 1.25 ? 1.5 : 1;
     setPlaybackRate(nextRate);
-    // تم حذف السطر الذي يستدعي playerRef مباشرة هنا لأنه أصبح يتم عبر useEffect
   };
 
   if (!mounted) return <div className="w-full aspect-video rounded-2xl bg-black" />;
