@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -33,7 +34,7 @@ import {
   ShieldAlert
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
-import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, collection, query, updateDoc, arrayUnion, where, orderBy } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -49,6 +50,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const { profile, user, isAdmin, loading: userLoading } = useUser();
   const { toast } = useToast();
   
+  const [mounted, setMounted] = useState(false);
   const hasInitializedRef = useRef(false);
   const userHasInteractedRef = useRef(false);
   
@@ -57,6 +59,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const [isFinishing, setIsFinishing] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [localCompleted, setLocalCompleted] = useState<string[]>([]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const courseRef = useMemoFirebase(() => db ? doc(db, "courses", id) : null, [db, id]);
   const { data: course, loading: courseLoading } = useDoc(courseRef);
@@ -97,7 +103,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
   useEffect(() => {
-    if (userLoading || courseLoading || !lessons) return;
+    if (userLoading || courseLoading || !lessons || !mounted) return;
     if (!profile && lessons.length > 0 && !selectedLessonId) {
       setSelectedLessonId(lessons[0].id);
       return;
@@ -119,7 +125,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
     setLocalCompleted(completedIds);
     hasInitializedRef.current = true;
-  }, [lessons, profile, id, userLoading, courseLoading, selectedLessonId, isFinishing]);
+  }, [lessons, profile, id, userLoading, courseLoading, selectedLessonId, isFinishing, mounted]);
 
   const selectLesson = useCallback((lessonId: string, isManual = true) => {
     if (isManual) userHasInteractedRef.current = true;
@@ -161,7 +167,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (currentLesson.type === "video") setTimeout(goToNext, 2000);
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
-  if (courseLoading || userLoading) {
+  if (!mounted || courseLoading || userLoading) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
 

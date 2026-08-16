@@ -28,16 +28,21 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
   
+  const [mounted, setMounted] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false); // CSS Fallback for iOS
+  const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false); 
   const [controlsVisible, setControlsVisible] = useState(true);
   
   const [playbackRate, setPlaybackRate] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const extractId = (input: string | null | undefined) => {
     if (!input) return null;
@@ -67,7 +72,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   }, []);
 
   useEffect(() => {
-    if (!videoId) return;
+    if (!videoId || !mounted) return;
 
     const loadScript = () => {
       if (!window.YT) {
@@ -138,25 +143,13 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
         const time = playerRef.current.getCurrentTime();
         setCurrentTime(time);
-        
         const total = playerRef.current.getDuration();
-        if (total > 0) {
-          setDuration(total);
-        }
+        if (total > 0) setDuration(total);
       }
     }, 500);
 
     const handleFsChange = () => {
-      const isFs = !!document.fullscreenElement;
-      setIsFullscreen(isFs);
-      
-      try {
-        if (isFs && window.screen?.orientation?.lock) {
-          window.screen.orientation.lock("landscape").catch(() => {});
-        } else if (!isFs && window.screen?.orientation?.unlock) {
-          window.screen.orientation.unlock();
-        }
-      } catch (err) {}
+      setIsFullscreen(!!document.fullscreenElement);
     };
     
     document.addEventListener("fullscreenchange", handleFsChange);
@@ -171,7 +164,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls]);
+  }, [videoId, showControls, mounted, playbackRate]);
 
   const handleTogglePlay = (e?: any) => {
     e?.stopPropagation();
@@ -199,47 +192,31 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const toggleFullScreen = async () => {
     if (!containerRef.current) return;
     
-    // Check if browser supports standard fullscreen API
     const canRequestFullscreen = !!(
       containerRef.current.requestFullscreen || 
       (containerRef.current as any).webkitRequestFullscreen || 
-      (containerRef.current as any).mozRequestFullScreen || 
       (containerRef.current as any).msRequestFullscreen
     );
 
-    if (canRequestFullscreen) {
+    if (canRequestFullscreen && !/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
       try {
         if (!document.fullscreenElement) {
-          if (containerRef.current.requestFullscreen) {
-            await containerRef.current.requestFullscreen();
-          } else if ((containerRef.current as any).webkitRequestFullscreen) {
-            await (containerRef.current as any).webkitRequestFullscreen();
-          }
+          if (containerRef.current.requestFullscreen) await containerRef.current.requestFullscreen();
+          else if ((containerRef.current as any).webkitRequestFullscreen) await (containerRef.current as any).webkitRequestFullscreen();
         } else {
-          if (document.exitFullscreen) {
-            await document.exitFullscreen();
-          } else if ((document as any).webkitExitFullscreen) {
-            await (document as any).webkitExitFullscreen();
-          }
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
         }
         return;
-      } catch (err) {
-        console.warn("Standard Fullscreen Failed, falling back to CSS Fullscreen", err);
-      }
+      } catch (err) {}
     }
 
-    // Fallback: CSS Fullscreen (Pseudo-fullscreen) for iOS and restricted browsers
     const nextState = !isPseudoFullscreen;
     setIsPseudoFullscreen(nextState);
-    
-    if (nextState) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (nextState) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
   };
 
-  // Exit Pseudo-Fullscreen on Escape key
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isPseudoFullscreen) {
@@ -264,12 +241,13 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     if (playbackRate === 1) nextRate = 1.25;
     else if (playbackRate === 1.25) nextRate = 1.5;
     else nextRate = 1;
-
     setPlaybackRate(nextRate);
     if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(nextRate);
     }
   };
+
+  if (!mounted) return <div className="w-full aspect-video rounded-2xl bg-black" />;
 
   const isAnyFullscreen = isFullscreen || isPseudoFullscreen;
 
@@ -277,7 +255,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     return (
       <div className="w-full aspect-video rounded-2xl bg-muted flex flex-col items-center justify-center gap-4 border-2 border-dashed border-primary/20">
         <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
-        <p className="text-muted-foreground font-bold text-center px-4">يرجى إضافة رابط يوتيوب صحيح للدرس</p>
+        <p className="text-muted-foreground font-bold text-center px-4">رابط الفيديو غير صحيح</p>
       </div>
     );
   }
@@ -289,7 +267,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         onMouseMove={showControls}
         className={cn(
           "relative aspect-video rounded-2xl overflow-hidden bg-black luxury-shadow border border-border select-none transition-all duration-300",
-          isAnyFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex items-center justify-center bg-black"
+          isAnyFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex flex-col items-center justify-center bg-black"
         )}
       >
         {!isReady && (
@@ -298,21 +276,18 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           </div>
         )}
 
-        <div className={cn("w-full h-full flex items-center justify-center", isAnyFullscreen ? "bg-black" : "")}>
+        <div className={cn("w-full h-full relative flex items-center justify-center", isAnyFullscreen ? "bg-black" : "")}>
           <div id="youtube-player-element" className="w-full h-full" />
-          <div 
-            className="absolute inset-0 z-[50] cursor-pointer" 
-            onClick={handleTogglePlay}
-          />
+          <div className="absolute inset-0 z-[50] cursor-pointer" onClick={handleTogglePlay} />
         </div>
 
         <div 
           className={cn(
-            "absolute z-[300] bottom-0 left-0 right-0 p-4 md:p-6 transition-all duration-500 bg-gradient-to-t from-black/90 via-black/40 to-transparent",
+            "absolute z-[300] bottom-0 left-0 right-0 p-4 md:p-6 transition-all duration-500 bg-gradient-to-t from-black/95 via-black/60 to-transparent",
             controlsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
           )}
         >
-          <div className="space-y-4 max-w-4xl mx-auto">
+          <div className="space-y-4 max-w-4xl mx-auto w-full">
             <div className="flex items-center gap-3 group/seek">
                <Slider
                   value={[currentTime]}
@@ -320,16 +295,9 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
                   step={1}
                   onValueChange={handleSeek}
                   disabled={!canSeek}
-                  className={cn(
-                    "flex-1 transition-all",
-                    !canSeek ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-                  )}
+                  className={cn("flex-1", !canSeek ? "opacity-50 cursor-not-allowed" : "cursor-pointer")}
                />
-               {!canSeek && (
-                 <div className="p-1 bg-white/10 rounded-lg text-white/50" title="يجب إكمال الفيديو أولاً لتتمكن من التقديم">
-                   <Lock className="w-3 h-3" />
-                 </div>
-               )}
+               {!canSeek && <div className="p-1 bg-white/10 rounded-lg text-white/50"><Lock className="w-3 h-3" /></div>}
             </div>
 
             <div className="flex items-center justify-between">
@@ -337,7 +305,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
                 <button className="text-white hover:text-secondary transition-transform active:scale-90" onClick={handleTogglePlay}>
                   {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
                 </button>
-
                 <div className="flex items-center gap-2 text-[11px] md:text-sm font-mono text-white/90" dir="ltr">
                   <span className="text-secondary font-bold">{formatTime(currentTime)}</span>
                   <span className="opacity-30">/</span>
@@ -346,20 +313,13 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
               </div>
 
               <div className="flex items-center gap-2 md:gap-4">
-                <button 
-                  onClick={toggleSpeed}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all border border-white/5 active:scale-95 z-[500]"
-                >
+                <button onClick={toggleSpeed} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white border border-white/5 active:scale-95">
                   <Gauge className="w-4 h-4 text-secondary" />
-                  <span className="text-[10px] md:text-xs font-black min-w-[30px]">
-                    {playbackRate === 1 ? 'عادي' : playbackRate + 'x'}
-                  </span>
+                  <span className="text-[10px] md:text-xs font-black min-w-[30px]">{playbackRate === 1 ? 'عادي' : playbackRate + 'x'}</span>
                 </button>
-
                 <button className="text-white hover:text-secondary p-1" onClick={handleToggleMute}>
                   {isMuted || currentTime === 0 ? <VolumeX className="w-5 h-5 text-destructive" /> : <Volume2 className="w-5 h-5" />}
                 </button>
-
                 <button className="text-white hover:text-secondary p-1" onClick={toggleFullScreen}>
                   {isAnyFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                 </button>
@@ -368,6 +328,13 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           </div>
         </div>
       </div>
+      {isPseudoFullscreen && (
+        <div className="fixed top-4 left-4 z-[10000] sm:hidden animate-bounce">
+           <div className="bg-secondary/90 text-white px-3 py-1 rounded-full text-[10px] font-black shadow-xl border border-white/20">
+              قم بتدوير الهاتف لعرض أفضل 📱
+           </div>
+        </div>
+      )}
     </div>
   );
 }
