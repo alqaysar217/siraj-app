@@ -77,6 +77,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 4000);
   }, []);
 
+  // تم إزالة playbackRate من هنا لمنع إعادة بناء المشغل عند تغيير السرعة
   const initPlayer = useCallback(() => {
     if (!videoId || !window.YT || !window.YT.Player || playerRef.current) return;
     
@@ -99,6 +100,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         onReady: (event: any) => {
           setIsReady(true);
           setDuration(event.target.getDuration());
+          // ضبط السرعة الأولية المختارة
           event.target.setPlaybackRate(playbackRate);
           event.target.playVideo();
         },
@@ -115,8 +117,9 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         }
       },
     });
-  }, [videoId, playbackRate, showControls]);
+  }, [videoId, showControls]);
 
+  // تحديث السرعة برمجياً دون إعادة تشغيل الفيديو
   useEffect(() => {
     if (isReady && playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(playbackRate);
@@ -151,7 +154,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
             screen.orientation.unlock();
           }
         } catch (e) {
-          // حماية صامتة في حال منع المتصفح الوصول للأمر
+          // تجاهل الخطأ في المتصفحات التي تمنع فك قفل التدوير
         }
       }
     };
@@ -197,7 +200,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         try {
           await (screen.orientation as any).lock('landscape');
         } catch (e) {
-          // فشل القفل ليس حرجاً، يستمر الفيديو
+          // صامت
         }
       }
     } catch (err) {
