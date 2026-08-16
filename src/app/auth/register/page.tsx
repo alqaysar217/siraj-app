@@ -51,21 +51,19 @@ export default function RegisterPage() {
     }
 
     if (password.length < 8) {
-      toast({ variant: "destructive", title: "كلمة سر ضعيفة", description: "8 أحرف على الأقل." });
+      toast({ variant: "destructive", title: "كلمة سر ضعيفة", description: "يجب أن تكون 8 أحرف على الأقل." });
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. إنشاء الحساب في Auth أولاً
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password.trim());
       const user = userCredential.user;
 
       const deviceId = getStableDeviceID();
       const sessionId = `sess_${Date.now()}`;
       
-      // 2. إنشاء الملف الشخصي في Firestore
       const profileData = {
         uid: user.uid,
         name: name.trim(),
@@ -79,12 +77,12 @@ export default function RegisterPage() {
         createdAt: serverTimestamp()
       };
 
+      // التأكد من نجاح كتابة الملف قبل المتابعة
       await setDoc(doc(db, "users", user.uid), profileData);
       
       localStorage.setItem('siraj_session_id', sessionId);
       setSuccess(true);
       
-      // تأخير كافٍ لضمان استقرار سفاري آيفون وتزامن السيرفر
       setTimeout(() => {
         router.replace("/dashboard");
       }, 1500);
@@ -92,7 +90,7 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error("Register error:", error);
       let msg = "حدث خطأ غير متوقع.";
-      if (error.code === "auth/email-already-in-use") msg = "البريد مسجل مسبقاً.";
+      if (error.code === "auth/email-already-in-use") msg = "هذا البريد مسجل مسبقاً لدينا.";
       toast({ variant: "destructive", title: "فشل التسجيل", description: msg });
       setLoading(false);
     }

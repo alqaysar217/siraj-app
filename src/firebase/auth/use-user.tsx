@@ -8,10 +8,6 @@ import { useAuth, useFirestore } from '../provider';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
-/**
- * خطاف إدارة المستخدم المطور (سراج v3)
- * يضمن استقرار الجلسة، التعامل مع تعدد الأجهزة، وترميم الملفات المفقودة بشكل فوري
- */
 export function useUser() {
   const auth = useAuth();
   const db = useFirestore();
@@ -23,7 +19,6 @@ export function useUser() {
   const [loading, setLoading] = useState(true);
   const isKickingRef = useRef(false);
 
-  // 1. مراقبة حالة تسجيل الدخول الأساسية
   useEffect(() => {
     if (!auth) return;
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
@@ -36,7 +31,6 @@ export function useUser() {
     return () => unsubscribeAuth();
   }, [auth]);
 
-  // 2. مراقبة الملف الشخصي والجلسات النشطة
   useEffect(() => {
     if (!db || !user || !auth) return;
 
@@ -47,10 +41,7 @@ export function useUser() {
           const data = docSnap.data();
           setProfile(data);
 
-          // نظام الأمان للطلاب فقط
           if (data.role === 'student' && !isKickingRef.current) {
-            
-            // أ- فحص الحظر
             if (data.status === 'banned') {
               isKickingRef.current = true;
               await signOut(auth);
@@ -58,7 +49,6 @@ export function useUser() {
               return;
             }
 
-            // ب- فحص الجلسة النشطة (الطرد التبادلي)
             const localSessionId = localStorage.getItem('siraj_session_id');
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId) {
               isKickingRef.current = true;
@@ -70,7 +60,7 @@ export function useUser() {
           }
           setLoading(false);
         } else {
-          // ج- نظام الترميم التلقائي (Auto-Repair)
+          // نظام الترميم التلقائي المحسن
           try {
             const repairData = {
               uid: user.uid,
@@ -91,15 +81,14 @@ export function useUser() {
       },
       (error) => {
         console.error("Profile sync error", error);
-        // في حال وجود خطأ في المزامنة (مثل انقطاع الإنترنت في الآيفون)، لا نعلق الطالب في شاشة التحميل
+        // منع التعليق في حال وجود خطأ في الصلاحيات للحظات
         setLoading(false);
       }
     );
 
-    // حماية إضافية للآيفون: إغلاق حالة التحميل بعد 5 ثوانٍ مهما حدث
     const backupTimeout = setTimeout(() => {
       setLoading(false);
-    }, 5000);
+    }, 4000);
 
     return () => {
       unsubscribeProfile();

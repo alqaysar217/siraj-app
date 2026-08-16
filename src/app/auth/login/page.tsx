@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import Image from "next/image";
 import Navbar from "@/components/navbar";
 import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,6 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // بصمة الجهاز المستقرة - تعمل بدقة على الآيفون والأندرويد والحاسوب
   const getStableDeviceID = () => {
     if (typeof window === 'undefined') return "unknown";
     const ua = navigator.userAgent;
@@ -79,7 +78,6 @@ export default function LoginPage() {
         const currentDevices = userData.deviceIds || [];
         const isDeviceKnown = currentDevices.includes(deviceId);
         
-        // تطبيق قيد الـ 2 أجهزة
         if (userData.role !== 'admin' && !isDeviceKnown && currentDevices.length >= 2) {
           await signOut(auth);
           toast({ 
@@ -91,28 +89,35 @@ export default function LoginPage() {
           return;
         }
 
-        // تحديث الجلسة وتسجيل الجهاز الجديد
-        await updateDoc(userDocRef, { 
+        // استخدام setDoc مع merge بدلاً من updateDoc لتجنب أخطاء الصلاحيات
+        await setDoc(userDocRef, { 
           lastSessionId: newSessionId, 
-          deviceIds: arrayUnion(deviceId)
-        });
+          deviceIds: Array.from(new Set([...currentDevices, deviceId])),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
 
         localStorage.setItem('siraj_session_id', newSessionId);
         
-        // تأخير بسيط لضمان استقرار سفاري آيفون قبل التوجيه
         setTimeout(() => {
           router.replace("/dashboard");
         }, 1000);
 
       } else {
-        // إنشاء ملف ناقص في حال وجود خلل سابق
+        // حالة الترميم التلقائي إذا كان الحساب موجوداً في Auth ولكن ليس في Firestore
         const sessionId = `sess_${Date.now()}`;
-        await updateDoc(userDocRef, { 
+        await setDoc(userDocRef, { 
           uid: user.uid,
           email: user.email,
+          name: user.displayName || "طالب سراج",
+          role: "student",
+          status: "active",
           lastSessionId: sessionId,
-          deviceIds: [deviceId]
-        });
+          deviceIds: [deviceId],
+          enrolledCourses: [],
+          showInLeaderboard: true,
+          createdAt: serverTimestamp()
+        }, { merge: true });
+        
         localStorage.setItem('siraj_session_id', sessionId);
         setTimeout(() => {
           router.replace("/dashboard");
@@ -122,6 +127,7 @@ export default function LoginPage() {
       console.error("Login error:", error);
       let msg = "البريد أو كلمة السر غير صحيحة.";
       if (error.code === 'auth/user-not-found') msg = "هذا الحساب غير موجود.";
+      if (error.code === 'auth/wrong-password') msg = "كلمة المرور غير صحيحة.";
       
       toast({ variant: "destructive", title: "فشل الدخول", description: msg });
       setLoading(false);
