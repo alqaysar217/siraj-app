@@ -34,6 +34,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false); 
+  const [isPortrait, setIsPortrait] = useState(true);
   const [controlsVisible, setControlsVisible] = useState(true);
   
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -42,13 +43,16 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
 
   useEffect(() => {
     setMounted(true);
+    const checkOrientation = () => setIsPortrait(window.innerHeight > window.innerWidth);
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
+    return () => window.removeEventListener('resize', checkOrientation);
   }, []);
 
   const extractId = (input: string | null | undefined) => {
     if (!input) return null;
     const cleanInput = input.trim();
     if (cleanInput.length === 11 && !cleanInput.includes('/')) return cleanInput;
-    
     const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
     const match = cleanInput.match(regExp);
     return (match && match[7].length === 11) ? match[7] : null;
@@ -71,87 +75,65 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 4000);
   }, []);
 
+  const initPlayer = useCallback(() => {
+    if (!videoId || !window.YT || !window.YT.Player || playerRef.current) return;
+    
+    playerRef.current = new window.YT.Player('youtube-player-element', {
+      height: "100%",
+      width: "100%",
+      videoId: videoId,
+      playerVars: {
+        controls: 0,
+        rel: 0,
+        modestbranding: 1,
+        iv_load_policy: 3,
+        disablekb: 1,
+        fs: 0,
+        playsinline: 1,
+        autoplay: 1,
+        loop: 0
+      },
+      events: {
+        onReady: (event: any) => {
+          setIsReady(true);
+          setDuration(event.target.getDuration());
+          event.target.setPlaybackRate(playbackRate);
+        },
+        onStateChange: (event: any) => {
+          if (event.data === window.YT.PlayerState.PLAYING) setIsPlaying(true);
+          else if (event.data === window.YT.PlayerState.PAUSED) setIsPlaying(false);
+          else if (event.data === window.YT.PlayerState.ENDED) {
+            if (onCompleteRef.current && !completionTriggeredRef.current) {
+              completionTriggeredRef.current = true;
+              onCompleteRef.current();
+            }
+          }
+          showControls();
+        }
+      },
+    });
+  }, [videoId, playbackRate, showControls]);
+
   useEffect(() => {
     if (!videoId || !mounted) return;
 
-    const loadScript = () => {
-      if (!window.YT) {
-        const tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName("script")[0];
-        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-      }
-    };
-
-    const initPlayer = () => {
-      if (playerRef.current || !videoId || !window.YT || !window.YT.Player) return;
-      
-      try {
-        playerRef.current = new window.YT.Player('youtube-player-element', {
-          height: "100%",
-          width: "100%",
-          videoId: videoId,
-          playerVars: {
-            controls: 0,
-            rel: 0,
-            modestbranding: 1,
-            iv_load_policy: 3,
-            disablekb: 1,
-            fs: 0,
-            playsinline: 1,
-            autoplay: 1,
-            loop: 0
-          },
-          events: {
-            onReady: (event: any) => {
-              setIsReady(true);
-              setDuration(event.target.getDuration());
-              event.target.setPlaybackRate(playbackRate);
-            },
-            onStateChange: (event: any) => {
-              if (event.data === window.YT.PlayerState.PLAYING) {
-                setIsPlaying(true);
-              } else if (event.data === window.YT.PlayerState.PAUSED) {
-                setIsPlaying(false);
-              } else if (event.data === window.YT.PlayerState.ENDED) {
-                if (onCompleteRef.current && !completionTriggeredRef.current) {
-                  completionTriggeredRef.current = true;
-                  onCompleteRef.current();
-                }
-              }
-              showControls();
-            },
-            onError: () => {
-              setIsReady(true);
-            }
-          },
-        });
-      } catch (err) {
-        console.error("YT Player Init Error:", err);
-      }
-    };
-
-    loadScript();
-
-    if (window.YT && window.YT.Player) {
-      initPlayer();
-    } else {
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
       window.onYouTubeIframeAPIReady = initPlayer;
+    } else {
+      initPlayer();
     }
 
     const interval = setInterval(() => {
       if (playerRef.current && typeof playerRef.current.getCurrentTime === 'function') {
-        const time = playerRef.current.getCurrentTime();
-        setCurrentTime(time);
-        const total = playerRef.current.getDuration();
-        if (total > 0) setDuration(total);
+        setCurrentTime(playerRef.current.getCurrentTime());
       }
     }, 500);
 
-    const handleFsChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    
+    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
 
@@ -159,182 +141,128 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       clearInterval(interval);
       document.removeEventListener("fullscreenchange", handleFsChange);
       document.removeEventListener("webkitfullscreenchange", handleFsChange);
-      if (playerRef.current && playerRef.current.destroy) {
+      if (playerRef.current?.destroy) {
         playerRef.current.destroy();
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls, mounted, playbackRate]);
-
-  const handleTogglePlay = (e?: any) => {
-    e?.stopPropagation();
-    if (!playerRef.current || !isReady) return;
-    const state = playerRef.current.getPlayerState();
-    if (state === window.YT.PlayerState.PLAYING) {
-      playerRef.current.pauseVideo();
-    } else {
-      playerRef.current.playVideo();
-    }
-  };
-
-  const handleToggleMute = (e?: any) => {
-    e?.stopPropagation();
-    if (!playerRef.current) return;
-    if (isMuted) {
-      playerRef.current.unMute();
-      setIsMuted(false);
-    } else {
-      playerRef.current.mute();
-      setIsMuted(true);
-    }
-  };
+  }, [videoId, mounted, initPlayer]);
 
   const toggleFullScreen = async () => {
     if (!containerRef.current) return;
-    
-    const canRequestFullscreen = !!(
-      containerRef.current.requestFullscreen || 
-      (containerRef.current as any).webkitRequestFullscreen || 
-      (containerRef.current as any).msRequestFullscreen
-    );
 
-    if (canRequestFullscreen && !/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-      try {
-        if (!document.fullscreenElement) {
-          if (containerRef.current.requestFullscreen) await containerRef.current.requestFullscreen();
-          else if ((containerRef.current as any).webkitRequestFullscreen) await (containerRef.current as any).webkitRequestFullscreen();
-        } else {
-          if (document.exitFullscreen) await document.exitFullscreen();
-          else if ((document as any).webkitExitFullscreen) await (document as any).webkitExitFullscreen();
-        }
-        return;
-      } catch (err) {}
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      return;
     }
 
-    const nextState = !isPseudoFullscreen;
-    setIsPseudoFullscreen(nextState);
-    if (nextState) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
-  };
-
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isPseudoFullscreen) {
-        setIsPseudoFullscreen(false);
-        document.body.style.overflow = "";
+    try {
+      if (containerRef.current.requestFullscreen) {
+        await containerRef.current.requestFullscreen();
+        if ((window.screen as any).orientation?.lock) {
+          await (window.screen as any).orientation.lock("landscape").catch(() => {});
+        }
+      } else {
+        throw new Error("fallback");
       }
-    };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [isPseudoFullscreen]);
+    } catch (err) {
+      setIsPseudoFullscreen(!isPseudoFullscreen);
+      if (!isPseudoFullscreen) document.body.style.overflow = "hidden";
+      else document.body.style.overflow = "";
+    }
+  };
 
   const handleSeek = (values: number[]) => {
     if (!canSeek || !playerRef.current) return;
-    const time = values[0];
-    playerRef.current.seekTo(time, true);
-    setCurrentTime(time);
+    playerRef.current.seekTo(values[0], true);
+    setCurrentTime(values[0]);
   };
 
   const toggleSpeed = (e: any) => {
     e.stopPropagation();
-    let nextRate = 1;
-    if (playbackRate === 1) nextRate = 1.25;
-    else if (playbackRate === 1.25) nextRate = 1.5;
-    else nextRate = 1;
+    const nextRate = playbackRate === 1 ? 1.25 : playbackRate === 1.25 ? 1.5 : 1;
     setPlaybackRate(nextRate);
-    if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
-      playerRef.current.setPlaybackRate(nextRate);
-    }
+    if (playerRef.current?.setPlaybackRate) playerRef.current.setPlaybackRate(nextRate);
   };
 
   if (!mounted) return <div className="w-full aspect-video rounded-2xl bg-black" />;
+  if (!videoId) return <div className="w-full aspect-video rounded-2xl bg-muted flex flex-col items-center justify-center gap-4"><AlertCircle className="w-12 h-12 opacity-20" /><p className="text-xs font-bold opacity-50">رابط الفيديو غير مدعوم</p></div>;
 
   const isAnyFullscreen = isFullscreen || isPseudoFullscreen;
-
-  if (!videoId) {
-    return (
-      <div className="w-full aspect-video rounded-2xl bg-muted flex flex-col items-center justify-center gap-4 border-2 border-dashed border-primary/20">
-        <AlertCircle className="w-12 h-12 text-muted-foreground/50" />
-        <p className="text-muted-foreground font-bold text-center px-4">رابط الفيديو غير صحيح</p>
-      </div>
-    );
-  }
+  const shouldRotate = isPseudoFullscreen && isPortrait;
 
   return (
-    <div className="w-full">
+    <div 
+      ref={containerRef}
+      onMouseMove={showControls}
+      className={cn(
+        "relative aspect-video rounded-2xl overflow-hidden bg-black transition-all duration-300",
+        isFullscreen && "rounded-none border-none",
+        isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen rounded-none bg-black",
+        shouldRotate && "flex items-center justify-center"
+      )}
+    >
+      {!isReady && (
+        <div className="absolute inset-0 flex items-center justify-center z-[100] bg-black">
+          <Loader2 className="w-8 h-8 animate-spin text-secondary" />
+        </div>
+      )}
+
       <div 
-        ref={containerRef}
-        onMouseMove={showControls}
         className={cn(
-          "relative aspect-video rounded-2xl overflow-hidden bg-black luxury-shadow border border-border select-none transition-all duration-300",
-          isAnyFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex flex-col items-center justify-center bg-black"
+          "w-full h-full relative transition-all duration-500",
+          shouldRotate && "w-[100vh] h-[100vw] rotate-90 origin-center"
         )}
       >
-        {!isReady && (
-          <div className="absolute inset-0 flex items-center justify-center z-[100] bg-background/50 backdrop-blur-sm">
-            <Loader2 className="w-8 h-8 animate-spin text-secondary" />
-          </div>
-        )}
-
-        <div className={cn("w-full h-full relative flex items-center justify-center", isAnyFullscreen ? "bg-black" : "")}>
-          <div id="youtube-player-element" className="w-full h-full" />
-          <div className="absolute inset-0 z-[50] cursor-pointer" onClick={handleTogglePlay} />
-        </div>
-
+        <div id="youtube-player-element" className="w-full h-full" />
         <div 
-          className={cn(
-            "absolute z-[300] bottom-0 left-0 right-0 p-4 md:p-6 transition-all duration-500 bg-gradient-to-t from-black/95 via-black/60 to-transparent",
-            controlsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-          )}
-        >
-          <div className="space-y-4 max-w-4xl mx-auto w-full">
-            <div className="flex items-center gap-3 group/seek">
-               <Slider
-                  value={[currentTime]}
-                  max={duration || 100}
-                  step={1}
-                  onValueChange={handleSeek}
-                  disabled={!canSeek}
-                  className={cn("flex-1", !canSeek ? "opacity-50 cursor-not-allowed" : "cursor-pointer")}
-               />
-               {!canSeek && <div className="p-1 bg-white/10 rounded-lg text-white/50"><Lock className="w-3 h-3" /></div>}
+          className="absolute inset-0 z-[50] cursor-pointer" 
+          onClick={() => {
+            if (!playerRef.current) return;
+            playerRef.current.getPlayerState() === 1 ? playerRef.current.pauseVideo() : playerRef.current.playVideo();
+          }} 
+        />
+      </div>
+
+      <div 
+        className={cn(
+          "absolute z-[300] bottom-0 left-0 right-0 p-4 md:p-6 transition-all duration-500 bg-gradient-to-t from-black via-black/40 to-transparent",
+          controlsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none",
+          shouldRotate && "w-[100vh] bottom-[-100vh] rotate-90 origin-top-left"
+        )}
+        style={shouldRotate ? { left: '100vw' } : {}}
+      >
+        <div className="space-y-4 max-w-4xl mx-auto w-full">
+          <div className="flex items-center gap-3">
+             <Slider value={[currentTime]} max={duration || 100} step={1} onValueChange={handleSeek} disabled={!canSeek} className={cn("flex-1", !canSeek && "opacity-50")} />
+             {!canSeek && <Lock className="w-3 h-3 text-white/40" />}
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button className="text-white active:scale-90 transition-transform" onClick={() => playerRef.current?.getPlayerState() === 1 ? playerRef.current.pauseVideo() : playerRef.current.playVideo()}>
+                {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
+              </button>
+              <div className="text-[11px] font-mono text-white/90" dir="ltr">
+                <span className="text-secondary font-bold">{formatTime(currentTime)}</span>
+                <span className="opacity-30 px-1">/</span>
+                <span className="opacity-70">{formatTime(duration)}</span>
+              </div>
             </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button className="text-white hover:text-secondary transition-transform active:scale-90" onClick={handleTogglePlay}>
-                  {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
-                </button>
-                <div className="flex items-center gap-2 text-[11px] md:text-sm font-mono text-white/90" dir="ltr">
-                  <span className="text-secondary font-bold">{formatTime(currentTime)}</span>
-                  <span className="opacity-30">/</span>
-                  <span className="opacity-70">{formatTime(duration)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 md:gap-4">
-                <button onClick={toggleSpeed} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white border border-white/5 active:scale-95">
-                  <Gauge className="w-4 h-4 text-secondary" />
-                  <span className="text-[10px] md:text-xs font-black min-w-[30px]">{playbackRate === 1 ? 'عادي' : playbackRate + 'x'}</span>
-                </button>
-                <button className="text-white hover:text-secondary p-1" onClick={handleToggleMute}>
-                  {isMuted || currentTime === 0 ? <VolumeX className="w-5 h-5 text-destructive" /> : <Volume2 className="w-5 h-5" />}
-                </button>
-                <button className="text-white hover:text-secondary p-1" onClick={toggleFullScreen}>
-                  {isAnyFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-                </button>
-              </div>
+            <div className="flex items-center gap-2 md:gap-4">
+              <button onClick={toggleSpeed} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white border border-white/5 active:scale-95">
+                <Gauge className="w-4 h-4 text-secondary" />
+                <span className="text-[10px] font-black">{playbackRate === 1 ? '1x' : playbackRate + 'x'}</span>
+              </button>
+              <button className="text-white p-1" onClick={() => isMuted ? (playerRef.current?.unMute(), setIsMuted(false)) : (playerRef.current?.mute(), setIsMuted(true))}>
+                {isMuted ? <VolumeX className="w-5 h-5 text-destructive" /> : <Volume2 className="w-5 h-5" />}
+              </button>
+              <button className="text-white p-1" onClick={toggleFullScreen}>
+                {isAnyFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+              </button>
             </div>
           </div>
         </div>
       </div>
-      {isPseudoFullscreen && (
-        <div className="fixed top-4 left-4 z-[10000] sm:hidden animate-bounce">
-           <div className="bg-secondary/90 text-white px-3 py-1 rounded-full text-[10px] font-black shadow-xl border border-white/20">
-              قم بتدوير الهاتف لعرض أفضل 📱
-           </div>
-        </div>
-      )}
     </div>
   );
 }
