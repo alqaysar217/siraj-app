@@ -103,38 +103,42 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
         </div>
 
         <div className="space-y-4 pt-6 border-t border-border/50 text-right" dir="rtl">
-           <h3 className="font-black text-primary text-base md:text-xl flex items-center gap-2">
+           <h3 className="font-black text-primary text-base md:text-xl flex items-center gap-2 mb-2">
              <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-secondary" /> مراجعة الأداء:
            </h3>
-           <div className="grid gap-2">
+           <div className="grid gap-3">
               {quizData.map((question, idx) => {
                 const isCorrect = answers[idx] === question.correctAnswer;
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 md:p-4 bg-muted/20 rounded-xl border border-primary/5 gap-2">
-                    <div className="flex items-center gap-2 md:gap-3 overflow-hidden min-w-0">
-                       <span className="w-5 h-5 md:w-6 md:h-6 rounded-lg bg-white flex items-center justify-center text-[8px] md:text-[10px] font-black shadow-sm shrink-0">{idx + 1}</span>
-                       <p className="text-[10px] md:text-sm font-bold text-primary truncate flex-1">{question.question}</p>
+                  <div key={idx} className="flex items-start justify-between p-3 md:p-4 bg-muted/20 rounded-xl border border-primary/5 gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                       <span className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] font-black shadow-sm shrink-0 mt-0.5">{idx + 1}</span>
+                       <p className="text-[11px] md:text-sm font-bold text-primary leading-relaxed text-right">
+                         {question.question}
+                       </p>
                     </div>
-                    {isCorrect ? (
-                      <Badge className="bg-green-100 text-green-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[8px] md:text-[10px] font-black shrink-0">
-                        <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" /> صحيحة
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-red-100 text-red-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[8px] md:text-[10px] font-black shrink-0">
-                        <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> خاطئة
-                      </Badge>
-                    )}
+                    <div className="shrink-0 pt-0.5">
+                      {isCorrect ? (
+                        <Badge className="bg-green-100 text-green-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[9px] md:text-[10px] font-black whitespace-nowrap">
+                          <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" /> صحيحة
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-100 text-red-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[9px] md:text-[10px] font-black whitespace-nowrap">
+                          <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> خاطئة
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 );
               })}
            </div>
         </div>
 
-        <div className="flex flex-col gap-3 pt-2">
+        <div className="flex flex-col gap-3 pt-4">
            <Button onClick={reset} variant="outline" className="w-full gap-2 rounded-xl md:rounded-2xl h-12 md:h-14 font-black border-primary/10 hover:bg-primary/5 text-xs md:text-base">
              <RotateCcw className="w-4 h-4 md:w-5 md:h-5" /> إعادة محاولة التقويم
            </Button>
-           <div className="bg-amber-50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-amber-100 text-amber-700 font-bold text-[8px] md:text-[10px] leading-relaxed">
+           <div className="bg-amber-50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-amber-100 text-amber-700 font-bold text-[9px] md:text-[11px] leading-relaxed">
              ملاحظة: يمكنك الإعادة للمراجعة، ولكن لن تتغير نقاطك المسجلة في المرة الأولى.
            </div>
         </div>
@@ -148,7 +152,7 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
     <div className="bg-card p-4 md:p-12 rounded-[1.5rem] md:rounded-[2rem] border border-border luxury-shadow space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center border-b border-border/50 pb-4 md:pb-6">
         <span className="text-base md:text-2xl font-black text-primary font-headline">تقويم الوحدة</span>
-        <span className="text-[8px] md:text-[10px] font-black bg-primary/5 text-primary px-2 py-1 md:px-3 md:py-1.5 rounded-full">سؤال {currentStep + 1} من {quizData.length}</span>
+        <span className="text-[10px] md:text-xs font-black bg-primary/5 text-primary px-2 py-1 md:px-3 md:py-1.5 rounded-full">سؤال {currentStep + 1} من {quizData.length}</span>
       </div>
       <div className="space-y-6 md:space-y-8 text-right" dir="rtl">
         <h3 className="text-base md:text-3xl font-black text-primary leading-snug md:leading-tight px-1">{q.question}</h3>
