@@ -32,6 +32,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false); // CSS Fallback for iOS
   const [controlsVisible, setControlsVisible] = useState(true);
   
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -65,7 +66,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     }, 4000);
   }, []);
 
-  // فصلنا السرعة عن الاعتمادات لمنع إعادة تشغيل الفيديو
   useEffect(() => {
     if (!videoId) return;
 
@@ -101,7 +101,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
             onReady: (event: any) => {
               setIsReady(true);
               setDuration(event.target.getDuration());
-              // تطبيق السرعة الحالية عند الجاهزية
               event.target.setPlaybackRate(playbackRate);
             },
             onStateChange: (event: any) => {
@@ -157,9 +156,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         } else if (!isFs && window.screen?.orientation?.unlock) {
           window.screen.orientation.unlock();
         }
-      } catch (err) {
-        // حماية من أخطاء الأمان في بعض المتصفحات
-      }
+      } catch (err) {}
     };
     
     document.addEventListener("fullscreenchange", handleFsChange);
@@ -174,7 +171,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         playerRef.current = null;
       }
     };
-  }, [videoId, showControls]); // إزالة playbackRate من هنا
+  }, [videoId, showControls]);
 
   const handleTogglePlay = (e?: any) => {
     e?.stopPropagation();
@@ -201,24 +198,58 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
 
   const toggleFullScreen = async () => {
     if (!containerRef.current) return;
-    try {
-      if (!document.fullscreenElement) {
-        if (containerRef.current.requestFullscreen) {
-          await containerRef.current.requestFullscreen();
-        } else if ((containerRef.current as any).webkitRequestFullscreen) {
-          await (containerRef.current as any).webkitRequestFullscreen();
+    
+    // Check if browser supports standard fullscreen API
+    const canRequestFullscreen = !!(
+      containerRef.current.requestFullscreen || 
+      (containerRef.current as any).webkitRequestFullscreen || 
+      (containerRef.current as any).mozRequestFullScreen || 
+      (containerRef.current as any).msRequestFullscreen
+    );
+
+    if (canRequestFullscreen) {
+      try {
+        if (!document.fullscreenElement) {
+          if (containerRef.current.requestFullscreen) {
+            await containerRef.current.requestFullscreen();
+          } else if ((containerRef.current as any).webkitRequestFullscreen) {
+            await (containerRef.current as any).webkitRequestFullscreen();
+          }
+        } else {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if ((document as any).webkitExitFullscreen) {
+            await (document as any).webkitExitFullscreen();
+          }
         }
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen();
-        } else if ((document as any).webkitExitFullscreen) {
-          await (document as any).webkitExitFullscreen();
-        }
+        return;
+      } catch (err) {
+        console.warn("Standard Fullscreen Failed, falling back to CSS Fullscreen", err);
       }
-    } catch (err) {
-      console.error("FS Error:", err);
+    }
+
+    // Fallback: CSS Fullscreen (Pseudo-fullscreen) for iOS and restricted browsers
+    const nextState = !isPseudoFullscreen;
+    setIsPseudoFullscreen(nextState);
+    
+    if (nextState) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
     }
   };
+
+  // Exit Pseudo-Fullscreen on Escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isPseudoFullscreen) {
+        setIsPseudoFullscreen(false);
+        document.body.style.overflow = "";
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isPseudoFullscreen]);
 
   const handleSeek = (values: number[]) => {
     if (!canSeek || !playerRef.current) return;
@@ -235,11 +266,12 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     else nextRate = 1;
 
     setPlaybackRate(nextRate);
-    // إرسال الأمر مباشرة للمشغل دون إعادة تحميله
     if (playerRef.current && typeof playerRef.current.setPlaybackRate === 'function') {
       playerRef.current.setPlaybackRate(nextRate);
     }
   };
+
+  const isAnyFullscreen = isFullscreen || isPseudoFullscreen;
 
   if (!videoId) {
     return (
@@ -257,7 +289,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         onMouseMove={showControls}
         className={cn(
           "relative aspect-video rounded-2xl overflow-hidden bg-black luxury-shadow border border-border select-none transition-all duration-300",
-          isFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex items-center justify-center bg-black"
+          isAnyFullscreen && "rounded-none border-none fixed inset-0 z-[9999] w-screen h-screen flex items-center justify-center bg-black"
         )}
       >
         {!isReady && (
@@ -266,7 +298,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           </div>
         )}
 
-        <div className={cn("w-full h-full flex items-center justify-center", isFullscreen ? "bg-black" : "")}>
+        <div className={cn("w-full h-full flex items-center justify-center", isAnyFullscreen ? "bg-black" : "")}>
           <div id="youtube-player-element" className="w-full h-full" />
           <div 
             className="absolute inset-0 z-[50] cursor-pointer" 
@@ -329,7 +361,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
                 </button>
 
                 <button className="text-white hover:text-secondary p-1" onClick={toggleFullScreen}>
-                  {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                  {isAnyFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                 </button>
               </div>
             </div>
