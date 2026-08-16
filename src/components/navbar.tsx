@@ -29,7 +29,8 @@ import {
   Trophy,
   Settings2,
   Share2,
-  Trash2
+  Trash2,
+  ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -79,6 +80,7 @@ export default function Navbar() {
     { name: "إصدار الشهادات", href: "/admin/certificates", icon: Award },
     { name: "إدارة المدربين", href: "/admin/manage-instructors", icon: UsersRound },
     { name: "إدارة المنهج", href: "/admin/add-lesson", icon: Settings2 },
+    { name: "درجات الواتساب", href: "/admin/whatsapp-grades", icon: ClipboardCheck },
     { name: "إدارة الطلاب", href: "/admin/manage-users", icon: Users },
     { name: "إدارة حسابات التواصل", href: "/admin/social-links", icon: Share2 },
     { name: "الأمان والحسابات", href: "/admin/accounts", icon: KeyRound },
