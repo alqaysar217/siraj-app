@@ -161,11 +161,10 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     try {
       if (containerRef.current.requestFullscreen) {
         await containerRef.current.requestFullscreen();
-        if ((window.screen as any).orientation?.lock) {
-          await (window.screen as any).orientation.lock("landscape").catch(() => {});
-        }
+      } else if ((containerRef.current as any).webkitRequestFullscreen) {
+        await (containerRef.current as any).webkitRequestFullscreen();
       } else {
-        throw new Error("ios_safari");
+        throw new Error("fallback_required");
       }
     } catch (err) {
       setIsPseudoFullscreen(!isPseudoFullscreen);
@@ -193,7 +192,8 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   if (!mounted) return <div className="w-full aspect-video rounded-2xl bg-black" />;
   if (!videoId) return <div className="w-full aspect-video rounded-2xl bg-muted flex flex-col items-center justify-center gap-4"><AlertCircle className="w-12 h-12 opacity-20" /><p className="text-xs font-bold opacity-50">رابط الفيديو غير مدعوم</p></div>;
 
-  const shouldRotate = isPseudoFullscreen && isPortrait;
+  // الحسابات الخاصة بالتدوير القسري في الآيفون
+  const forceLandscape = isPseudoFullscreen && isPortrait;
 
   return (
     <div 
@@ -202,7 +202,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       className={cn(
         "relative aspect-video rounded-2xl overflow-hidden bg-black transition-all duration-300",
         isFullscreen && "rounded-none border-none",
-        isPseudoFullscreen && "fixed inset-0 z-[9999] w-screen h-screen bg-black flex items-center justify-center"
+        isPseudoFullscreen && "fixed inset-0 z-[9999] w-full h-full bg-black flex items-center justify-center"
       )}
     >
       {!isReady && (
@@ -211,11 +211,11 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         </div>
       )}
 
-      {/* الحاوية المدورة والمركزة */}
+      {/* الحاوية المصلحة للتدوير في الآيفون */}
       <div 
         className={cn(
-          "relative transition-all duration-500 flex items-center justify-center",
-          shouldRotate ? "w-[100vh] h-[100vw] rotate-90" : "w-full h-full"
+          "relative transition-all duration-500 bg-black overflow-hidden flex items-center justify-center",
+          forceLandscape ? "fixed top-1/2 left-1/2 w-[100vh] h-[100vw] -translate-x-1/2 -translate-y-1/2 rotate-90" : "w-full h-full"
         )}
       >
         <div id="youtube-player-element" className="w-full h-full pointer-events-none" />
@@ -229,7 +229,7 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           }} 
         />
 
-        {/* واجهة التحكم: أصبحت الآن داخل الحاوية لتدور مع الفيديو */}
+        {/* واجهة التحكم */}
         <div 
           className={cn(
             "absolute z-[300] bottom-0 left-0 right-0 p-4 md:p-6 transition-all duration-500 bg-gradient-to-t from-black via-black/40 to-transparent",
@@ -271,4 +271,3 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
     </div>
   );
 }
-
