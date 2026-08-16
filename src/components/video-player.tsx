@@ -135,7 +135,15 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       }
     }, 500);
 
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const handleFsChange = () => {
+      const isFs = !!document.fullscreenElement;
+      setIsFullscreen(isFs);
+      if (!isFs && !isPseudoFullscreen) {
+        if (screen.orientation && screen.orientation.unlock) {
+          screen.orientation.unlock().catch(() => {});
+        }
+      }
+    };
     document.addEventListener("fullscreenchange", handleFsChange);
     document.addEventListener("webkitfullscreenchange", handleFsChange);
 
@@ -148,31 +156,42 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         playerRef.current = null;
       }
     };
-  }, [videoId, mounted, initPlayer]);
+  }, [videoId, mounted, initPlayer, isPseudoFullscreen]);
 
   const toggleFullScreen = async () => {
     if (!containerRef.current) return;
 
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
+    // حالة الخروج
+    if (document.fullscreenElement || isPseudoFullscreen) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+      setIsPseudoFullscreen(false);
+      document.body.style.overflow = "";
       return;
     }
 
+    // محاولة التكبير الرسمي (أندرويد / حاسوب)
     try {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isIOS) throw new Error("ios_detected");
+
       if (containerRef.current.requestFullscreen) {
         await containerRef.current.requestFullscreen();
       } else if ((containerRef.current as any).webkitRequestFullscreen) {
         await (containerRef.current as any).webkitRequestFullscreen();
       } else {
-        throw new Error("fallback_required");
+        throw new Error("unsupported");
+      }
+
+      // محاولة قفل الاتجاه عرضياً (للأندرويد)
+      if (screen.orientation && (screen.orientation as any).lock) {
+        await (screen.orientation as any).lock('landscape').catch(() => {});
       }
     } catch (err) {
-      setIsPseudoFullscreen(!isPseudoFullscreen);
-      if (!isPseudoFullscreen) {
-        document.body.style.overflow = "hidden";
-      } else {
-        document.body.style.overflow = "";
-      }
+      // حل بديل للآيفون (التدوير البرمجي)
+      setIsPseudoFullscreen(true);
+      document.body.style.overflow = "hidden";
     }
   };
 
@@ -192,8 +211,9 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
   if (!mounted) return <div className="w-full aspect-video rounded-2xl bg-black" />;
   if (!videoId) return <div className="w-full aspect-video rounded-2xl bg-muted flex flex-col items-center justify-center gap-4"><AlertCircle className="w-12 h-12 opacity-20" /><p className="text-xs font-bold opacity-50">رابط الفيديو غير مدعوم</p></div>;
 
-  // الحسابات الخاصة بالتدوير القسري في الآيفون
-  const forceLandscape = isPseudoFullscreen && isPortrait;
+  // دوران المحتوى للآيفون فقط في الوضع الطولي عند تفعيل التكبير البديل
+  const isIOS = mounted && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const forceLandscape = isPseudoFullscreen && isPortrait && isIOS;
 
   return (
     <div 
@@ -211,7 +231,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
         </div>
       )}
 
-      {/* الحاوية المصلحة للتدوير في الآيفون */}
       <div 
         className={cn(
           "relative transition-all duration-500 bg-black overflow-hidden flex items-center justify-center",
@@ -220,7 +239,6 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
       >
         <div id="youtube-player-element" className="w-full h-full pointer-events-none" />
         
-        {/* طبقة التحكم باللمس */}
         <div 
           className="absolute inset-0 z-[50] cursor-pointer" 
           onClick={() => {
@@ -229,14 +247,13 @@ export default function VideoPlayer({ videoId: initialVideoId, onComplete, canSe
           }} 
         />
 
-        {/* واجهة التحكم */}
         <div 
           className={cn(
             "absolute z-[300] bottom-0 left-0 right-0 p-4 md:p-6 transition-all duration-500 bg-gradient-to-t from-black via-black/40 to-transparent",
             controlsVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
           )}
         >
-          <div className="space-y-4 max-w-4xl mx-auto w-full">
+          <div className="space-y-4 max-w-4xl mx-auto w-full px-2">
             <div className="flex items-center gap-3">
                <Slider value={[currentTime]} max={duration || 100} step={1} onValueChange={handleSeek} disabled={!canSeek} className={cn("flex-1", !canSeek && "opacity-50")} />
                {!canSeek && <Lock className="w-3 h-3 text-white/40" />}
