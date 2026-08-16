@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,7 +11,7 @@ import Image from "next/image";
 import Navbar from "@/components/navbar";
 import { useAuth, useFirestore } from "@/firebase/provider";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc, arrayUnion, setDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { Loader2, Mail, Lock, Clock, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -21,8 +22,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  
-  const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockRemaining, setLockRemaining] = useState(0);
   
   const auth = useAuth();
@@ -30,17 +29,24 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // 1. بصمة الجهاز المستقرة (الجهاز وليس المتصفح)
+  const getStableDeviceID = () => {
+    if (typeof window === 'undefined') return "unknown";
+    const ua = navigator.userAgent;
+    let os = "Web";
+    if (/android/i.test(ua)) os = "Android";
+    else if (/iPad|iPhone|iPod/.test(ua)) os = "iOS";
+    else if (/Windows/i.test(ua)) os = "Windows";
+    else if (/Mac/i.test(ua)) os = "MacOS";
+    
+    // دمج النظام مع دقة الشاشة لتمييز الجهاز حتى لو تغير المتصفح
+    return `${os}-${window.screen.width}x${window.screen.height}`;
+  };
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedAttempts = parseInt(localStorage.getItem('login_attempts') || '0');
-      const lockUntil = parseInt(localStorage.getItem('login_lock_until') || '0');
-      const now = Date.now();
-      
-      setFailedAttempts(storedAttempts);
-      if (lockUntil > now) {
-        setLockRemaining(Math.ceil((lockUntil - now) / 1000));
-      }
-    }
+    const lockUntil = parseInt(localStorage.getItem('login_lock_until') || '0');
+    const now = Date.now();
+    if (lockUntil > now) setLockRemaining(Math.ceil((lockUntil - now) / 1000));
   }, []);
 
   useEffect(() => {
@@ -59,50 +65,15 @@ export default function LoginPage() {
     }
   }, [lockRemaining]);
 
-  const getDeviceFingerprint = () => {
-    if (typeof window === 'undefined') return "Unknown";
-    let storedId = localStorage.getItem('siraj_device_token');
-    
-    // سحب نظام التشغيل بدقة
-    const ua = navigator.userAgent;
-    let os = "Device";
-    if (/android/i.test(ua)) os = "Android";
-    else if (/iPad|iPhone|iPod/.test(ua)) os = "iPhone";
-    else if (/Windows/i.test(ua)) os = "Windows";
-    else if (/Mac/i.test(ua)) os = "MacOS";
-    else if (/Linux/i.test(ua)) os = "Linux";
-
-    if (!storedId || !storedId.includes('-')) {
-      storedId = `${os}-${Math.random().toString(36).substring(2, 7)}`;
-      localStorage.setItem('siraj_device_token', storedId);
-    } else {
-      // تحديث مسمى النظام في البصمة المخزنة إذا كانت قديمة
-      const parts = storedId.split('-');
-      if (parts[0] === "Device" && os !== "Device") {
-        storedId = `${os}-${parts[1]}`;
-        localStorage.setItem('siraj_device_token', storedId);
-      }
-    }
-    return storedId;
-  };
-
   const handleLogin = async () => {
     if (!auth || !db) return;
-    
-    if (lockRemaining > 0) {
-      toast({ 
-        variant: "destructive", 
-        title: "الجهاز محظور مؤقتاً", 
-        description: `يرجى الانتظار ${Math.floor(lockRemaining / 60)}:${String(lockRemaining % 60).padStart(2, '0')} دقيقة.` 
-      });
-      return;
-    }
+    if (lockRemaining > 0) return;
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
     if (!cleanEmail || !cleanPassword) {
-      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى إدخال البريد وكلمة المرور." });
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى تعبئة البريد وكلمة المرور." });
       return;
     }
 
@@ -112,11 +83,8 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
       const user = userCredential.user;
 
-      const deviceId = getDeviceFingerprint();
+      const deviceId = getStableDeviceID();
       const newSessionId = `sess_${Date.now()}`;
-      
-      localStorage.setItem('siraj_session_id', newSessionId);
-      localStorage.setItem('siraj_session_timestamp', Date.now().toString());
 
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
@@ -126,85 +94,60 @@ export default function LoginPage() {
         
         if (userData.status === 'banned') {
           await signOut(auth);
-          throw new Error("banned");
+          toast({ variant: "destructive", title: "الحساب محظور" });
+          setLoading(false);
+          return;
         }
 
         const currentDevices = userData.deviceIds || [];
         const isDeviceKnown = currentDevices.includes(deviceId);
         
-        // استثناء الإدارة من قفل الأجهزة
+        // تطبيق قيد الـ 2 أجهزة للأجهزة المستقرة
         if (userData.role !== 'admin' && !isDeviceKnown && currentDevices.length >= 2) {
           await signOut(auth);
           toast({ 
             variant: "destructive", 
-            title: "تجاوزت حد الأجهزة", 
-            description: "عذراً، يسمح بفتح الحساب من جهازين فقط. يرجى مراجعة الإدارة لتصفير أجهزتك القديمة." 
+            title: "تجاوزت حد الأجهزة المسموح", 
+            description: "يسمح بالدخول من جهازين فقط. تواصل مع الإدارة إذا كنت تستخدم أجهزة جديدة." 
           });
           setLoading(false);
           return;
         }
 
+        // تحديث الجلسة وتسجيل الجهاز الجديد إن وجد
         await updateDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: arrayUnion(deviceId)
         });
+
+        localStorage.setItem('siraj_session_id', newSessionId);
+        router.replace("/dashboard");
       } else {
-        const profileData = {
+        // في حال فشل إنشاء الملف وقت التسجيل، يتم إنشاؤه الآن
+        const sessionId = `sess_${Date.now()}`;
+        await updateDoc(userDocRef, { 
           uid: user.uid,
-          name: user.displayName || "طالب سراج",
           email: user.email,
-          phone: "",
-          photoURL: "",
-          role: "student",
-          status: "active",
-          enrolledCourses: [],
-          showInLeaderboard: true,
-          forcePasswordChange: false,
-          lastSessionId: newSessionId,
-          deviceIds: [deviceId],
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(userDocRef, profileData);
+          lastSessionId: sessionId,
+          deviceIds: [deviceId]
+        });
+        localStorage.setItem('siraj_session_id', sessionId);
+        router.replace("/dashboard");
       }
-
-      localStorage.removeItem('login_attempts');
-      localStorage.removeItem('login_lock_until');
-      
-      router.push("/dashboard");
-
     } catch (error: any) {
-      if (error.message === "banned") {
-        toast({ variant: "destructive", title: "الحساب محظور", description: "تم إيقاف صلاحية دخولك للمنصة." });
-      } else {
-        const newAttempts = failedAttempts + 1;
-        setFailedAttempts(newAttempts);
-        localStorage.setItem('login_attempts', newAttempts.toString());
-        
-        let desc = "البريد أو كلمة السر غير صحيحة.";
-        if (newAttempts >= 5) {
-          const lockMinutes = newAttempts - 4;
-          const lockUntil = Date.now() + (lockMinutes * 60 * 1000);
-          localStorage.setItem('login_lock_until', lockUntil.toString());
-          setLockRemaining(lockMinutes * 60);
-          desc = `تجاوزت المحاولات. تم حظر الجهاز لـ ${lockMinutes} دقيقة.`;
-        }
-        
-        toast({ variant: "destructive", title: "فشل الدخول", description: desc });
-      }
+      let msg = "البريد أو كلمة السر غير صحيحة.";
+      if (error.code === 'auth/user-not-found') msg = "هذا الحساب غير موجود.";
+      
+      toast({ variant: "destructive", title: "فشل الدخول", description: msg });
       setLoading(false);
     }
-  };
-
-  const getWhatsAppResetUrl = () => {
-    const message = `أهلاً سراج، نسيت كلمة السر لحسابي ببريد (${email || "________"}) في منصة سراج، يرجى إرسال رابط استعادة لي.`;
-    return `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-background" dir="rtl">
       <Navbar />
       <div className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md luxury-shadow border-primary/5 rounded-[2.5rem] overflow-hidden bg-white/95 backdrop-blur-xl">
+        <Card className="w-full max-w-md luxury-shadow border-primary/5 rounded-[2.5rem] bg-white/95 backdrop-blur-xl">
           <CardHeader className="text-center pb-6 pt-10">
             <div className="mx-auto w-14 h-14 relative mb-4">
               <Image src="/logo.png" alt="Logo" fill className="object-contain" priority />
@@ -213,71 +156,54 @@ export default function LoginPage() {
             <CardDescription className="font-bold">منصة سراج التعليمية</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 px-8">
-            
-            {lockRemaining > 0 && (
-              <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex items-center gap-3 text-red-800 animate-in fade-in zoom-in">
-                <Clock className="w-6 h-6 shrink-0" />
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase">محظور مؤقتاً</p>
-                  <p className="text-sm font-black" dir="ltr">
-                    {Math.floor(lockRemaining / 60)}:{String(lockRemaining % 60).padStart(2, '0')}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2 text-right">
-              <Label htmlFor="email" className="font-bold flex items-center gap-2 mr-1">
+            <div className="space-y-2">
+              <Label className="font-bold flex items-center gap-2 mr-1">
                 <Mail className="w-4 h-4 text-secondary" /> البريد الإلكتروني
               </Label>
               <Input 
-                id="email" 
                 type="email" 
                 placeholder="example@gmail.com" 
-                className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6" 
+                className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" 
                 value={email} 
                 onChange={(e) => setEmail(e.target.value)} 
-                disabled={loading || lockRemaining > 0} 
+                disabled={loading} 
               />
             </div>
             
-            <div className="space-y-2 text-right">
-              <Label htmlFor="password" className="font-bold flex items-center gap-2 mr-1">
+            <div className="space-y-2">
+              <Label className="font-bold flex items-center gap-2 mr-1">
                 <Lock className="w-4 h-4 text-secondary" /> كلمة المرور
               </Label>
               <Input 
-                id="password" 
                 type="password" 
                 placeholder="••••••••" 
-                className="h-14 rounded-2xl bg-muted/40 border-primary/5 focus:bg-white px-6" 
+                className="h-14 rounded-2xl bg-muted/40 border-primary/5 px-6" 
                 value={password} 
                 onChange={(e) => setPassword(e.target.value)} 
-                disabled={loading || lockRemaining > 0} 
+                disabled={loading} 
               />
             </div>
 
             <Button 
               disabled={loading || lockRemaining > 0} 
               onClick={handleLogin} 
-              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 mt-2 transition-transform active:scale-95"
+              className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 transition-transform active:scale-95"
             >
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "دخول المنصة"}
             </Button>
 
-            <div className="bg-primary/5 p-4 rounded-2xl border border-dashed border-primary/10 text-center space-y-2">
-               <p className="text-[10px] text-muted-foreground font-bold">نسيت بياناتك؟</p>
+            <div className="bg-primary/5 p-4 rounded-2xl border border-dashed border-primary/10 text-center">
                <a 
-                href={getWhatsAppResetUrl()} 
+                href={`https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=نسيت كلمة السر لحسابي ببريد (${email})`} 
                 target="_blank" 
-                className="text-xs text-secondary font-black hover:underline flex items-center justify-center gap-1.5 transition-colors"
+                className="text-xs text-secondary font-black hover:underline flex items-center justify-center gap-1.5"
               >
-                <MessageCircle className="w-4 h-4" />
-                اطلب رابط الاستعادة عبر واتساب
+                <MessageCircle className="w-4 h-4" /> اطلب رابط استعادة كلمة السر
               </a>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4 pb-10">
-            <div className="text-muted-foreground font-bold text-sm text-center w-full">
+          <CardFooter className="pb-10 justify-center">
+            <div className="text-muted-foreground font-bold text-sm">
               مستخدم جديد؟ <Link href="/auth/register" className="text-secondary font-black hover:underline">أنشئ حسابك الآن</Link>
             </div>
           </CardFooter>
