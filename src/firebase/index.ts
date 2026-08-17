@@ -1,7 +1,7 @@
 
 'use client';
 
-import { initializeApp, getApps, FirebaseApp, getApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 
   Firestore, 
@@ -18,7 +18,7 @@ let db: Firestore;
 
 /**
  * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر.
- * نستخدم متغيراً عالمياً (window) في بيئة التطوير لمنع تكرار التهيئة عند تحديث الكود (HMR).
+ * نستخدم متغيراً عالمياً (window) لضمان عدم إعادة التهيئة التي تسبب خطأ Primary Lease.
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   // 1. تهيئة التطبيق (App Singleton)
@@ -30,28 +30,32 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   }
 
   // 2. تهيئة قاعدة البيانات (Firestore Singleton)
-  // نتحقق أولاً مما إذا كانت مخزنة في النافذة العالمية لمنع تعارضات الـ Lease في Next.js
   if ((window as any)._firebaseDb) {
     db = (window as any)._firebaseDb;
   } else {
+    // إعدادات المحرك المستقر (إلزامي للشبكات الضعيفة)
+    const firestoreSettings = {
+      experimentalForceLongPolling: true,
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      })
+    };
+
     try {
-      db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-          tabManager: persistentMultipleTabManager()
-        }),
-        /**
-         * حل مشكلة تعذر الوصول للسيرفر في الشبكات الضعيفة (مثل اليمن).
-         * نجبر Firestore على استخدام HTTP Long Polling بدلاً من WebSockets
-         * لأنها أكثر استقراراً ولا تنقطع بسهولة عند ضعف الإشارة.
-         */
-        experimentalForceLongPolling: true,
-      });
-      (window as any)._firebaseDb = db;
-      console.log("🚀 تم تفعيل محرك البيانات المستقر (Long Polling) لمنصة سراج");
+      // المحاولة الأولى: تهيئة مع ذاكرة مؤقتة وتدفق مستقر
+      db = initializeFirestore(app, firestoreSettings);
+      console.log("🚀 تم تفعيل محرك البيانات المستقر مع الكاش");
     } catch (e) {
-      console.warn("Firestore initialization warning, falling back to getFirestore:", e);
-      db = getFirestore(app);
+      console.warn("فشلت التهيئة بالكاش، يتم المحاولة بدون كاش مع الحفاظ على Long Polling");
+      try {
+        // المحاولة الثانية: في حال فشل الكاش (مثل المتصفحات المتخفية)، نتمسك بالـ Long Polling
+        db = initializeFirestore(app, { experimentalForceLongPolling: true });
+      } catch (e2) {
+        // الملاذ الأخير
+        db = getFirestore(app);
+      }
     }
+    (window as any)._firebaseDb = db;
   }
   
   // 3. تهيئة نظام المصادقة (Auth Singleton)
