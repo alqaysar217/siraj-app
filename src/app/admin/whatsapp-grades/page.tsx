@@ -126,14 +126,15 @@ function WhatsAppGradesContent() {
     setIsExporting(true);
     setGenderFilter(targetGender);
     
-    // الانتظار قليلاً لضمان رندر التنسيقات قبل الالتقاط
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     try {
       const dataUrl = await toPng(exportRef.current!, { 
         cacheBust: true, 
         backgroundColor: '#F8F5EF',
         pixelRatio: 2,
+        // تجاهل أخطاء الخطوط الخارجية لتجنب الـ SecurityError في الآيفون
+        fontEmbedCSS: '', 
         style: {
           visibility: 'visible',
           position: 'static'
@@ -145,7 +146,13 @@ function WhatsAppGradesContent() {
       link.click();
       toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات." });
     } catch (err) {
-      toast({ variant: "destructive", title: "فشل التصدير", description: "حدث خطأ أثناء توليد الصورة." });
+      // تم تغيير نص الخطأ بناءً على طلبك
+      toast({ 
+        variant: "destructive", 
+        title: "ايش السبب", 
+        description: "ايش السبب" 
+      });
+      console.error("Export Error:", err);
     } finally {
       setIsExporting(false);
       setGenderFilter("all");
@@ -311,7 +318,6 @@ function WhatsAppGradesContent() {
          </aside>
       </div>
 
-      {/* نموذج التصدير المخفي */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
          <div 
            ref={exportRef} 
@@ -382,7 +388,6 @@ function WhatsAppGradesContent() {
          </div>
       </div>
 
-      {/* Dialogs */}
       <Dialog open={isExerciseModalOpen} onOpenChange={setIsExerciseModalOpen}>
          <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-[90vw]" dir="rtl">
             <DialogHeader className="text-right mb-4">
