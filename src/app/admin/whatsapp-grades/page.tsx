@@ -126,25 +126,30 @@ function WhatsAppGradesContent() {
     setIsExporting(true);
     setGenderFilter(targetGender);
     
-    setTimeout(async () => {
-      try {
-        const dataUrl = await toPng(exportRef.current!, { 
-          cacheBust: true, 
-          backgroundColor: '#F8F5EF',
-          pixelRatio: 2
-        });
-        const link = document.createElement('a');
-        link.download = `درجات_سراج_${targetGender === 'male' ? 'الشباب' : 'البنات'}_${Date.now()}.png`;
-        link.href = dataUrl;
-        link.click();
-        toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات." });
-      } catch (err) {
-        toast({ variant: "destructive", title: "فشل التصدير", description: "حدث خطأ أثناء توليد الصورة." });
-      } finally {
-        setIsExporting(false);
-        setGenderFilter("all");
-      }
-    }, 500);
+    // الانتظار قليلاً لضمان رندر التنسيقات قبل الالتقاط
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    try {
+      const dataUrl = await toPng(exportRef.current!, { 
+        cacheBust: true, 
+        backgroundColor: '#F8F5EF',
+        pixelRatio: 2,
+        style: {
+          visibility: 'visible',
+          position: 'static'
+        }
+      });
+      const link = document.createElement('a');
+      link.download = `درجات_سراج_${targetGender === 'male' ? 'الشباب' : 'البنات'}_${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات." });
+    } catch (err) {
+      toast({ variant: "destructive", title: "فشل التصدير", description: "حدث خطأ أثناء توليد الصورة." });
+    } finally {
+      setIsExporting(false);
+      setGenderFilter("all");
+    }
   };
 
   const filteredStudents = useMemo(() => {
