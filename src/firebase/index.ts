@@ -1,6 +1,7 @@
+
 'use client';
 
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp, getApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { 
   Firestore, 
@@ -20,14 +21,18 @@ let db: Firestore;
  * نستخدم متغيراً عالمياً (window) في بيئة التطوير لمنع تكرار التهيئة عند تحديث الكود (HMR).
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
+  // 1. تهيئة التطبيق (App Singleton)
   const existingApps = getApps();
-  app = existingApps.length > 0 ? existingApps[0] : initializeApp(firebaseConfig);
-  
-  // حماية من تكرار تهيئة Firestore في Next.js لتجنب خطأ Primary Lease
-  const globalDb = (window as any)._firebaseDb;
-  
-  if (globalDb) {
-    db = globalDb;
+  if (existingApps.length > 0) {
+    app = existingApps[0];
+  } else {
+    app = initializeApp(firebaseConfig);
+  }
+
+  // 2. تهيئة قاعدة البيانات (Firestore Singleton)
+  // نتحقق أولاً مما إذا كانت مخزنة في النافذة العالمية لمنع تعارضات الـ Lease في Next.js
+  if ((window as any)._firebaseDb) {
+    db = (window as any)._firebaseDb;
   } else {
     try {
       db = initializeFirestore(app, {
@@ -44,11 +49,18 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
       (window as any)._firebaseDb = db;
       console.log("🚀 تم تفعيل محرك البيانات المستقر (Long Polling) لمنصة سراج");
     } catch (e) {
+      console.warn("Firestore initialization warning, falling back to getFirestore:", e);
       db = getFirestore(app);
     }
   }
   
-  auth = getAuth(app);
+  // 3. تهيئة نظام المصادقة (Auth Singleton)
+  if ((window as any)._firebaseAuth) {
+    auth = (window as any)._firebaseAuth;
+  } else {
+    auth = getAuth(app);
+    (window as any)._firebaseAuth = auth;
+  }
 }
 
 export { app, auth, db };
