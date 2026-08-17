@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useRef, Suspense } from "react";
+import { useState, useMemo, useRef, Suspense, useEffect } from "react";
 import Navbar from "@/components/navbar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -18,7 +18,11 @@ import {
   PlusCircle, 
   X,
   Image as ImageIcon,
-  Calculator
+  Calculator,
+  Search,
+  Filter,
+  Calendar,
+  Users
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, updateDoc, setDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -41,6 +45,11 @@ function WhatsAppGradesContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [genderFilter, setGenderFilter] = useState<"all" | "male" | "female">("all");
 
+  // Filters state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [uiGenderFilter, setUiGenderFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
+
   const [exerciseForm, setExerciseForm] = useState({ title: "", maxGrade: "10" });
   const [studentForm, setStudentForm] = useState({ name: "", gender: "male" });
 
@@ -54,6 +63,34 @@ function WhatsAppGradesContent() {
 
   const exercises = gradeData?.exercises || [];
   const students = gradeData?.students || [];
+
+  const calculateTotal = (st: any) => {
+    let sum = 0;
+    exercises.forEach((ex: any) => {
+      sum += Number(st.grades?.[ex.id] || 0);
+    });
+    return sum;
+  };
+
+  // Processed list: Searched, Filtered, and Sorted by Total Descending
+  const processedStudents = useMemo(() => {
+    let list = [...students];
+    
+    if (searchTerm) {
+      list = list.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+
+    if (uiGenderFilter !== "all") {
+      list = list.filter(s => s.gender === uiGenderFilter);
+    }
+
+    if (dateFilter) {
+      list = list.filter(s => s.createdAt?.startsWith(dateFilter));
+    }
+
+    // Sort by Total Grade Descending
+    return list.sort((a, b) => calculateTotal(b) - calculateTotal(a));
+  }, [students, searchTerm, uiGenderFilter, dateFilter, exercises]);
 
   const handleAddExercise = async () => {
     if (!db || !selectedCourseId || !exerciseForm.title) return;
@@ -81,7 +118,8 @@ function WhatsAppGradesContent() {
       id: "st_" + Date.now(),
       name: studentForm.name,
       gender: studentForm.gender,
-      grades: {}
+      grades: {},
+      createdAt: new Date().toISOString().split('T')[0] // For filtering by date
     };
     try {
       await setDoc(gradeDocRef!, { 
@@ -126,14 +164,14 @@ function WhatsAppGradesContent() {
     setIsExporting(true);
     setGenderFilter(targetGender);
     
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Give time for the filter to apply and re-render the hidden div
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     try {
       const dataUrl = await toPng(exportRef.current!, { 
         cacheBust: true, 
         backgroundColor: '#F8F5EF',
-        pixelRatio: 2,
-        // تجاهل أخطاء الخطوط الخارجية لتجنب الـ SecurityError في الآيفون
+        pixelRatio: 3, // Higher quality
         fontEmbedCSS: '', 
         style: {
           visibility: 'visible',
@@ -141,133 +179,180 @@ function WhatsAppGradesContent() {
         }
       });
       const link = document.createElement('a');
-      link.download = `درجات_سراج_${targetGender === 'male' ? 'الشباب' : 'البنات'}_${Date.now()}.png`;
+      link.download = `كشف_درجات_سراج_${targetGender === 'male' ? 'الشباب' : 'البنات'}_${Date.now()}.png`;
       link.href = dataUrl;
       link.click();
       toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات." });
     } catch (err) {
-      // تم تغيير نص الخطأ بناءً على طلبك
       toast({ 
         variant: "destructive", 
         title: "ايش السبب", 
-        description: "ايش السبب" 
+        description: "حدث خطأ أثناء توليد الصورة." 
       });
-      console.error("Export Error:", err);
     } finally {
       setIsExporting(false);
       setGenderFilter("all");
     }
   };
 
-  const filteredStudents = useMemo(() => {
-    if (genderFilter === "all") return students;
-    return students.filter((s: any) => s.gender === genderFilter);
-  }, [students, genderFilter]);
+  const studentsForExport = useMemo(() => {
+    if (genderFilter === "all") return processedStudents;
+    return processedStudents.filter((s: any) => s.gender === genderFilter);
+  }, [processedStudents, genderFilter]);
 
   const selectedCourse = courses?.find(c => c.id === selectedCourseId);
-
-  const calculateTotal = (st: any) => {
-    let sum = 0;
-    exercises.forEach((ex: any) => {
-      sum += Number(st.grades?.[ex.id] || 0);
-    });
-    return sum;
-  };
-
   const maxTotal = exercises.reduce((acc: number, ex: any) => acc + ex.maxGrade, 0);
 
   return (
     <div className="container mx-auto px-2 py-6 max-w-7xl text-right" dir="rtl">
-      <header className="mb-6 space-y-1">
-        <h1 className="text-xl md:text-3xl font-black font-headline text-primary">رصد درجات الواتساب</h1>
-        <p className="text-muted-foreground text-[10px] md:text-xs font-bold">أدر درجات التمارين وصدّر الكشوفات بلمسة زر.</p>
+      <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl md:text-3xl font-black font-headline text-primary">رصد درجات الواتساب</h1>
+          <p className="text-muted-foreground text-[10px] md:text-xs font-bold">إدارة الدرجات وإصدار الكشوفات الرسمية.</p>
+        </div>
+        
+        {/* Export Actions moved to top */}
+        <div className="flex items-center gap-2">
+            <Button 
+              disabled={!selectedCourseId || isExporting} 
+              onClick={() => handleExport("male")}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[10px] gap-2 h-10 px-4"
+            >
+              <ImageIcon className="w-3.5 h-3.5" /> تصدير الشباب
+            </Button>
+            <Button 
+              disabled={!selectedCourseId || isExporting} 
+              onClick={() => handleExport("female")}
+              className="bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-black text-[10px] gap-2 h-10 px-4"
+            >
+              <ImageIcon className="w-3.5 h-3.5" /> تصدير البنات
+            </Button>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-10">
-         <Card className="lg:col-span-3 luxury-shadow border-none bg-card/50 backdrop-blur-sm rounded-2xl md:rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-muted/30 border-b p-3 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-3">
-               <div className="w-full md:w-72">
-                  <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-                    <SelectTrigger className="h-10 md:h-12 rounded-xl bg-white border-primary/10 shadow-sm font-black w-full text-xs" dir="rtl">
-                      <SelectValue placeholder="اختر الدورة لبدء الرصد..." />
-                    </SelectTrigger>
-                    <SelectContent dir="rtl" className="max-w-[90vw]">
-                      {courses?.map((c: any) => (
-                        <SelectItem key={c.id} value={c.id}>
-                           <span className="truncate block max-w-[200px] md:max-w-xs text-xs">{c.title}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+      <div className="grid grid-cols-1 gap-6 mb-10">
+         <Card className="luxury-shadow border-none bg-card/50 backdrop-blur-sm rounded-2xl md:rounded-[2rem] overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b p-4 md:p-8 space-y-6">
+               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="w-full md:w-80">
+                    <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                      <SelectTrigger className="h-12 rounded-xl bg-white border-primary/10 shadow-sm font-black w-full text-xs md:text-sm" dir="rtl">
+                        <SelectValue placeholder="اختر الدورة لبدء الرصد..." />
+                      </SelectTrigger>
+                      <SelectContent dir="rtl" className="max-w-[90vw]">
+                        {courses?.map((c: any) => (
+                          <SelectItem key={c.id} value={c.id}>
+                             <span className="truncate block max-w-[200px] md:max-w-xs">{c.title}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedCourseId && (
+                    <div className="flex items-center gap-2">
+                        <Button onClick={() => setIsExerciseModalOpen(true)} variant="outline" className="rounded-xl border-primary/10 gap-2 font-bold h-11 px-4 text-xs">
+                          <PlusCircle className="w-4 h-4 text-secondary" /> أضف تمرين
+                        </Button>
+                        <Button onClick={() => setIsStudentModalOpen(true)} className="bg-primary text-white rounded-xl gap-2 font-bold h-11 px-4 text-xs">
+                          <UserPlus className="w-4 h-4" /> أضف طالب
+                        </Button>
+                    </div>
+                  )}
                </div>
+
+               {/* Filters Row */}
                {selectedCourseId && (
-                 <div className="flex items-center gap-2">
-                    <Button onClick={() => setIsExerciseModalOpen(true)} variant="outline" size="sm" className="rounded-xl border-primary/10 gap-1.5 font-bold h-9 text-[9px] flex-1 md:flex-none">
-                       <PlusCircle className="w-3.5 h-3.5 text-secondary" /> تمرين
-                    </Button>
-                    <Button onClick={() => setIsStudentModalOpen(true)} size="sm" className="bg-primary text-white rounded-xl gap-1.5 font-bold h-9 text-[9px] flex-1 md:flex-none">
-                       <UserPlus className="w-3.5 h-3.5" /> طالب
-                    </Button>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="relative">
+                       <Input 
+                         placeholder="بحث بالاسم..." 
+                         value={searchTerm}
+                         onChange={(e) => setSearchTerm(e.target.value)}
+                         className="h-10 pr-9 rounded-xl border-primary/5 bg-white text-xs"
+                       />
+                       <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    <Select value={uiGenderFilter} onValueChange={setUiGenderFilter}>
+                       <SelectTrigger className="h-10 rounded-xl bg-white border-primary/5 text-xs">
+                          <SelectValue placeholder="تصفية بالجنس" />
+                       </SelectTrigger>
+                       <SelectContent dir="rtl">
+                          <SelectItem value="all">كل الطلاب</SelectItem>
+                          <SelectItem value="male">الشباب فقط</SelectItem>
+                          <SelectItem value="female">البنات فقط</SelectItem>
+                       </SelectContent>
+                    </Select>
+                    <div className="relative">
+                       <Input 
+                         type="date" 
+                         value={dateFilter}
+                         onChange={(e) => setDateFilter(e.target.value)}
+                         className="h-10 pr-9 rounded-xl border-primary/5 bg-white text-xs"
+                       />
+                       <Calendar className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                  </div>
                )}
             </CardHeader>
+
             <CardContent className="p-0">
                {!selectedCourseId ? (
-                 <div className="py-20 text-center opacity-50">
-                    <GraduationCap className="w-12 h-12 mx-auto mb-3" />
-                    <p className="font-bold text-xs">اختر الدورة لعرض جدول الرصد</p>
+                 <div className="py-24 text-center opacity-50">
+                    <GraduationCap className="w-16 h-16 mx-auto mb-4" />
+                    <p className="font-black text-sm">اختر الدورة التعليمية من القائمة أعلاه لبدء رصد درجات الدفعات</p>
                  </div>
                ) : gradeLoading ? (
-                 <div className="py-20 text-center"><Loader2 className="w-8 h-8 animate-spin text-secondary mx-auto" /></div>
+                 <div className="py-24 text-center"><Loader2 className="w-12 h-12 animate-spin text-secondary mx-auto" /></div>
                ) : (
                  <div className="overflow-x-auto">
-                    <Table className="text-right min-w-[400px]">
+                    <Table className="text-right min-w-[500px]">
                        <TableHeader className="bg-muted/10">
                           <TableRow>
-                             <TableHead className="text-right font-black py-3 w-32 md:w-40 text-[10px]">الاسم</TableHead>
-                             <TableHead className="text-center font-black py-3 w-10 px-1 text-[10px]">ج</TableHead>
+                             <TableHead className="text-right font-black py-4 w-48 text-[11px]">اسم الطالب الكامل</TableHead>
+                             <TableHead className="text-center font-black py-4 w-12 px-1 text-[10px]">نوع</TableHead>
                              {exercises.map((ex: any, idx: number) => (
-                               <TableHead key={ex.id} className="text-center font-black py-3 min-w-[60px] px-1 text-[10px]">
+                               <TableHead key={ex.id} className="text-center font-black py-4 min-w-[70px] px-1 text-[10px]">
                                   <div className="flex flex-col items-center group relative">
                                      <span className="text-secondary font-black">#{idx + 1}</span>
-                                     <span className="text-[7px] opacity-40 font-mono">/{ex.maxGrade}</span>
-                                     <button onClick={() => deleteExercise(ex)} className="absolute -top-1 -right-1 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-2.5 h-2.5" /></button>
+                                     <span className="text-[8px] opacity-40 font-mono">/{ex.maxGrade}</span>
+                                     <button onClick={() => deleteExercise(ex)} className="absolute -top-1 -right-1 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3" /></button>
                                   </div>
                                </TableHead>
                              ))}
-                             <TableHead className="text-center font-black py-3 w-12 px-1 text-[10px] bg-secondary/5">كلي</TableHead>
-                             <TableHead className="text-center font-black py-3 w-8 px-1"></TableHead>
+                             <TableHead className="text-center font-black py-4 w-16 px-1 text-[11px] bg-secondary/5">الإجمالي</TableHead>
+                             <TableHead className="text-center font-black py-4 w-10 px-1"></TableHead>
                           </TableRow>
                        </TableHeader>
                        <TableBody>
-                          {students.length > 0 ? students.map((st: any) => (
+                          {processedStudents.length > 0 ? processedStudents.map((st: any) => (
                             <TableRow key={st.id} className="hover:bg-primary/5 transition-colors border-b border-primary/5">
-                               <TableCell className="font-bold text-primary text-[11px] py-3 truncate max-w-[120px]">{st.name}</TableCell>
+                               <TableCell className="font-bold text-primary text-xs py-4 truncate">
+                                  {st.name}
+                               </TableCell>
                                <TableCell className="text-center px-1">
-                                  <div className={cn("w-2 h-2 rounded-full mx-auto", st.gender === 'male' ? "bg-blue-500" : "bg-pink-500")} title={st.gender === 'male' ? 'ذكر' : 'أنثى'} />
+                                  <div className={cn("w-2.5 h-2.5 rounded-full mx-auto shadow-sm", st.gender === 'male' ? "bg-blue-500" : "bg-pink-500")} />
                                </TableCell>
                                {exercises.map((ex: any) => (
                                  <TableCell key={ex.id} className="p-1">
-                                    <div className="flex flex-col items-center gap-0.5">
-                                      <Input 
-                                        type="number"
-                                        className="h-8 text-center rounded-lg border-primary/5 bg-muted/30 font-black text-secondary focus:bg-white text-[10px] p-0"
-                                        value={st.grades?.[ex.id] || ""}
-                                        onChange={(e) => updateGrade(st.id, ex.id, e.target.value)}
-                                      />
-                                    </div>
+                                    <Input 
+                                      type="number"
+                                      className="h-9 text-center rounded-lg border-primary/5 bg-muted/30 font-black text-secondary focus:bg-white text-xs p-0"
+                                      value={st.grades?.[ex.id] || ""}
+                                      onChange={(e) => updateGrade(st.id, ex.id, e.target.value)}
+                                    />
                                  </TableCell>
                                ))}
                                <TableCell className="px-1 text-center bg-secondary/5">
-                                  <span className="text-[10px] font-black text-primary">{calculateTotal(st)}</span>
+                                  <span className="text-xs font-black text-primary">{calculateTotal(st)}</span>
                                </TableCell>
                                <TableCell className="px-1">
-                                  <button onClick={() => deleteStudent(st)} className="text-destructive/20 hover:text-destructive transition-colors"><Trash2 className="w-3 h-3" /></button>
+                                  <button onClick={() => deleteStudent(st)} className="text-destructive/20 hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
                                </TableCell>
                             </TableRow>
                           )) : (
                             <TableRow>
-                               <TableCell colSpan={exercises.length + 4} className="py-20 text-center opacity-30 italic text-[10px]">لا يوجد طلاب مضافين</TableCell>
+                               <TableCell colSpan={exercises.length + 4} className="py-24 text-center opacity-30 italic text-sm">لا توجد بيانات مطابقة للبحث</TableCell>
                             </TableRow>
                           )}
                        </TableBody>
@@ -276,103 +361,75 @@ function WhatsAppGradesContent() {
                )}
             </CardContent>
          </Card>
-
-         <aside className="space-y-4">
-            <Card className="luxury-shadow border-none bg-secondary/5 rounded-2xl p-5 text-center">
-               <h3 className="text-sm font-black text-primary mb-3 flex items-center justify-center gap-2">
-                  <Download className="w-3.5 h-3.5 text-secondary" /> تصدير النتائج
-               </h3>
-               <div className="grid grid-cols-2 lg:grid-cols-1 gap-2">
-                  <Button 
-                    disabled={!selectedCourseId || isExporting} 
-                    onClick={() => handleExport("male")}
-                    className="w-full h-10 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-[10px] gap-2"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" /> كشف الشباب
-                  </Button>
-                  <Button 
-                    disabled={!selectedCourseId || isExporting} 
-                    onClick={() => handleExport("female")}
-                    className="w-full h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-black text-[10px] gap-2"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" /> كشف البنات
-                  </Button>
-               </div>
-            </Card>
-
-            <div className="bg-primary/5 p-4 rounded-2xl border border-dashed border-primary/20 space-y-2">
-               <h4 className="font-black text-primary text-[10px] flex items-center gap-2"><CheckCircle2 className="w-3 h-3 text-secondary" /> الإحصائيات</h4>
-               <div className="flex justify-between items-center text-[9px] font-bold">
-                  <span className="text-muted-foreground">الطلاب:</span>
-                  <span className="text-primary">{students.length}</span>
-               </div>
-               <div className="flex justify-between items-center text-[9px] font-bold">
-                  <span className="text-muted-foreground">التمارين:</span>
-                  <span className="text-primary">{exercises.length}</span>
-               </div>
-               <div className="flex justify-between items-center text-[9px] font-bold border-t pt-1 border-primary/10">
-                  <span className="text-muted-foreground">الدرجة الكلية:</span>
-                  <span className="text-secondary font-black">/{maxTotal}</span>
-               </div>
-            </div>
-         </aside>
       </div>
 
+      {/* Hidden Export Template - Optimized for Mobile Image Viewing */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
          <div 
            ref={exportRef} 
-           className="w-[850px] p-12 bg-[#F8F5EF] text-right font-headline"
+           className="w-[1000px] p-16 bg-[#F8F5EF] text-right font-headline"
            dir="rtl"
          >
-            <div className="border-[6px] border-primary/10 rounded-[3.5rem] p-12 bg-white luxury-shadow relative overflow-hidden">
-               <div className="absolute top-0 left-0 w-40 h-40 bg-secondary/5 rounded-br-full" />
-               <div className="flex items-center justify-between mb-14 relative z-10">
-                  <div className="space-y-2">
-                     <h2 className="text-4xl font-black text-primary">كشف درجات التمارين والتقييم</h2>
-                     <p className="text-2xl font-bold text-secondary">{selectedCourse?.title}</p>
-                     <div className="flex items-center gap-4 mt-4">
-                        <Badge className={cn("text-sm font-black px-4 py-1.5 rounded-full border-none shadow-sm", genderFilter === 'male' ? "bg-blue-600 text-white" : "bg-pink-600 text-white")}>
+            <div className="border-[10px] border-primary/5 rounded-[4rem] p-16 bg-white luxury-shadow relative overflow-hidden">
+               {/* Decorative Element */}
+               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-bl-[10rem] -z-0" />
+               
+               <div className="flex items-start justify-between mb-20 relative z-10">
+                  <div className="space-y-4 flex-1">
+                     <h2 className="text-5xl font-black text-primary leading-tight">كشف درجات تمارين (الواتساب)</h2>
+                     <p className="text-3xl font-bold text-primary/60">{selectedCourse?.title}</p>
+                     
+                     <div className="mt-8">
+                        <Badge className={cn(
+                          "text-xl font-black px-8 py-3 rounded-2xl border-none shadow-xl", 
+                          genderFilter === 'male' ? "bg-blue-600 text-white" : "bg-pink-600 text-white"
+                        )}>
                            {genderFilter === 'male' ? 'قائمة الشباب المبدعين' : 'قائمة البنات المبدعات'}
                         </Badge>
-                        <span className="text-xs font-black text-muted-foreground tracking-widest">منصة سراج التعليمية • SIRAJ.IO</span>
                      </div>
                   </div>
-                  <div className="w-24 h-24 bg-primary rounded-[2rem] flex items-center justify-center p-4 shadow-xl">
-                     <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
+
+                  <div className="flex flex-col items-center gap-4">
+                     <div className="w-32 h-32 bg-white rounded-[2.5rem] flex items-center justify-center p-6 shadow-2xl border border-primary/5">
+                        <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
+                     </div>
+                     <span className="text-2xl font-black text-primary tracking-widest opacity-40">SIRAJ</span>
                   </div>
                </div>
                
-               <div className="rounded-3xl overflow-hidden border border-primary/5 shadow-inner">
+               <div className="rounded-[2.5rem] overflow-hidden border-2 border-primary/5 shadow-2xl">
                 <Table className="border-collapse text-right w-full bg-white">
                     <TableHeader>
                       <TableRow className="bg-primary text-white border-none">
-                        <TableHead className="text-right font-black py-7 px-6 rounded-tr-2xl text-xl">اسم الطالب</TableHead>
+                        <TableHead className="text-right font-black py-10 px-10 rounded-tr-3xl text-2xl">اسم الطالب</TableHead>
                         {exercises.map((ex: any) => (
-                          <TableHead key={ex.id} className="text-center font-black text-lg py-7">
-                             <div className="flex flex-col">
+                          <TableHead key={ex.id} className="text-center font-black text-xl py-10 px-4">
+                             <div className="flex flex-col gap-1">
                                 <span>{ex.title}</span>
-                                <span className="text-[10px] opacity-60 font-mono">/{ex.maxGrade}</span>
+                                <span className="text-sm opacity-60 font-mono">/{ex.maxGrade}</span>
                              </div>
                           </TableHead>
                         ))}
-                        <TableHead className="text-center font-black py-7 rounded-tl-2xl text-xl bg-secondary/90">المجموع</TableHead>
+                        <TableHead className="text-center font-black py-10 px-10 rounded-tl-3xl text-2xl bg-secondary/90">الإجمالي</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredStudents.map((st: any) => {
+                      {studentsForExport.map((st: any) => {
                         const total = calculateTotal(st);
                         return (
                           <TableRow key={st.id} className="border-b border-primary/5 hover:bg-muted/5 transition-colors">
-                            <TableCell className="font-black text-primary py-6 px-6 text-xl">{st.name}</TableCell>
+                            <TableCell className="font-black text-primary py-8 px-10 text-2xl whitespace-nowrap">
+                               {st.name}
+                            </TableCell>
                             {exercises.map((ex: any) => (
-                              <TableCell key={ex.id} className="text-center font-black text-secondary text-xl">
+                              <TableCell key={ex.id} className="text-center font-black text-secondary text-2xl">
                                  {st.grades?.[ex.id] || "0"}
                               </TableCell>
                             ))}
                             <TableCell className="text-center bg-secondary/5">
-                               <div className="inline-flex items-center gap-1.5 px-6 py-2 bg-primary/5 text-primary border border-primary/10 rounded-2xl">
-                                  <Calculator className="w-4 h-4 text-secondary" />
-                                  <span className="font-black text-2xl" dir="ltr">{total} <small className="text-xs opacity-50">/{maxTotal}</small></span>
+                               <div className="inline-flex items-center gap-2 px-8 py-3 bg-primary/5 text-primary border border-primary/10 rounded-2xl">
+                                  <Calculator className="w-5 h-5 text-secondary" />
+                                  <span className="font-black text-3xl" dir="ltr">{total} <small className="text-sm opacity-50">/{maxTotal}</small></span>
                                </div>
                             </TableCell>
                           </TableRow>
@@ -381,21 +438,24 @@ function WhatsAppGradesContent() {
                     </TableBody>
                 </Table>
                </div>
-               <div className="mt-12 text-center">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">تم إصدار هذا الكشف آلياً بواسطة نظام سراج للرصد الرقمي</p>
+               
+               <div className="mt-16 flex items-center justify-between opacity-30">
+                  <p className="text-sm font-black uppercase tracking-[0.4em]">نظام سراج للرصد الرقمي • 2024</p>
+                  <p className="text-sm font-bold">صدر في: {new Date().toLocaleDateString('ar-YE')}</p>
                </div>
             </div>
          </div>
       </div>
 
+      {/* Modals remain the same but with enhanced design */}
       <Dialog open={isExerciseModalOpen} onOpenChange={setIsExerciseModalOpen}>
-         <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-[90vw]" dir="rtl">
+         <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-md" dir="rtl">
             <DialogHeader className="text-right mb-4">
                <DialogTitle className="text-xl font-black text-primary">إضافة تمرين جديد</DialogTitle>
             </DialogHeader>
             <div className="space-y-5">
                <div className="space-y-1">
-                  <Label className="font-bold text-xs">عنوان التمرين</Label>
+                  <Label className="font-bold text-xs">عنوان التمرين (سيظهر في الكشف)</Label>
                   <Input value={exerciseForm.title} onChange={(e) => setExerciseForm({...exerciseForm, title: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="مثلاً: التمرين الأول" />
                </div>
                <div className="space-y-1">
@@ -410,14 +470,14 @@ function WhatsAppGradesContent() {
       </Dialog>
 
       <Dialog open={isStudentModalOpen} onOpenChange={setIsStudentModalOpen}>
-         <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-[90vw]" dir="rtl">
+         <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-md" dir="rtl">
             <DialogHeader className="text-right mb-4">
                <DialogTitle className="text-xl font-black text-primary">إضافة طالب للرصد</DialogTitle>
             </DialogHeader>
             <div className="space-y-5">
                <div className="space-y-1">
-                  <Label className="font-bold text-xs">اسم الطالب</Label>
-                  <Input value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="الاسم كما في الواتساب" />
+                  <Label className="font-bold text-xs">اسم الطالب (الاسم الأول والأخير)</Label>
+                  <Input value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="الاسم الكامل لضمان ظهوره في صف واحد" />
                </div>
                <div className="space-y-1">
                   <Label className="font-bold text-xs">الجنس</Label>
