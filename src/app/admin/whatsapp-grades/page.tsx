@@ -119,7 +119,7 @@ function WhatsAppGradesContent() {
       name: studentForm.name,
       gender: studentForm.gender,
       grades: {},
-      createdAt: new Date().toISOString().split('T')[0] // For filtering by date
+      createdAt: new Date().toISOString().split('T')[0]
     };
     try {
       await setDoc(gradeDocRef!, { 
@@ -164,15 +164,14 @@ function WhatsAppGradesContent() {
     setIsExporting(true);
     setGenderFilter(targetGender);
     
-    // Give time for the filter to apply and re-render the hidden div
+    // Give time for the filter to apply and re-render
     await new Promise(resolve => setTimeout(resolve, 800));
 
     try {
       const dataUrl = await toPng(exportRef.current!, { 
         cacheBust: true, 
         backgroundColor: '#F8F5EF',
-        pixelRatio: 3, // Higher quality
-        fontEmbedCSS: '', 
+        pixelRatio: 2,
         style: {
           visibility: 'visible',
           position: 'static'
@@ -211,7 +210,6 @@ function WhatsAppGradesContent() {
           <p className="text-muted-foreground text-[10px] md:text-xs font-bold">إدارة الدرجات وإصدار الكشوفات الرسمية.</p>
         </div>
         
-        {/* Export Actions moved to top */}
         <div className="flex items-center gap-2">
             <Button 
               disabled={!selectedCourseId || isExporting} 
@@ -261,7 +259,6 @@ function WhatsAppGradesContent() {
                   )}
                </div>
 
-               {/* Filters Row */}
                {selectedCourseId && (
                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="relative">
@@ -363,25 +360,23 @@ function WhatsAppGradesContent() {
          </Card>
       </div>
 
-      {/* Hidden Export Template - Optimized for Mobile Image Viewing */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
          <div 
            ref={exportRef} 
-           className="w-[1000px] p-16 bg-[#F8F5EF] text-right font-headline"
+           className="min-w-[1000px] w-fit p-10 bg-[#F8F5EF] text-right font-headline"
            dir="rtl"
          >
-            <div className="border-[10px] border-primary/5 rounded-[4rem] p-16 bg-white luxury-shadow relative overflow-hidden">
-               {/* Decorative Element */}
-               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-bl-[10rem] -z-0" />
+            <div className="border-[6px] border-primary/5 rounded-[3rem] p-10 bg-white luxury-shadow relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-bl-[8rem] -z-0" />
                
-               <div className="flex items-start justify-between mb-20 relative z-10">
-                  <div className="space-y-4 flex-1">
-                     <h2 className="text-5xl font-black text-primary leading-tight">كشف درجات تمارين (الواتساب)</h2>
-                     <p className="text-3xl font-bold text-primary/60">{selectedCourse?.title}</p>
+               <div className="flex items-start justify-between mb-10 relative z-10">
+                  <div className="space-y-2 flex-1">
+                     <h2 className="text-4xl font-black text-primary leading-tight">كشف درجات التمارين والتقييم</h2>
+                     <p className="text-2xl font-bold text-primary/60 leading-none">{selectedCourse?.title}</p>
                      
-                     <div className="mt-8">
+                     <div className="mt-4">
                         <Badge className={cn(
-                          "text-xl font-black px-8 py-3 rounded-2xl border-none shadow-xl", 
+                          "text-lg font-black px-6 py-2 rounded-xl border-none shadow-lg", 
                           genderFilter === 'male' ? "bg-blue-600 text-white" : "bg-pink-600 text-white"
                         )}>
                            {genderFilter === 'male' ? 'قائمة الشباب المبدعين' : 'قائمة البنات المبدعات'}
@@ -389,28 +384,28 @@ function WhatsAppGradesContent() {
                      </div>
                   </div>
 
-                  <div className="flex flex-col items-center gap-4">
-                     <div className="w-32 h-32 bg-white rounded-[2.5rem] flex items-center justify-center p-6 shadow-2xl border border-primary/5">
+                  <div className="flex flex-col items-center gap-2">
+                     <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center p-4 shadow-xl border border-primary/5">
                         <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
                      </div>
-                     <span className="text-2xl font-black text-primary tracking-widest opacity-40">SIRAJ</span>
+                     <span className="text-xl font-black text-primary tracking-widest opacity-40">SIRAJ</span>
                   </div>
                </div>
                
-               <div className="rounded-[2.5rem] overflow-hidden border-2 border-primary/5 shadow-2xl">
-                <Table className="border-collapse text-right w-full bg-white">
+               <div className="rounded-[2rem] overflow-hidden border border-primary/5 shadow-xl">
+                <Table className="border-collapse text-right w-full bg-white table-auto">
                     <TableHeader>
                       <TableRow className="bg-primary text-white border-none">
-                        <TableHead className="text-right font-black py-10 px-10 rounded-tr-3xl text-2xl">اسم الطالب</TableHead>
+                        <TableHead className="text-right font-black py-5 px-8 rounded-tr-2xl text-xl text-white whitespace-nowrap">اسم الطالب</TableHead>
                         {exercises.map((ex: any) => (
-                          <TableHead key={ex.id} className="text-center font-black text-xl py-10 px-4">
-                             <div className="flex flex-col gap-1">
-                                <span>{ex.title}</span>
-                                <span className="text-sm opacity-60 font-mono">/{ex.maxGrade}</span>
+                          <TableHead key={ex.id} className="text-center font-black text-lg py-5 px-3 text-white whitespace-nowrap border-r border-white/5">
+                             <div className="flex flex-col gap-0.5">
+                                <span className="leading-none">{ex.title}</span>
+                                <span className="text-[10px] opacity-70 font-mono">/{ex.maxGrade}</span>
                              </div>
                           </TableHead>
                         ))}
-                        <TableHead className="text-center font-black py-10 px-10 rounded-tl-3xl text-2xl bg-secondary/90">الإجمالي</TableHead>
+                        <TableHead className="text-center font-black py-5 px-8 rounded-tl-2xl text-xl bg-secondary text-white whitespace-nowrap">الإجمالي</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -418,19 +413,16 @@ function WhatsAppGradesContent() {
                         const total = calculateTotal(st);
                         return (
                           <TableRow key={st.id} className="border-b border-primary/5 hover:bg-muted/5 transition-colors">
-                            <TableCell className="font-black text-primary py-8 px-10 text-2xl whitespace-nowrap">
+                            <TableCell className="font-black text-primary py-4 px-8 text-xl whitespace-nowrap">
                                {st.name}
                             </TableCell>
                             {exercises.map((ex: any) => (
-                              <TableCell key={ex.id} className="text-center font-black text-secondary text-2xl">
+                              <TableCell key={ex.id} className="text-center font-black text-secondary text-xl py-4 border-r border-primary/5">
                                  {st.grades?.[ex.id] || "0"}
                               </TableCell>
                             ))}
-                            <TableCell className="text-center bg-secondary/5">
-                               <div className="inline-flex items-center gap-2 px-8 py-3 bg-primary/5 text-primary border border-primary/10 rounded-2xl">
-                                  <Calculator className="w-5 h-5 text-secondary" />
-                                  <span className="font-black text-3xl" dir="ltr">{total} <small className="text-sm opacity-50">/{maxTotal}</small></span>
-                               </div>
+                            <TableCell className="text-center bg-secondary/5 py-4 px-8">
+                               <span className="font-black text-2xl text-primary" dir="ltr">{total} <small className="text-xs opacity-50">/{maxTotal}</small></span>
                             </TableCell>
                           </TableRow>
                         );
@@ -439,15 +431,14 @@ function WhatsAppGradesContent() {
                 </Table>
                </div>
                
-               <div className="mt-16 flex items-center justify-between opacity-30">
-                  <p className="text-sm font-black uppercase tracking-[0.4em]">نظام سراج للرصد الرقمي • 2024</p>
-                  <p className="text-sm font-bold">صدر في: {new Date().toLocaleDateString('ar-YE')}</p>
+               <div className="mt-8 flex items-center justify-between opacity-30">
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">نظام سراج للرصد الرقمي • siraj.io</p>
+                  <p className="text-[10px] font-bold">تاريخ الإصدار: {new Date().toLocaleDateString('ar-YE')}</p>
                </div>
             </div>
          </div>
       </div>
 
-      {/* Modals remain the same but with enhanced design */}
       <Dialog open={isExerciseModalOpen} onOpenChange={setIsExerciseModalOpen}>
          <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-md" dir="rtl">
             <DialogHeader className="text-right mb-4">
