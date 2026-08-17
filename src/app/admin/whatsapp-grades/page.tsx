@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useRef, Suspense, useEffect } from "react";
@@ -22,7 +21,9 @@ import {
   Search,
   Filter,
   Calendar,
-  Users
+  Users,
+  Edit2,
+  AlertTriangle
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, updateDoc, setDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -33,6 +34,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { toPng } from "html-to-image";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function WhatsAppGradesContent() {
   const db = useFirestore();
@@ -44,6 +55,10 @@ function WhatsAppGradesContent() {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [genderFilter, setGenderFilter] = useState<"all" | "male" | "female">("all");
+
+  // Edit/Delete states
+  const [editingStudent, setEditingStudent] = useState<any>(null);
+  const [studentToDelete, setStudentToDelete] = useState<any>(null);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState("");
@@ -112,25 +127,41 @@ function WhatsAppGradesContent() {
     }
   };
 
-  const handleAddStudent = async () => {
+  const handleAddOrEditStudent = async () => {
     if (!db || !selectedCourseId || !studentForm.name) return;
-    const newStudent = {
-      id: "st_" + Date.now(),
-      name: studentForm.name,
-      gender: studentForm.gender,
-      grades: {},
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+
     try {
-      await setDoc(gradeDocRef!, { 
-        students: arrayUnion(newStudent),
-        updatedAt: serverTimestamp() 
-      }, { merge: true });
+      if (editingStudent) {
+        // Edit Mode
+        const updatedStudents = students.map((s: any) => {
+          if (s.id === editingStudent.id) {
+            return { ...s, name: studentForm.name, gender: studentForm.gender };
+          }
+          return s;
+        });
+        await updateDoc(gradeDocRef!, { students: updatedStudents });
+        toast({ title: "تم التعديل", description: "تم تحديث بيانات الطالب بنجاح." });
+      } else {
+        // Add Mode
+        const newStudent = {
+          id: "st_" + Date.now(),
+          name: studentForm.name,
+          gender: studentForm.gender,
+          grades: {},
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        await setDoc(gradeDocRef!, { 
+          students: arrayUnion(newStudent),
+          updatedAt: serverTimestamp() 
+        }, { merge: true });
+        toast({ title: "تم الانضمام", description: "تم إضافة الطالب لقائمة الرصد." });
+      }
+      
       setIsStudentModalOpen(false);
+      setEditingStudent(null);
       setStudentForm({ name: "", gender: "male" });
-      toast({ title: "تم الانضمام", description: "تم إضافة الطالب لقائمة الرصد." });
     } catch (e) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل إضافة الطالب." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ بيانات الطالب." });
     }
   };
 
@@ -154,9 +185,34 @@ function WhatsAppGradesContent() {
     await updateDoc(gradeDocRef!, { exercises: arrayRemove(ex) });
   };
 
-  const deleteStudent = async (st: any) => {
-    if (!db || !selectedCourseId) return;
-    await updateDoc(gradeDocRef!, { students: arrayRemove(st) });
+  const confirmDeleteStudent = async () => {
+    if (!db || !selectedCourseId || !studentToDelete) return;
+    try {
+      // 1. Move to Trash
+      const trashRef = doc(collection(db, "trash"));
+      await setDoc(trashRef, {
+        originalId: studentToDelete.id,
+        originalPath: `whatsapp_grades/${selectedCourseId}`,
+        type: "whatsapp_student",
+        title: `طالب واتساب: ${studentToDelete.name}`,
+        data: studentToDelete,
+        deletedAt: serverTimestamp()
+      });
+
+      // 2. Remove from Array
+      await updateDoc(gradeDocRef!, { students: arrayRemove(studentToDelete) });
+      toast({ title: "تم الحذف", description: "تم نقل الطالب لسلة المهملات." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حذف الطالب." });
+    } finally {
+      setStudentToDelete(null);
+    }
+  };
+
+  const openEditModal = (st: any) => {
+    setEditingStudent(st);
+    setStudentForm({ name: st.name, gender: st.gender });
+    setIsStudentModalOpen(true);
   };
 
   const handleExport = async (targetGender: "male" | "female") => {
@@ -164,7 +220,6 @@ function WhatsAppGradesContent() {
     setIsExporting(true);
     setGenderFilter(targetGender);
     
-    // Give time for the filter to apply and re-render
     await new Promise(resolve => setTimeout(resolve, 800));
 
     try {
@@ -252,7 +307,7 @@ function WhatsAppGradesContent() {
                         <Button onClick={() => setIsExerciseModalOpen(true)} variant="outline" className="rounded-xl border-primary/10 gap-2 font-bold h-11 px-4 text-xs">
                           <PlusCircle className="w-4 h-4 text-secondary" /> أضف تمرين
                         </Button>
-                        <Button onClick={() => setIsStudentModalOpen(true)} className="bg-primary text-white rounded-xl gap-2 font-bold h-11 px-4 text-xs">
+                        <Button onClick={() => { setEditingStudent(null); setStudentForm({ name: "", gender: "male" }); setIsStudentModalOpen(true); }} className="bg-primary text-white rounded-xl gap-2 font-bold h-11 px-4 text-xs">
                           <UserPlus className="w-4 h-4" /> أضف طالب
                         </Button>
                     </div>
@@ -318,7 +373,7 @@ function WhatsAppGradesContent() {
                                </TableHead>
                              ))}
                              <TableHead className="text-center font-black py-4 w-16 px-1 text-[11px] bg-secondary/5">الإجمالي</TableHead>
-                             <TableHead className="text-center font-black py-4 w-10 px-1"></TableHead>
+                             <TableHead className="text-center font-black py-4 w-16 px-1">إجراء</TableHead>
                           </TableRow>
                        </TableHeader>
                        <TableBody>
@@ -343,8 +398,11 @@ function WhatsAppGradesContent() {
                                <TableCell className="px-1 text-center bg-secondary/5">
                                   <span className="text-xs font-black text-primary">{calculateTotal(st)}</span>
                                </TableCell>
-                               <TableCell className="px-1">
-                                  <button onClick={() => deleteStudent(st)} className="text-destructive/20 hover:text-destructive transition-colors"><Trash2 className="w-4 h-4" /></button>
+                               <TableCell className="px-1 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                     <button onClick={() => openEditModal(st)} className="text-primary/40 hover:text-primary transition-colors p-1"><Edit2 className="w-3.5 h-3.5" /></button>
+                                     <button onClick={() => setStudentToDelete(st)} className="text-destructive/20 hover:text-destructive transition-colors p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  </div>
                                </TableCell>
                             </TableRow>
                           )) : (
@@ -371,7 +429,7 @@ function WhatsAppGradesContent() {
                
                <div className="flex items-start justify-between mb-10 relative z-10">
                   <div className="space-y-2 flex-1">
-                     <h2 className="text-4xl font-black text-primary leading-tight">كشف درجات التمارين والتقييم</h2>
+                     <h2 className="text-4xl font-black text-primary leading-tight">كشف درجات تمارين (الواتساب)</h2>
                      <p className="text-2xl font-bold text-primary/60 leading-none">{selectedCourse?.title}</p>
                      
                      <div className="mt-4">
@@ -388,7 +446,7 @@ function WhatsAppGradesContent() {
                      <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center p-4 shadow-xl border border-primary/5">
                         <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
                      </div>
-                     <span className="text-xl font-black text-primary tracking-widest opacity-40">SIRAJ</span>
+                     <span className="text-xl font-black text-primary tracking-widest opacity-40 uppercase">SIRAJ</span>
                   </div>
                </div>
                
@@ -396,16 +454,16 @@ function WhatsAppGradesContent() {
                 <Table className="border-collapse text-right w-full bg-white table-auto">
                     <TableHeader>
                       <TableRow className="bg-primary text-white border-none">
-                        <TableHead className="text-right font-black py-5 px-8 rounded-tr-2xl text-xl text-white whitespace-nowrap">اسم الطالب</TableHead>
+                        <TableHead className="text-right font-black py-4 px-8 rounded-tr-2xl text-xl text-white whitespace-nowrap">اسم الطالب</TableHead>
                         {exercises.map((ex: any) => (
-                          <TableHead key={ex.id} className="text-center font-black text-lg py-5 px-3 text-white whitespace-nowrap border-r border-white/5">
+                          <TableHead key={ex.id} className="text-center font-black text-lg py-4 px-3 text-white whitespace-nowrap border-r border-white/5">
                              <div className="flex flex-col gap-0.5">
                                 <span className="leading-none">{ex.title}</span>
                                 <span className="text-[10px] opacity-70 font-mono">/{ex.maxGrade}</span>
                              </div>
                           </TableHead>
                         ))}
-                        <TableHead className="text-center font-black py-5 px-8 rounded-tl-2xl text-xl bg-secondary text-white whitespace-nowrap">الإجمالي</TableHead>
+                        <TableHead className="text-center font-black py-4 px-8 rounded-tl-2xl text-xl bg-secondary text-white whitespace-nowrap">الإجمالي</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -413,15 +471,15 @@ function WhatsAppGradesContent() {
                         const total = calculateTotal(st);
                         return (
                           <TableRow key={st.id} className="border-b border-primary/5 hover:bg-muted/5 transition-colors">
-                            <TableCell className="font-black text-primary py-4 px-8 text-xl whitespace-nowrap">
+                            <TableCell className="font-black text-primary py-3 px-8 text-xl whitespace-nowrap">
                                {st.name}
                             </TableCell>
                             {exercises.map((ex: any) => (
-                              <TableCell key={ex.id} className="text-center font-black text-secondary text-xl py-4 border-r border-primary/5">
+                              <TableCell key={ex.id} className="text-center font-black text-secondary text-xl py-3 border-r border-primary/5">
                                  {st.grades?.[ex.id] || "0"}
                               </TableCell>
                             ))}
-                            <TableCell className="text-center bg-secondary/5 py-4 px-8">
+                            <TableCell className="text-center bg-secondary/5 py-3 px-8">
                                <span className="font-black text-2xl text-primary" dir="ltr">{total} <small className="text-xs opacity-50">/{maxTotal}</small></span>
                             </TableCell>
                           </TableRow>
@@ -460,15 +518,17 @@ function WhatsAppGradesContent() {
          </DialogContent>
       </Dialog>
 
-      <Dialog open={isStudentModalOpen} onOpenChange={setIsStudentModalOpen}>
+      <Dialog open={isStudentModalOpen} onOpenChange={(open) => !open && (setIsStudentModalOpen(false), setEditingStudent(null))}>
          <DialogContent className="rounded-3xl p-6 border-none luxury-shadow max-w-md" dir="rtl">
             <DialogHeader className="text-right mb-4">
-               <DialogTitle className="text-xl font-black text-primary">إضافة طالب للرصد</DialogTitle>
+               <DialogTitle className="text-xl font-black text-primary">
+                  {editingStudent ? "تعديل بيانات الطالب" : "إضافة طالب للرصد"}
+               </DialogTitle>
             </DialogHeader>
             <div className="space-y-5">
                <div className="space-y-1">
-                  <Label className="font-bold text-xs">اسم الطالب (الاسم الأول والأخير)</Label>
-                  <Input value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="الاسم الكامل لضمان ظهوره في صف واحد" />
+                  <Label className="font-bold text-xs">اسم الطالب الكامل</Label>
+                  <Input value={studentForm.name} onChange={(e) => setStudentForm({...studentForm, name: e.target.value})} className="h-12 rounded-xl border-primary/10" placeholder="الاسم الأول والأخير" />
                </div>
                <div className="space-y-1">
                   <Label className="font-bold text-xs">الجنس</Label>
@@ -484,10 +544,32 @@ function WhatsAppGradesContent() {
                </div>
             </div>
             <DialogFooter className="mt-6">
-               <Button onClick={handleAddStudent} className="h-12 rounded-xl bg-primary text-white font-black flex-1">إضافة للقائمة</Button>
+               <Button onClick={handleAddOrEditStudent} className="h-12 rounded-xl bg-primary text-white font-black flex-1">
+                  {editingStudent ? "حفظ التعديلات" : "إضافة للقائمة"}
+               </Button>
             </DialogFooter>
          </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!studentToDelete} onOpenChange={(open) => !open && setStudentToDelete(null)}>
+        <AlertDialogContent dir="rtl" className="rounded-3xl border-none luxury-shadow max-w-[400px] p-6 bg-card/95 backdrop-blur-xl">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mb-4">
+              <AlertTriangle className="w-8 h-8 text-secondary" />
+            </div>
+            <AlertDialogHeader className="space-y-2 p-0">
+              <AlertDialogTitle className="text-xl font-headline text-primary font-black text-center">حذف الطالب؟</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground text-sm font-medium text-center">
+                سيتم نقل بيانات الطالب <span className="text-primary font-bold">"{studentToDelete?.name}"</span> لسلة المهملات.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          </div>
+          <AlertDialogFooter className="flex flex-row gap-3 mt-6">
+            <AlertDialogAction onClick={confirmDeleteStudent} className="h-11 rounded-xl bg-primary text-white font-bold gap-2 flex-1 hover:bg-primary/90">تأكيد الحذف</AlertDialogAction>
+            <AlertDialogCancel className="h-11 rounded-xl border-primary/10 font-bold gap-2 flex-1 mt-0">إلغاء</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

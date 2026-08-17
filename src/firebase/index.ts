@@ -1,4 +1,3 @@
-
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
@@ -7,7 +6,6 @@ import {
   Firestore, 
   initializeFirestore, 
   persistentLocalCache, 
-  persistentMultipleTabManager,
   getFirestore
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
@@ -17,7 +15,7 @@ let auth: Auth;
 let db: Firestore;
 
 /**
- * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر.
+ * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر جداً.
  * نستخدم متغيراً عالمياً (window) لضمان عدم إعادة التهيئة التي تسبب خطأ Primary Lease.
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
@@ -34,26 +32,18 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     db = (window as any)._firebaseDb;
   } else {
     // إعدادات المحرك المستقر (إلزامي للشبكات الضعيفة)
+    // قمنا بإزالة tabManager لتقليل احتمالية حدوث تعارض Lease في المتصفحات
     const firestoreSettings = {
       experimentalForceLongPolling: true,
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      })
+      localCache: persistentLocalCache({}) 
     };
 
     try {
-      // المحاولة الأولى: تهيئة مع ذاكرة مؤقتة وتدفق مستقر
       db = initializeFirestore(app, firestoreSettings);
-      console.log("🚀 تم تفعيل محرك البيانات المستقر مع الكاش");
+      console.log("🚀 تم تفعيل محرك البيانات المستقر");
     } catch (e) {
-      console.warn("فشلت التهيئة بالكاش، يتم المحاولة بدون كاش مع الحفاظ على Long Polling");
-      try {
-        // المحاولة الثانية: في حال فشل الكاش (مثل المتصفحات المتخفية)، نتمسك بالـ Long Polling
-        db = initializeFirestore(app, { experimentalForceLongPolling: true });
-      } catch (e2) {
-        // الملاذ الأخير
-        db = getFirestore(app);
-      }
+      console.warn("فشلت التهيئة المخصصة، يتم التراجع للنسخة الأساسية");
+      db = getFirestore(app);
     }
     (window as any)._firebaseDb = db;
   }
