@@ -102,13 +102,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
+  // نظام التنقل الذكي: يمنع القفز بعد التحميل الأولي
   useEffect(() => {
-    if (userLoading || courseLoading || !lessons || !mounted) return;
+    if (userLoading || courseLoading || !lessons || !mounted || hasInitializedRef.current) return;
+    
     if (!profile && lessons.length > 0 && !selectedLessonId) {
       setSelectedLessonId(lessons[0].id);
+      hasInitializedRef.current = true;
       return;
     }
-    if (userHasInteractedRef.current) return;
 
     const completedIds = profile?.progress?.[id]?.completedLessons || [];
     const nextUncompletedLesson = lessons.find(l => !completedIds.includes(l.id));
@@ -157,14 +159,37 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     const lessonId = currentLesson.id;
     const isNew = !userProgress.completedLessons?.includes(lessonId);
-    if (isNew && !localCompleted.includes(lessonId)) setLocalCompleted(prev => [...prev, lessonId]);
+    
+    if (isNew && !localCompleted.includes(lessonId)) {
+      setLocalCompleted(prev => [...prev, lessonId]);
+    }
+
     const updates: any = {};
     let pts = 0;
-    if (isNew) { updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId); pts += 10; }
-    if (score !== undefined && !userProgress.quizScores?.[lessonId]) { updates[`progress.${id}.quizScores.${lessonId}`] = score; pts += (score * 5); }
-    if (pts > 0) { updates[`points`] = Number(profile.points || 0) + pts; updates[`progress.${id}.points`] = Number(userProgress.points || 0) + pts; }
-    if (Object.keys(updates).length > 0) updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
-    if (currentLesson.type === "video") setTimeout(goToNext, 2000);
+    
+    if (isNew) { 
+      updates[`progress.${id}.completedLessons`] = arrayUnion(lessonId); 
+      pts += 10; 
+    }
+    
+    if (score !== undefined && !userProgress.quizScores?.[lessonId]) { 
+      updates[`progress.${id}.quizScores.${lessonId}`] = score; 
+      pts += (score * 5); 
+    }
+    
+    if (pts > 0) { 
+      updates[`points`] = Number(profile.points || 0) + pts; 
+      updates[`progress.${id}.points`] = Number(userProgress.points || 0) + pts; 
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
+    }
+
+    // الانتقال التلقائي للفيديو فقط، أما التقويم فيبقى الطالب ليشاهد نتيجته
+    if (currentLesson.type === "video") {
+      setTimeout(goToNext, 2000);
+    }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
   if (!mounted || courseLoading || userLoading) {
@@ -197,10 +222,27 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
             </div>
           ) : currentLesson ? (
             <>
-              {currentLesson.type === "quiz" ? <QuizPlayer quizData={currentLesson.quizData || []} alreadyAnswered={!!userProgress.quizScores?.[currentLesson.id]} onComplete={handleLessonComplete} /> : 
-              <div className="rounded-2xl overflow-hidden luxury-shadow bg-black aspect-video"><VideoPlayer videoId={currentLesson.youtubeId} onComplete={handleLessonComplete} canSeek={isAdmin || allCompletedIds.includes(currentLesson.id)} key={currentLesson.id} /></div>}
-              <div className="flex gap-4"><Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}><ArrowRight className="w-5 h-5 ml-1" /><span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span></Button>
-              <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg">السابق</Button></div>
+              {currentLesson.type === "quiz" ? (
+                <QuizPlayer 
+                  quizData={currentLesson.quizData || []} 
+                  alreadyAnswered={!!userProgress.quizScores?.[currentLesson.id]} 
+                  previousScore={userProgress.quizScores?.[currentLesson.id]}
+                  onComplete={handleLessonComplete} 
+                  key={currentLesson.id}
+                />
+              ) : (
+                <div className="rounded-2xl overflow-hidden luxury-shadow bg-black aspect-video">
+                  <VideoPlayer videoId={currentLesson.youtubeId} onComplete={handleLessonComplete} canSeek={isAdmin || allCompletedIds.includes(currentLesson.id)} key={currentLesson.id} />
+                </div>
+              )}
+              
+              <div className="flex gap-4">
+                <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
+                   <ArrowRight className="w-5 h-5 ml-1" />
+                   <span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span>
+                </Button>
+                <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg">السابق</Button>
+              </div>
               <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج</Button>
             </>
           ) : <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center"><Lock className="w-16 h-16 text-primary opacity-40 mb-4" /><h2 className="text-2xl font-black text-primary">المحتوى قريباً</h2><p className="text-muted-foreground font-bold">يعمل فريق سراج حالياً على تجهيز المنهج.</p></div>}

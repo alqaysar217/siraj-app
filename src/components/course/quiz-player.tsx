@@ -1,23 +1,26 @@
+
 "use client";
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, PartyPopper, XCircle, RotateCcw, CheckCircle2 } from "lucide-react";
+import { AlertCircle, PartyPopper, XCircle, RotateCcw, CheckCircle2, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QuizPlayerProps {
   quizData: any[];
   onComplete: (score: number) => void;
   alreadyAnswered: boolean;
+  previousScore?: number;
 }
 
-export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: QuizPlayerProps) {
+export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, previousScore }: QuizPlayerProps) {
   const [started, setStarted] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showResult, setShowResult] = useState(false);
   const [score, setScore] = useState(0);
+  const [isReviewMode, setIsReviewMode] = useState(false);
 
   const handleAnswer = (val: string) => {
     if (showResult) return;
@@ -39,6 +42,7 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
     });
     setScore(correctCount);
     setShowResult(true);
+    setIsReviewMode(false);
     onComplete(correctCount);
   };
 
@@ -46,6 +50,13 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
     setCurrentStep(0);
     setAnswers({});
     setShowResult(false);
+    setIsReviewMode(false);
+    setStarted(true);
+  };
+
+  const openReviewMode = () => {
+    setIsReviewMode(true);
+    setShowResult(true);
     setStarted(true);
   };
 
@@ -55,24 +66,50 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
         <div className="mx-auto w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center bg-orange-50 text-orange-500">
           <AlertCircle className="w-10 h-10 md:w-12 md:h-12" />
         </div>
-        <div className="space-y-2 px-2">
+        
+        <div className="space-y-4 px-2">
           <h2 className="text-xl md:text-3xl font-black text-primary font-headline">تقويم الوحدة التعليمية</h2>
+          
+          {alreadyAnswered && (
+            <div className="bg-green-50 p-6 rounded-[1.5rem] border border-green-100 space-y-3 animate-in slide-in-from-top-4 duration-500">
+              <p className="text-green-800 font-black text-sm md:text-lg flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-5 h-5" /> لقد اجتزت هذا التقويم بنجاح!
+              </p>
+              <div className="flex items-center justify-center gap-4">
+                <div className="text-center">
+                  <p className="text-[8px] md:text-[10px] text-green-600 font-bold uppercase tracking-wider">أفضل نتيجة</p>
+                  <p className="text-xl md:text-3xl font-black text-green-700">{previousScore} / {quizData.length}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <p className="text-muted-foreground text-xs md:text-lg leading-relaxed max-w-lg mx-auto font-medium">
             {alreadyAnswered 
-              ? "لقد قمت بحل هذا التقويم سابقاً، يمكنك إعادته للمراجعة ولكن لن يتم إضافة نقاط جديدة لرصيدك." 
+              ? "يمكنك مراجعة إجاباتك الصحيحة أو إعادة محاولة الحل لترسيخ المعلومة." 
               : "تنبيه: يتم احتساب نقاط هذا التقويم من أول محاولة إجابة فقط."}
           </p>
         </div>
-        <Button onClick={() => setStarted(true)} className="w-full sm:w-auto h-12 md:h-14 px-12 rounded-xl md:rounded-2xl bg-primary text-white font-bold text-sm md:text-lg shadow-lg">
-          ابدأ التقويم الآن
-        </Button>
+
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button onClick={() => setStarted(true)} className="h-12 md:h-14 px-10 rounded-xl md:rounded-2xl bg-primary text-white font-black text-sm md:text-lg shadow-lg">
+            {alreadyAnswered ? "إعادة محاولة الحل" : "ابدأ التقويم الآن"}
+          </Button>
+          
+          {alreadyAnswered && (
+            <Button onClick={openReviewMode} variant="outline" className="h-12 md:h-14 px-10 rounded-xl md:rounded-2xl border-primary/10 font-black text-sm md:text-lg gap-2">
+              <Eye className="w-5 h-5" /> مراجعة الأسئلة والحلول
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
 
   if (showResult) {
-    const isSuccess = score >= quizData.length / 2;
-    const pointsEarned = 10 + (score * 5);
+    const finalScore = isReviewMode ? (previousScore || 0) : score;
+    const isSuccess = finalScore >= quizData.length / 2;
+    const pointsEarned = 10 + (finalScore * 5);
 
     return (
       <div className="bg-card p-4 md:p-12 rounded-[1.5rem] md:rounded-[2rem] border border-border text-center space-y-6 md:space-y-8 luxury-shadow animate-in fade-in zoom-in duration-300">
@@ -83,20 +120,20 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
         <div className="space-y-4">
           <div className="space-y-1">
             <h2 className="text-xl md:text-4xl font-black text-primary font-headline">
-              {isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة"}
+              {isReviewMode ? "مراجعة النتائج السابقة" : (isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة")}
             </h2>
-            <p className="text-xs md:text-lg text-muted-foreground font-bold">لقد أتممت تقويم الوحدة بنجاح</p>
+            <p className="text-xs md:text-lg text-muted-foreground font-bold">ملخص الأداء في هذه الوحدة</p>
           </div>
           
           <div className="grid grid-cols-2 gap-3 md:gap-4 max-w-md mx-auto">
              <div className="bg-primary/5 p-3 md:p-4 rounded-xl md:rounded-2xl border border-primary/10">
                 <p className="text-[7px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">الإجابات الصحيحة</p>
-                <p className="text-lg md:text-2xl font-black text-primary">{score} / {quizData.length}</p>
+                <p className="text-lg md:text-2xl font-black text-primary">{finalScore} / {quizData.length}</p>
              </div>
              <div className="bg-secondary/5 p-3 md:p-4 rounded-xl md:rounded-2xl border border-secondary/10">
                 <p className="text-[7px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">النقاط المكتسبة</p>
                 <p className="text-lg md:text-2xl font-black text-secondary">
-                  {alreadyAnswered ? "0" : `+${pointsEarned}`}
+                  {(alreadyAnswered && !isReviewMode && score > 0) ? "0" : `+${pointsEarned}`}
                 </p>
              </div>
           </div>
@@ -104,30 +141,35 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
 
         <div className="space-y-4 pt-6 border-t border-border/50 text-right" dir="rtl">
            <h3 className="font-black text-primary text-base md:text-xl flex items-center gap-2 mb-2">
-             <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-secondary" /> مراجعة الأداء:
+             <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-secondary" /> {isReviewMode ? "دليل الحلول الصحيحة للوحدة:" : "مراجعة أدائك الحالي:"}
            </h3>
            <div className="grid gap-3">
               {quizData.map((question, idx) => {
-                const isCorrect = answers[idx] === question.correctAnswer;
+                const isCorrect = isReviewMode ? true : (answers[idx] === question.correctAnswer);
                 return (
                   <div key={idx} className="flex items-start justify-between p-3 md:p-4 bg-muted/20 rounded-xl border border-primary/5 gap-3">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                        <span className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] font-black shadow-sm shrink-0 mt-0.5">{idx + 1}</span>
-                       <p className="text-[11px] md:text-sm font-bold text-primary leading-relaxed text-right">
-                         {question.question}
-                       </p>
+                       <div className="text-right flex-1">
+                          <p className="text-[11px] md:text-sm font-bold text-primary leading-relaxed">
+                            {question.question}
+                          </p>
+                          <p className="text-[10px] text-secondary font-black mt-1">الحل الصحيح: {question.correctAnswer}</p>
+                       </div>
                     </div>
-                    <div className="shrink-0 pt-0.5">
-                      {isCorrect ? (
-                        <Badge className="bg-green-100 text-green-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[9px] md:text-[10px] font-black whitespace-nowrap">
-                          <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" /> صحيحة
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-red-100 text-red-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[9px] md:text-[10px] font-black whitespace-nowrap">
-                          <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> خاطئة
-                        </Badge>
-                      )}
-                    </div>
+                    {!isReviewMode && (
+                      <div className="shrink-0 pt-0.5">
+                        {isCorrect ? (
+                          <Badge className="bg-green-100 text-green-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[9px] md:text-[10px] font-black whitespace-nowrap">
+                            <CheckCircle2 className="w-2.5 h-2.5 md:w-3 md:h-3" /> صحيحة
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-100 text-red-700 border-none px-2 py-0.5 md:px-3 md:py-1 gap-1 text-[9px] md:text-[10px] font-black whitespace-nowrap">
+                            <XCircle className="w-2.5 h-2.5 md:w-3 md:h-3" /> خاطئة
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -136,11 +178,13 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered }: Qu
 
         <div className="flex flex-col gap-3 pt-4">
            <Button onClick={reset} variant="outline" className="w-full gap-2 rounded-xl md:rounded-2xl h-12 md:h-14 font-black border-primary/10 hover:bg-primary/5 text-xs md:text-base">
-             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" /> إعادة محاولة التقويم
+             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" /> {isReviewMode ? "خروج من المراجعة" : "إعادة محاولة التقويم"}
            </Button>
-           <div className="bg-amber-50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-amber-100 text-amber-700 font-bold text-[9px] md:text-[11px] leading-relaxed">
-             ملاحظة: يمكنك الإعادة للمراجعة، ولكن لن تتغير نقاطك المسجلة في المرة الأولى.
-           </div>
+           {!isReviewMode && (
+             <div className="bg-amber-50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-amber-100 text-amber-700 font-bold text-[9px] md:text-[11px] leading-relaxed">
+               ملاحظة: يمكنك الإعادة للمراجعة، ولكن لن تتغير نقاطك المسجلة في المرة الأولى.
+             </div>
+           )}
         </div>
       </div>
     );
