@@ -34,11 +34,15 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager()
         }),
-        // حل مشكلة تعذر الوصول للسيرفر في الشبكات الضعيفة
+        /**
+         * حل مشكلة تعذر الوصول للسيرفر في الشبكات الضعيفة (مثل اليمن).
+         * نجبر Firestore على استخدام HTTP Long Polling بدلاً من WebSockets
+         * لأنها أكثر استقراراً ولا تنقطع بسهولة عند ضعف الإشارة.
+         */
         experimentalForceLongPolling: true,
       });
       (window as any)._firebaseDb = db;
-      console.log("🚀 تم تشغيل محرك البيانات المستقر لمنصة سراج");
+      console.log("🚀 تم تفعيل محرك البيانات المستقر (Long Polling) لمنصة سراج");
     } catch (e) {
       db = getFirestore(app);
     }
