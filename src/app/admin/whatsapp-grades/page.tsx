@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, Suspense, useEffect } from "react";
+import { useState, useMemo, useRef, Suspense } from "react";
 import Navbar from "@/components/navbar";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
   Trash2, 
-  Download, 
   Loader2, 
   UserPlus, 
   GraduationCap, 
@@ -17,13 +16,11 @@ import {
   PlusCircle, 
   X,
   Image as ImageIcon,
-  Calculator,
   Search,
-  Filter,
   Calendar,
-  Users,
   Edit2,
-  AlertTriangle
+  AlertTriangle,
+  Trophy
 } from "lucide-react";
 import { useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, updateDoc, setDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore";
@@ -56,11 +53,9 @@ function WhatsAppGradesContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [genderFilter, setGenderFilter] = useState<"all" | "male" | "female">("all");
 
-  // Edit/Delete states
   const [editingStudent, setEditingStudent] = useState<any>(null);
   const [studentToDelete, setStudentToDelete] = useState<any>(null);
 
-  // Filters state
   const [searchTerm, setSearchTerm] = useState("");
   const [uiGenderFilter, setUiGenderFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
@@ -87,7 +82,6 @@ function WhatsAppGradesContent() {
     return sum;
   };
 
-  // Processed list: Searched, Filtered, and Sorted by Total Descending
   const processedStudents = useMemo(() => {
     let list = [...students];
     
@@ -103,7 +97,6 @@ function WhatsAppGradesContent() {
       list = list.filter(s => s.createdAt?.startsWith(dateFilter));
     }
 
-    // Sort by Total Grade Descending
     return list.sort((a, b) => calculateTotal(b) - calculateTotal(a));
   }, [students, searchTerm, uiGenderFilter, dateFilter, exercises]);
 
@@ -132,7 +125,6 @@ function WhatsAppGradesContent() {
 
     try {
       if (editingStudent) {
-        // Edit Mode
         const updatedStudents = students.map((s: any) => {
           if (s.id === editingStudent.id) {
             return { ...s, name: studentForm.name, gender: studentForm.gender };
@@ -142,7 +134,6 @@ function WhatsAppGradesContent() {
         await updateDoc(gradeDocRef!, { students: updatedStudents });
         toast({ title: "تم التعديل", description: "تم تحديث بيانات الطالب بنجاح." });
       } else {
-        // Add Mode
         const newStudent = {
           id: "st_" + Date.now(),
           name: studentForm.name,
@@ -188,7 +179,6 @@ function WhatsAppGradesContent() {
   const confirmDeleteStudent = async () => {
     if (!db || !selectedCourseId || !studentToDelete) return;
     try {
-      // 1. Move to Trash
       const trashRef = doc(collection(db, "trash"));
       await setDoc(trashRef, {
         originalId: studentToDelete.id,
@@ -199,7 +189,6 @@ function WhatsAppGradesContent() {
         deletedAt: serverTimestamp()
       });
 
-      // 2. Remove from Array
       await updateDoc(gradeDocRef!, { students: arrayRemove(studentToDelete) });
       toast({ title: "تم الحذف", description: "تم نقل الطالب لسلة المهملات." });
     } catch (e) {
@@ -207,12 +196,6 @@ function WhatsAppGradesContent() {
     } finally {
       setStudentToDelete(null);
     }
-  };
-
-  const openEditModal = (st: any) => {
-    setEditingStudent(st);
-    setStudentForm({ name: st.name, gender: st.gender });
-    setIsStudentModalOpen(true);
   };
 
   const handleExport = async (targetGender: "male" | "female") => {
@@ -238,11 +221,7 @@ function WhatsAppGradesContent() {
       link.click();
       toast({ title: "تم التصدير بنجاح", description: "تم تحميل صورة الدرجات." });
     } catch (err) {
-      toast({ 
-        variant: "destructive", 
-        title: "ايش السبب", 
-        description: "حدث خطأ أثناء توليد الصورة." 
-      });
+      toast({ variant: "destructive", title: "خطأ", description: "حدث خطأ أثناء توليد الصورة." });
     } finally {
       setIsExporting(false);
       setGenderFilter("all");
@@ -259,7 +238,8 @@ function WhatsAppGradesContent() {
 
   return (
     <div className="container mx-auto px-2 py-6 max-w-7xl text-right" dir="rtl">
-      <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Navbar />
+      <header className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4 mt-6">
         <div className="space-y-1">
           <h1 className="text-xl md:text-3xl font-black font-headline text-primary">رصد درجات الواتساب</h1>
           <p className="text-muted-foreground text-[10px] md:text-xs font-bold">إدارة الدرجات وإصدار الكشوفات الرسمية.</p>
@@ -400,7 +380,7 @@ function WhatsAppGradesContent() {
                                </TableCell>
                                <TableCell className="px-1 text-center">
                                   <div className="flex items-center justify-center gap-1">
-                                     <button onClick={() => openEditModal(st)} className="text-primary/40 hover:text-primary transition-colors p-1"><Edit2 className="w-3.5 h-3.5" /></button>
+                                     <button onClick={() => { setEditingStudent(st); setStudentForm({ name: st.name, gender: st.gender }); setIsStudentModalOpen(true); }} className="text-primary/40 hover:text-primary transition-colors p-1"><Edit2 className="w-3.5 h-3.5" /></button>
                                      <button onClick={() => setStudentToDelete(st)} className="text-destructive/20 hover:text-destructive transition-colors p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                                   </div>
                                </TableCell>
@@ -419,29 +399,19 @@ function WhatsAppGradesContent() {
       </div>
 
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-         <div 
-           ref={exportRef} 
-           className="min-w-[1000px] w-fit p-10 bg-[#F8F5EF] text-right font-headline"
-           dir="rtl"
-         >
+         <div ref={exportRef} className="min-w-[1000px] w-fit p-10 bg-[#F8F5EF] text-right font-headline" dir="rtl">
             <div className="border-[6px] border-primary/5 rounded-[3rem] p-10 bg-white luxury-shadow relative overflow-hidden">
                <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-bl-[8rem] -z-0" />
-               
                <div className="flex items-start justify-between mb-10 relative z-10">
                   <div className="space-y-2 flex-1">
                      <h2 className="text-4xl font-black text-primary leading-tight">كشف درجات تمارين (الواتساب)</h2>
                      <p className="text-2xl font-bold text-primary/60 leading-none">{selectedCourse?.title}</p>
-                     
                      <div className="mt-4">
-                        <Badge className={cn(
-                          "text-lg font-black px-6 py-2 rounded-xl border-none shadow-lg", 
-                          genderFilter === 'male' ? "bg-blue-600 text-white" : "bg-pink-600 text-white"
-                        )}>
+                        <Badge className={cn("text-lg font-black px-6 py-2 rounded-xl border-none shadow-lg", genderFilter === 'male' ? "bg-blue-600 text-white" : "bg-pink-600 text-white")}>
                            {genderFilter === 'male' ? 'قائمة الشباب المبدعين' : 'قائمة البنات المبدعات'}
                         </Badge>
                      </div>
                   </div>
-
                   <div className="flex flex-col items-center gap-2">
                      <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center p-4 shadow-xl border border-primary/5">
                         <img src="/logo.png" className="w-full h-full object-contain" alt="Logo" />
@@ -449,7 +419,6 @@ function WhatsAppGradesContent() {
                      <span className="text-xl font-black text-primary tracking-widest opacity-40 uppercase">SIRAJ</span>
                   </div>
                </div>
-               
                <div className="rounded-[2rem] overflow-hidden border border-primary/5 shadow-xl">
                 <Table className="border-collapse text-right w-full bg-white table-auto">
                     <TableHeader>
@@ -467,28 +436,20 @@ function WhatsAppGradesContent() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {studentsForExport.map((st: any) => {
-                        const total = calculateTotal(st);
-                        return (
-                          <TableRow key={st.id} className="border-b border-primary/5 hover:bg-muted/5 transition-colors">
-                            <TableCell className="font-black text-primary py-3 px-8 text-xl whitespace-nowrap">
-                               {st.name}
-                            </TableCell>
-                            {exercises.map((ex: any) => (
-                              <TableCell key={ex.id} className="text-center font-black text-secondary text-xl py-3 border-r border-primary/5">
-                                 {st.grades?.[ex.id] || "0"}
-                              </TableCell>
-                            ))}
-                            <TableCell className="text-center bg-secondary/5 py-3 px-8">
-                               <span className="font-black text-2xl text-primary" dir="ltr">{total} <small className="text-xs opacity-50">/{maxTotal}</small></span>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                      {studentsForExport.map((st: any) => (
+                        <TableRow key={st.id} className="border-b border-primary/5 hover:bg-muted/5 transition-colors">
+                          <TableCell className="font-black text-primary py-3 px-8 text-xl whitespace-nowrap">{st.name}</TableCell>
+                          {exercises.map((ex: any) => (
+                            <TableCell key={ex.id} className="text-center font-black text-secondary text-xl py-3 border-r border-primary/5">{st.grades?.[ex.id] || "0"}</TableCell>
+                          ))}
+                          <TableCell className="text-center bg-secondary/5 py-3 px-8">
+                             <span className="font-black text-2xl text-primary" dir="ltr">{calculateTotal(st)} <small className="text-xs opacity-50">/{maxTotal}</small></span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </TableBody>
                 </Table>
                </div>
-               
                <div className="mt-8 flex items-center justify-between opacity-30">
                   <p className="text-[10px] font-black uppercase tracking-[0.3em]">نظام سراج للرصد الرقمي • siraj.io</p>
                   <p className="text-[10px] font-bold">تاريخ الإصدار: {new Date().toLocaleDateString('ar-YE')}</p>

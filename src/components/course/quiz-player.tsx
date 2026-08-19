@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -151,7 +150,7 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                        <span className="w-6 h-6 rounded-lg bg-white flex items-center justify-center text-[10px] font-black shadow-sm shrink-0 mt-0.5">{idx + 1}</span>
                        <div className="text-right flex-1">
-                          <p className="text-[11px] md:text-sm font-bold text-primary leading-relaxed">
+                          <p className="text-[11px] md:sm font-bold text-primary leading-relaxed">
                             {question.question}
                           </p>
                           <p className="text-[10px] text-secondary font-black mt-1">الحل الصحيح: {question.correctAnswer}</p>

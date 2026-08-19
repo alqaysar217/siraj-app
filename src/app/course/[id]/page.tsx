@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -97,7 +96,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
-  // ميزة الاستئناف التلقائي: تفتح أول درس غير مكتمل عند تحديث الصفحة
   useEffect(() => {
     if (userLoading || courseLoading || !lessons || !mounted || hasInitializedRef.current) return;
     
@@ -141,7 +139,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       return;
     }
 
-    // التحقق الصارم: هل الدرس الحالي مكتمل؟
     const isCurrentCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
     if (!isAdmin && !isCurrentCompleted) {
       toast({
@@ -191,7 +188,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
-    // الانتقال التلقائي للفيديو فقط بعد الإكمال
     if (currentLesson.type === "video") {
       setTimeout(goToNext, 2000);
     }
@@ -298,7 +294,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground font-bold italic leading-relaxed">"{review.comment}"</p>
-                
                 {review.adminReply && (
                   <div className="mt-4 p-4 bg-primary/5 rounded-2xl border-r-4 border-secondary text-right animate-in slide-in-from-right-2 duration-500">
                     <div className="flex items-center gap-2 mb-1">
