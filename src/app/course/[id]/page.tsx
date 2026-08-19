@@ -97,7 +97,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
-  // نظام التنقل الذكي: يفتح آخر درس لم يكتمل عند التحميل فقط
   useEffect(() => {
     if (userLoading || courseLoading || !lessons || !mounted || hasInitializedRef.current) return;
     
@@ -180,7 +179,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
-    // الانتقال التلقائي للفيديو فقط لضمان بقاء الطالب في صفحة نتيجة التقويم
+    // الانتقال التلقائي للفيديو فقط؛ التقويم يتطلب ضغط زر "التالي" يدوياً لضمان بقاء النتيجة
     if (currentLesson.type === "video") {
       setTimeout(goToNext, 2000);
     }

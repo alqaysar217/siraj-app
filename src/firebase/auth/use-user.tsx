@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useAuth, useFirestore } from '../provider';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -35,6 +35,8 @@ export function useUser() {
     if (!db || !user || !auth) return;
 
     const userDocRef = doc(db, 'users', user.uid);
+    
+    // تم إلغاء نظام "الترميم التلقائي" (setDoc) هنا لمنع تصفير بيانات الطلاب عند أخطاء الصلاحيات
     const unsubscribeProfile = onSnapshot(userDocRef, 
       async (docSnap) => {
         if (docSnap.exists()) {
@@ -42,6 +44,7 @@ export function useUser() {
           setProfile(data);
 
           if (data.role === 'student' && !isKickingRef.current) {
+            // 1. التحقق من الحظر
             if (data.status === 'banned') {
               isKickingRef.current = true;
               await signOut(auth);
@@ -49,6 +52,7 @@ export function useUser() {
               return;
             }
 
+            // 2. التحقق من تعدد الأجهزة
             const localSessionId = localStorage.getItem('siraj_session_id');
             if (data.lastSessionId && localSessionId && data.lastSessionId !== localSessionId) {
               isKickingRef.current = true;
@@ -60,39 +64,19 @@ export function useUser() {
           }
           setLoading(false);
         } else {
-          // نظام الترميم التلقائي المحسن
-          try {
-            const repairData = {
-              uid: user.uid,
-              name: user.displayName || "طالب سراج",
-              email: user.email,
-              role: "student",
-              status: "active",
-              enrolledCourses: [],
-              showInLeaderboard: true,
-              deviceIds: [],
-              createdAt: serverTimestamp()
-            };
-            await setDoc(userDocRef, repairData, { merge: true });
-          } catch (e) {
-            console.error("Profile repair failed");
-          }
+          // إذا لم يوجد المستند فعلياً، ننهي التحميل ليقوم نظام التسجيل بالتعامل معه
+          setLoading(false);
         }
       },
       (error) => {
-        console.error("Profile sync error", error);
-        // منع التعليق في حال وجود خطأ في الصلاحيات للحظات
+        console.error("Profile sync error:", error);
+        // في حال حدوث خطأ في الصلاحيات، ننهي التحميل لمنع تعليق الصفحة
         setLoading(false);
       }
     );
 
-    const backupTimeout = setTimeout(() => {
-      setLoading(false);
-    }, 4000);
-
     return () => {
       unsubscribeProfile();
-      clearTimeout(backupTimeout);
     };
   }, [db, user, auth, toast]);
 

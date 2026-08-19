@@ -8,6 +8,7 @@ service cloud.firestore {
     }
 
     // دالة محسنة للتحقق من الصلاحيات دون التسبب في تكرار لانهائي
+    // نتحقق من الرتبة مباشرة من مستند المستخدم في الطلب
     function isAdmin() {
       return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
@@ -17,22 +18,22 @@ service cloud.firestore {
       // السماح للقراءة إذا كان المستخدم هو صاحب الحساب، أو إذا كان مسجلاً كآدمن (تحقق مباشر)، أو إذا كان الملف معد للعرض العام
       allow read: if isAuthenticated() && (
         request.auth.uid == userId || 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
-        resource.data.showInLeaderboard == true
+        resource.data.showInLeaderboard == true ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-      allow delete: if isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow delete: if isAdmin();
     }
 
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
+      
       match /lessons/{lessonId} {
-        allow read: if true;
-        allow write: if isAdmin();
-      }
-      match /chapters/{chapterId} {
         allow read: if true;
         allow write: if isAdmin();
       }
