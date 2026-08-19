@@ -77,7 +77,7 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
               </p>
               <div className="flex items-center justify-center gap-4">
                 <div className="text-center">
-                  <p className="text-[8px] md:text-[10px] text-green-600 font-bold uppercase tracking-wider">أفضل نتيجة</p>
+                  <p className="text-[8px] md:text-[10px] text-green-600 font-bold uppercase tracking-wider">آخر نتيجة مسجلة</p>
                   <p className="text-xl md:text-3xl font-black text-green-700">{previousScore} / {quizData.length}</p>
                 </div>
               </div>
@@ -86,14 +86,14 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
 
           <p className="text-muted-foreground text-xs md:text-lg leading-relaxed max-w-lg mx-auto font-medium">
             {alreadyAnswered 
-              ? "يمكنك مراجعة إجاباتك الصحيحة أو إعادة محاولة الحل لترسيخ المعلومة." 
-              : "تنبيه: يتم احتساب نقاط هذا التقويم من أول محاولة إجابة فقط."}
+              ? "يمكنك مراجعة الأسئلة مع حلولها الصحيحة أو إعادة المحاولة للتدريب." 
+              : "تنبيه: يتم احتساب نقاط هذا التقويم وإضافتها لرصيدك من أول محاولة إجابة فقط."}
           </p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button onClick={() => setStarted(true)} className="h-12 md:h-14 px-10 rounded-xl md:rounded-2xl bg-primary text-white font-black text-sm md:text-lg shadow-lg">
-            {alreadyAnswered ? "إعادة محاولة الحل" : "ابدأ التقويم الآن"}
+            {alreadyAnswered ? "إعادة المحاولة للتدريب" : "ابدأ التقويم الآن"}
           </Button>
           
           {alreadyAnswered && (
@@ -120,9 +120,9 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
         <div className="space-y-4">
           <div className="space-y-1">
             <h2 className="text-xl md:text-4xl font-black text-primary font-headline">
-              {isReviewMode ? "مراجعة النتائج السابقة" : (isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة")}
+              {isReviewMode ? "دليل مراجعة الوحدة" : (isSuccess ? "أحسنت يا بطل! 🎉" : "محاولة جيدة")}
             </h2>
-            <p className="text-xs md:text-lg text-muted-foreground font-bold">ملخص الأداء في هذه الوحدة</p>
+            <p className="text-xs md:text-lg text-muted-foreground font-bold">ملخص أدائك التعليمي</p>
           </div>
           
           <div className="grid grid-cols-2 gap-3 md:gap-4 max-w-md mx-auto">
@@ -131,9 +131,9 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
                 <p className="text-lg md:text-2xl font-black text-primary">{finalScore} / {quizData.length}</p>
              </div>
              <div className="bg-secondary/5 p-3 md:p-4 rounded-xl md:rounded-2xl border border-secondary/10">
-                <p className="text-[7px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">النقاط المكتسبة</p>
+                <p className="text-[7px] md:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">النقاط المضافة</p>
                 <p className="text-lg md:text-2xl font-black text-secondary">
-                  {(alreadyAnswered && !isReviewMode && score > 0) ? "0" : `+${pointsEarned}`}
+                  {(alreadyAnswered && !isReviewMode) ? "0" : `+${pointsEarned}`}
                 </p>
              </div>
           </div>
@@ -141,7 +141,7 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
 
         <div className="space-y-4 pt-6 border-t border-border/50 text-right" dir="rtl">
            <h3 className="font-black text-primary text-base md:text-xl flex items-center gap-2 mb-2">
-             <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-secondary" /> {isReviewMode ? "دليل الحلول الصحيحة للوحدة:" : "مراجعة أدائك الحالي:"}
+             <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5 text-secondary" /> الأسئلة والحلول النموذجية:
            </h3>
            <div className="grid gap-3">
               {quizData.map((question, idx) => {
@@ -178,13 +178,8 @@ export default function QuizPlayer({ quizData, onComplete, alreadyAnswered, prev
 
         <div className="flex flex-col gap-3 pt-4">
            <Button onClick={reset} variant="outline" className="w-full gap-2 rounded-xl md:rounded-2xl h-12 md:h-14 font-black border-primary/10 hover:bg-primary/5 text-xs md:text-base">
-             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" /> {isReviewMode ? "خروج من المراجعة" : "إعادة محاولة التقويم"}
+             <RotateCcw className="w-4 h-4 md:w-5 md:h-5" /> خروج والعودة للبداية
            </Button>
-           {!isReviewMode && (
-             <div className="bg-amber-50 p-3 md:p-4 rounded-xl md:rounded-2xl border border-amber-100 text-amber-700 font-bold text-[9px] md:text-[11px] leading-relaxed">
-               ملاحظة: يمكنك الإعادة للمراجعة، ولكن لن تتغير نقاطك المسجلة في المرة الأولى.
-             </div>
-           )}
         </div>
       </div>
     );

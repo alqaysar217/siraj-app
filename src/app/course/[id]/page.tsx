@@ -9,11 +9,8 @@ import CurriculumAccordion from "@/components/course/curriculum-accordion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
 import { 
-  PlayCircle, 
-  BookOpen, 
   Loader2, 
   Star, 
   Award, 
@@ -30,8 +27,7 @@ import {
   MessageSquare, 
   Info, 
   FileText, 
-  CreditCard, 
-  ShieldAlert
+  CreditCard
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy } from "firebase/firestore";
@@ -52,7 +48,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   
   const [mounted, setMounted] = useState(false);
   const hasInitializedRef = useRef(false);
-  const userHasInteractedRef = useRef(false);
   
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
@@ -102,7 +97,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
-  // نظام التنقل الذكي: يمنع القفز بعد التحميل الأولي
+  // نظام التنقل الذكي: يفتح آخر درس لم يكتمل عند التحميل فقط
   useEffect(() => {
     if (userLoading || courseLoading || !lessons || !mounted || hasInitializedRef.current) return;
     
@@ -129,8 +124,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     hasInitializedRef.current = true;
   }, [lessons, profile, id, userLoading, courseLoading, selectedLessonId, isFinishing, mounted]);
 
-  const selectLesson = useCallback((lessonId: string, isManual = true) => {
-    if (isManual) userHasInteractedRef.current = true;
+  const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
     setSelectedLessonId(lessonId);
   }, []);
@@ -148,7 +142,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       return;
     }
     if (lessons && currentLessonIndex < lessons.length - 1) {
-      selectLesson(lessons[currentLessonIndex + 1].id, false);
+      selectLesson(lessons[currentLessonIndex + 1].id);
     } else if (isAllLessonsCompleted) {
       setIsFinishing(true);
       setSelectedLessonId(null);
@@ -186,7 +180,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
-    // الانتقال التلقائي للفيديو فقط، أما التقويم فيبقى الطالب ليشاهد نتيجته
+    // الانتقال التلقائي للفيديو فقط لضمان بقاء الطالب في صفحة نتيجة التقويم
     if (currentLesson.type === "video") {
       setTimeout(goToNext, 2000);
     }
@@ -218,7 +212,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 <h2 className="text-2xl md:text-4xl font-black text-green-800 font-headline">مبارك لك الإنجاز! 🎓</h2>
                 <Button onClick={() => window.open(whatsappUrl, '_blank')} className="bg-[#25D366] text-white h-16 rounded-2xl px-12 font-black text-lg gap-2 shadow-xl shadow-green-600/20"><Award className="w-6 h-6" /> طلب الشهادة الموثقة</Button>
               </Card>
-              <Button onClick={() => { setIsFinishing(false); selectLesson(lessons?.[lessons.length-1]?.id || "", true); }} variant="ghost" className="text-muted-foreground block mx-auto font-bold">مراجعة المنهج</Button>
+              <Button onClick={() => { setIsFinishing(false); selectLesson(lessons?.[lessons.length-1]?.id || ""); }} variant="ghost" className="text-muted-foreground block mx-auto font-bold">مراجعة المنهج</Button>
             </div>
           ) : currentLesson ? (
             <>
