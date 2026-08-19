@@ -36,7 +36,6 @@ export function useUser() {
 
     const userDocRef = doc(db, 'users', user.uid);
     
-    // تم إلغاء نظام "الترميم التلقائي" (setDoc) هنا لمنع تصفير بيانات الطلاب عند أخطاء الصلاحيات
     const unsubscribeProfile = onSnapshot(userDocRef, 
       async (docSnap) => {
         if (docSnap.exists()) {
@@ -64,13 +63,12 @@ export function useUser() {
           }
           setLoading(false);
         } else {
-          // إذا لم يوجد المستند فعلياً، ننهي التحميل ليقوم نظام التسجيل بالتعامل معه
+          // إذا لم يوجد المستند، ننهي التحميل
           setLoading(false);
         }
       },
       (error) => {
         console.error("Profile sync error:", error);
-        // في حال حدوث خطأ في الصلاحيات، ننهي التحميل لمنع تعليق الصفحة
         setLoading(false);
       }
     );

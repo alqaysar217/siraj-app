@@ -89,7 +89,7 @@ export default function LoginPage() {
           return;
         }
 
-        // استخدام setDoc مع merge بدلاً من updateDoc لتجنب أخطاء الصلاحيات
+        // تحديث الجلسة والأجهزة فقط دون لمس البيانات الأخرى
         await setDoc(userDocRef, { 
           lastSessionId: newSessionId, 
           deviceIds: Array.from(new Set([...currentDevices, deviceId])),
@@ -97,31 +97,13 @@ export default function LoginPage() {
         }, { merge: true });
 
         localStorage.setItem('siraj_session_id', newSessionId);
-        
-        setTimeout(() => {
-          router.replace("/dashboard");
-        }, 1000);
-
+        router.replace("/dashboard");
       } else {
-        // حالة الترميم التلقائي إذا كان الحساب موجوداً في Auth ولكن ليس في Firestore
-        const sessionId = `sess_${Date.now()}`;
-        await setDoc(userDocRef, { 
-          uid: user.uid,
-          email: user.email,
-          name: user.displayName || "طالب سراج",
-          role: "student",
-          status: "active",
-          lastSessionId: sessionId,
-          deviceIds: [deviceId],
-          enrolledCourses: [],
-          showInLeaderboard: true,
-          createdAt: serverTimestamp()
-        }, { merge: true });
-        
-        localStorage.setItem('siraj_session_id', sessionId);
-        setTimeout(() => {
-          router.replace("/dashboard");
-        }, 1000);
+        // إذا لم يوجد المستند، لا نقوم بإنشائه هنا (الترميم التلقائي ملغي) لعدم تصفير بيانات قديمة
+        // نكتفي بتسجيل الخروج وتنبيهه
+        await signOut(auth);
+        toast({ variant: "destructive", title: "خطأ في الملف الشخصي", description: "لم يتم العثور على بياناتك. يرجى مراسلة الإدارة." });
+        setLoading(false);
       }
     } catch (error: any) {
       console.error("Login error:", error);
