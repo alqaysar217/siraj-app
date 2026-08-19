@@ -97,31 +97,31 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   const whatsappMessage = `أهلاً سراج، أنا الطالب (${profile?.name || 'جديد'}) ببريد (${profile?.email || 'غير مسجل'})، أود الاشتراك وتفعيل دورة: ${course?.title}`;
   const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER.replace(/\D/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
 
+  // ميزة الاستئناف التلقائي: تفتح أول درس غير مكتمل عند تحديث الصفحة
   useEffect(() => {
     if (userLoading || courseLoading || !lessons || !mounted || hasInitializedRef.current) return;
     
-    if (!profile && lessons.length > 0 && !selectedLessonId) {
+    const completedIdsFromProfile = profile?.progress?.[id]?.completedLessons || [];
+    
+    if (!isEnrolled && lessons.length > 0) {
       setSelectedLessonId(lessons[0].id);
       hasInitializedRef.current = true;
       return;
     }
 
-    const completedIds = profile?.progress?.[id]?.completedLessons || [];
-    const nextUncompletedLesson = lessons.find(l => !completedIds.includes(l.id));
+    const nextUncompletedLesson = lessons.find(l => !completedIdsFromProfile.includes(l.id));
 
     if (nextUncompletedLesson) {
-      if (selectedLessonId !== nextUncompletedLesson.id) {
-        setSelectedLessonId(nextUncompletedLesson.id);
-        setIsFinishing(false);
-      }
-    } else if (lessons.length > 0 && !isFinishing) {
+      setSelectedLessonId(nextUncompletedLesson.id);
+      setIsFinishing(false);
+    } else if (lessons.length > 0) {
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
 
-    setLocalCompleted(completedIds);
+    setLocalCompleted(completedIdsFromProfile);
     hasInitializedRef.current = true;
-  }, [lessons, profile, id, userLoading, courseLoading, selectedLessonId, isFinishing, mounted]);
+  }, [lessons, profile, id, userLoading, courseLoading, mounted, isEnrolled]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -140,13 +140,25 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       window.open(whatsappUrl, '_blank');
       return;
     }
+
+    // التحقق الصارم: هل الدرس الحالي مكتمل؟
+    const isCurrentCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
+    if (!isAdmin && !isCurrentCompleted) {
+      toast({
+        variant: "destructive",
+        title: "تنبيه التعليمات",
+        description: "يرجى إكمال الدرس الحالي (مشاهدة الفيديو أو حل التقويم) لتتمكن من الانتقال للدرس التالي."
+      });
+      return;
+    }
+
     if (lessons && currentLessonIndex < lessons.length - 1) {
       selectLesson(lessons[currentLessonIndex + 1].id);
     } else if (isAllLessonsCompleted) {
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
-  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted, whatsappUrl]);
+  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted, whatsappUrl, currentLesson, allCompletedIds, isAdmin, toast]);
 
   const handleLessonComplete = useCallback(async (score?: number) => {
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
@@ -179,7 +191,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
-    // الانتقال التلقائي للفيديو فقط؛ التقويم يتطلب ضغط زر "التالي" يدوياً لضمان بقاء النتيجة
+    // الانتقال التلقائي للفيديو فقط بعد الإكمال
     if (currentLesson.type === "video") {
       setTimeout(goToNext, 2000);
     }
@@ -188,6 +200,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   if (!mounted || courseLoading || userLoading) {
     return <div className="min-h-screen flex flex-col bg-background"><Navbar /><div className="flex-1 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-secondary" /></div></div>;
   }
+
+  const isCurrentLessonCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -230,9 +244,17 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               )}
               
               <div className="flex gap-4">
-                <Button onClick={goToNext} className={cn("h-14 flex-1 font-black text-lg shadow-xl gap-2", !isEnrolled && currentLessonIndex === 0 ? "bg-secondary" : "bg-primary")}>
+                <Button 
+                  onClick={goToNext} 
+                  className={cn(
+                    "h-14 flex-1 font-black text-lg shadow-xl gap-2", 
+                    (!isEnrolled && currentLessonIndex === 0) ? "bg-secondary" : 
+                    (!isCurrentLessonCompleted && !isAdmin) ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-primary"
+                  )}
+                >
                    <ArrowRight className="w-5 h-5 ml-1" />
                    <span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span>
+                   {!isCurrentLessonCompleted && !isAdmin && isEnrolled && <Lock className="w-4 h-4" />}
                 </Button>
                 <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg">السابق</Button>
               </div>
