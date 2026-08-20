@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -30,7 +29,8 @@ import {
   Settings2,
   Share2,
   Trash2,
-  ClipboardCheck
+  ClipboardCheck,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,6 +77,7 @@ export default function Navbar() {
     { name: "لوحة التحكم", href: "/admin/dashboard", icon: ShieldCheck },
     { name: "إدارة الدورات", href: "/admin/manage-courses", icon: GraduationCap },
     { name: "إدارة الكتب", href: "/admin/manage-books", icon: Library },
+    { name: "إعدادات AI", href: "/admin/ai-settings", icon: Bot },
     { name: "إصدار الشهادات", href: "/admin/certificates", icon: Award },
     { name: "إدارة المدربين", href: "/admin/manage-instructors", icon: UsersRound },
     { name: "إدارة المنهج", href: "/admin/add-lesson", icon: Settings2 },

@@ -1,8 +1,8 @@
-
 import type {Metadata, Viewport} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseProvider } from "@/firebase/provider";
+import SirajAiChat from "@/components/siraj-ai-chat";
 
 /**
  * إعدادات الهوية البصرية والرقمية للمنصة (Open Graph / SEO)
@@ -83,6 +83,8 @@ export default function RootLayout({
               {children}
             </main>
             <Toaster />
+            {/* المساعد الذكي العائم */}
+            <SirajAiChat />
           </div>
         </FirebaseProvider>
       </body>

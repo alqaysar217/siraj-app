@@ -4,3 +4,4 @@
 
 export * from './ask-lesson-question';
 export * from './generate-lesson-summary';
+export * from './siraj-ai-chat';
