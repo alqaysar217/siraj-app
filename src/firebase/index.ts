@@ -33,24 +33,20 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     db = (window as any)._firebaseDb;
   } else {
     /**
-     * إعدادات المحرك المستقر:
-     * - experimentalForceLongPolling: لتجنب مشاكل GRPC في الشبكات المقيدة أو البطئ الشديد.
-     * - persistentLocalCache: لتفعيل العمل في وضع الاوفلاين وتحسين السرعة.
-     * - tabManager: استخدام persistentSingleTabManager لتقليل تأخير الاتصال الناتج عن مزامنة التبويبات المتعددة.
+     * إعدادات المحرك المستقر لحل مشكلة Connection Timeout:
+     * - experimentalForceLongPolling: إجباري لتجاوز مشاكل GRPC/HTTP2 في البروكسي والشبكات المحلية.
+     * - persistentLocalCache: يضمن عمل التطبيق حتى لو انقطع الاتصال مؤقتاً.
      */
-    const firestoreSettings = {
-      experimentalForceLongPolling: true,
-      localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager()
-      })
-    };
-
     try {
-      // محاولة التهيئة بالإعدادات المستقرة
-      db = initializeFirestore(app, firestoreSettings);
-      console.log("🚀 تم تفعيل محرك البيانات المستقر (Long Polling + Single Tab)");
+      db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+        localCache: persistentLocalCache({
+          tabManager: persistentSingleTabManager()
+        })
+      });
+      console.log("🚀 تم تفعيل محرك Firestore بنظام Long Polling المستقر");
     } catch (e) {
-      console.warn("فشلت التهيئة المخصصة، يتم التراجع للنسخة الأساسية");
+      console.warn("تنبيه: فشلت التهيئة المخصصة، يتم التراجع للتهيئة الافتراضية");
       db = getFirestore(app);
     }
     (window as any)._firebaseDb = db;
