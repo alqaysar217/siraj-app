@@ -41,6 +41,12 @@ const sirajAiChatFlow = ai.defineFlow(
   async (input) => {
     const { message, history, knowledge } = input;
 
+    // التحقق من وجود مفتاح الـ API قبل البدء
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error("Critical: OPENROUTER_API_KEY is missing in environment variables.");
+      return { text: "عذراً، نظام الذكاء الاصطناعي غير مهيأ حالياً (مفتاح API مفقود). يرجى مراجعة إدارة المنصة." };
+    }
+
     const systemPrompt = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
 مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول:
 - الدورات المتاحة (برمجة، شبكات، تصميم، محاسبة، إلخ).
@@ -64,16 +70,29 @@ ${history?.map(m => `${m.role === 'user' ? 'الطالب' : 'سراج AI'}: ${m.
 
     try {
       // نستخدم الموديل عبر ملحق OpenAI المسجل في genkit.ts
-      // ملاحظة: نستخدم البادئة openai/ لضمان توجيه الطلب عبر الملحق الصحيح
-      const { text } = await ai.generate({
+      // موديل gemini-2.0-flash-lite عبر OpenRouter هو خيار سريع واقتصادي
+      const response = await ai.generate({
         model: 'openai/google/gemini-2.0-flash-lite:preview',
         prompt: systemPrompt,
+        config: {
+          temperature: 0.7,
+        }
       });
 
-      return { text: text || 'عذراً، لم أستطع فهم طلبك بشكل صحيح. هل يمكنك إعادة صياغة السؤال؟' };
-    } catch (error) {
-      console.error("AI Generation Error:", error);
-      return { text: "عذراً، أواجه صعوبة في الاتصال بخدمات الذكاء الاصطناعي حالياً. يرجى مراجعة إعدادات OpenRouter." };
+      return { text: response.text || 'عذراً، لم أستطع فهم طلبك بشكل صحيح. هل يمكنك إعادة صياغة السؤال؟' };
+    } catch (error: any) {
+      console.error("AI Generation Error Details:", error);
+      
+      // توفير رسالة خطأ أكثر تفصيلاً في سجلات الخادم لسهولة الإصلاح
+      let errorMessage = "عذراً، أواجه صعوبة في الاتصال بخدمات الذكاء الاصطناعي حالياً.";
+      
+      if (error.message?.includes('401')) {
+        errorMessage += " يبدو أن مفتاح OpenRouter غير صالح أو منتهي الصلاحية.";
+      } else if (error.message?.includes('openai')) {
+        errorMessage += " هناك مشكلة في تسجيل ملحق OpenAI داخل النظام.";
+      }
+
+      return { text: errorMessage };
     }
   }
 );
