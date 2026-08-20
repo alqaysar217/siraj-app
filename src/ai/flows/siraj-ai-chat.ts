@@ -15,7 +15,7 @@ const MessageSchema = z.object({
 
 const SirajAiChatInputSchema = z.object({
   message: z.string().describe('The student\'s question.'),
-  history: z.array(MessageSchema).optional().describe('The conversation history for context.'),
+  history: z.array(z.any()).optional().describe('The conversation history for context.'),
   knowledge: z.string().optional().describe('Specific platform knowledge provided by the admin.'),
 });
 export type SirajAiChatInput = z.infer<typeof SirajAiChatInputSchema>;
@@ -40,8 +40,7 @@ const sirajAiChatFlow = ai.defineFlow(
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      console.error("Critical: OPENROUTER_API_KEY is missing.");
-      return { text: "⚠️ عذراً، يبدو أن إعدادات الاتصال (API Key) غير مكتملة في الخادم." };
+      return { text: "⚠️ عذراً، مفتاح الـ API غير متوفر في إعدادات الخادم." };
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
@@ -57,7 +56,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
       history.forEach(m => {
         apiMessages.push({
           role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.content[0].text
+          content: m.content?.[0]?.text || m.text || ""
         });
       });
     }
@@ -65,7 +64,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Llama 3.3 المجاني المستقر جداً على OpenRouter
+      // استخدام موديل Gemma 2 المجاني المستقر جداً والمفضل للمستخدم
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -75,16 +74,17 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.3-70b-instruct:free', 
+          model: 'google/gemma-2-9b-it:free', 
           messages: apiMessages,
           temperature: 0.7,
+          max_tokens: 1000
         })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("OpenRouter Error Response:", data);
+        console.error("OpenRouter Error:", data);
         const errorMsg = data.error?.message || 'فشل الاتصال بمزود الخدمة';
         return { text: `❌ حدث خطأ في النظام: ${errorMsg}.` };
       }
@@ -95,9 +95,9 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
         text: aiResponse || 'أعتذر، لم أتمكن من صياغة رد حالياً. حاول مرة أخرى لاحقاً.' 
       };
     } catch (error: any) {
-      console.error("AI Chat Network/Runtime Error:", error);
+      console.error("AI Chat Network Error:", error);
       return { 
-        text: `🌐 تعذر الاتصال بالشبكة الذكية: ${error.message}. يرجى التأكد من جودة الإنترنت.` 
+        text: `🌐 تعذر الاتصال بالشبكة الذكية: ${error.message}.` 
       };
     }
   }

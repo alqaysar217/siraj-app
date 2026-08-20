@@ -25,10 +25,10 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   }
 
   // تهيئة قاعدة البيانات مع فرض نظام Long Polling (HTTPS بدلاً من gRPC)
+  // هذا الإعداد ضروري جداً لتجاوز مشاكل الاتصال في البيئات المقيدة
   if (!(window as any)._firebaseDb) {
     db = initializeFirestore(app, {
       experimentalForceLongPolling: true,
-      useFetchStreams: false // زيادة استقرار الاتصال في البيئات المقيدة
     });
     (window as any)._firebaseDb = db;
   } else {
