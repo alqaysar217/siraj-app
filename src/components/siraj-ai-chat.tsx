@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useFirestore } from '@/firebase/provider';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -37,10 +38,18 @@ export default function SirajAiChat() {
 
   useEffect(() => {
     if (!db) return;
-    // استماع مباشر للتغييرات في الإعدادات من لوحة التحكم
+    
+    // استماع مباشر للتغييرات في الإعدادات
     const unsubscribe = onSnapshot(doc(db, "settings", "ai_config"), (snap) => {
       if (snap.exists()) {
         setConfig(snap.data());
+      } else {
+        // قيم افتراضية في حال عدم وجود إعدادات
+        setConfig({
+          visible: true,
+          enabled: true,
+          welcomeMessage: "مرحباً! أنا مساعدك الذكي في منصة سراج. كيف يمكنني مساعدتك اليوم؟"
+        });
       }
     });
     return () => unsubscribe();
@@ -48,11 +57,14 @@ export default function SirajAiChat() {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
     }
   }, [messages, isOpen, isMinimized]);
 
-  // إذا كانت الإعدادات غير موجودة أو خيار "مرئي" غير مفعل، لا تظهر شيئاً
+  // التحكم في الظهور بناءً على إعدادات لوحة التحكم
   if (!config || config.visible === false) return null;
 
   const handleSend = async () => {
@@ -60,12 +72,13 @@ export default function SirajAiChat() {
     
     const userMsg: Message = { role: 'user', content: [{ text: input }] };
     setMessages(prev => [...prev, userMsg]);
+    const currentInput = input;
     setInput('');
     setIsLoading(true);
 
     try {
       const response = await sirajAiChat({
-        message: input,
+        message: currentInput,
         history: messages,
         knowledge: config.knowledgeBase
       });
@@ -73,7 +86,7 @@ export default function SirajAiChat() {
       const aiMsg: Message = { role: 'model', content: [{ text: response.text }] };
       setMessages(prev => [...prev, aiMsg]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', content: [{ text: 'عذراً، حدث خطأ ما في معالجة طلبك.' }] }]);
+      setMessages(prev => [...prev, { role: 'model', content: [{ text: 'عذراً، حدث خطأ ما. يرجى المحاولة لاحقاً.' }] }]);
     } finally {
       setIsLoading(false);
     }
@@ -88,24 +101,24 @@ export default function SirajAiChat() {
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-[9999] flex flex-col items-start" dir="rtl">
+    <div className="fixed bottom-6 left-6 z-[9999] flex flex-col items-start font-sans" dir="rtl">
       {/* نافذة الدردشة */}
       {isOpen && (
         <Card className={cn(
-          "mb-4 w-[85vw] sm:w-[350px] border border-primary/10 shadow-2xl rounded-2xl overflow-hidden bg-white/95 backdrop-blur-xl transition-all duration-300 origin-bottom-left",
-          isMinimized ? "h-[64px]" : "h-[500px]"
+          "mb-4 w-[90vw] sm:w-[380px] border border-primary/10 shadow-2xl rounded-2xl overflow-hidden bg-white flex flex-col transition-all duration-300",
+          isMinimized ? "h-[64px]" : "h-[550px] max-h-[80vh]"
         )}>
           {/* رأس النافذة */}
           <div className="bg-primary p-4 flex items-center justify-between text-white cursor-pointer" onClick={() => isMinimized && setIsMinimized(false)}>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
-                <Image src="/SirajAi.png" alt="AI" width={28} height={28} className="object-contain" />
+              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center overflow-hidden">
+                <Image src="/SirajAi.png" alt="AI" width={40} height={40} className="object-cover" />
               </div>
               <div className="text-right">
                 <p className="font-bold text-sm leading-none">سراج AI</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                   <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                   <span className="text-[10px] opacity-70">متصل الآن</span>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                   <div className="w-2 h-2 rounded-full bg-green-400" />
+                   <span className="text-[10px] text-white/80">متصل الآن</span>
                 </div>
               </div>
             </div>
@@ -122,19 +135,22 @@ export default function SirajAiChat() {
           {!isMinimized && (
             <>
               {/* منطقة الرسائل */}
-              <ScrollArea className="flex-1 p-4 h-[370px]" ref={scrollRef}>
+              <ScrollArea className="flex-1 p-4 bg-slate-50" ref={scrollRef}>
                 <div className="space-y-4">
                   {messages.map((msg, i) => (
                     <div key={i} className={cn("flex items-start gap-2", msg.role === 'user' ? "flex-row" : "flex-row-reverse")}>
                       <div className={cn(
-                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border",
-                        msg.role === 'user' ? "bg-primary/5 border-primary/10" : "bg-secondary/10 border-secondary/10"
+                        "w-8 h-8 rounded-full flex items-center justify-center shrink-0 border overflow-hidden",
+                        msg.role === 'user' ? "bg-white border-primary/10" : "bg-white border-secondary/10"
                       )}>
-                        {msg.role === 'user' ? <User className="w-4 h-4 text-primary" /> : <Bot className="w-4 h-4 text-secondary" />}
+                        {msg.role === 'user' ? 
+                          <User className="w-4 h-4 text-primary" /> : 
+                          <Image src="/SirajAi.png" alt="AI" width={32} height={32} />
+                        }
                       </div>
                       <div className={cn(
-                        "p-3 rounded-2xl text-xs font-medium leading-relaxed max-w-[80%]",
-                        msg.role === 'user' ? "bg-muted/50 text-primary rounded-tr-none" : "bg-primary text-white rounded-tl-none"
+                        "p-3 rounded-2xl text-sm shadow-sm max-w-[85%]",
+                        msg.role === 'user' ? "bg-white text-slate-800 rounded-tr-none" : "bg-primary text-white rounded-tl-none"
                       )}>
                         {msg.content[0].text}
                       </div>
@@ -142,41 +158,45 @@ export default function SirajAiChat() {
                   ))}
                   {isLoading && (
                     <div className="flex items-center gap-2 flex-row-reverse">
-                       <div className="w-8 h-8 rounded-lg bg-secondary/10 flex items-center justify-center"><Bot className="w-4 h-4 text-secondary animate-bounce" /></div>
-                       <div className="bg-primary text-white p-3 rounded-2xl rounded-tl-none"><Loader2 className="w-4 h-4 animate-spin" /></div>
+                       <div className="w-8 h-8 rounded-full bg-white border border-secondary/10 flex items-center justify-center overflow-hidden">
+                          <Image src="/SirajAi.png" alt="AI" width={32} height={32} />
+                       </div>
+                       <div className="bg-primary text-white p-3 rounded-2xl rounded-tl-none">
+                          <div className="flex gap-1">
+                            <span className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                            <span className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                            <span className="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                          </div>
+                       </div>
                     </div>
                   )}
                 </div>
               </ScrollArea>
 
               {/* منطقة الإدخال */}
-              <div className="p-4 bg-muted/20 border-t border-border/50">
+              <div className="p-4 bg-white border-t border-border/50">
                 {!config.enabled ? (
                   <div className="text-center py-2 bg-amber-50 rounded-xl border border-amber-100">
-                    <p className="text-[10px] font-black text-amber-700">سأكون متاحاً للرد قريباً جداً ⏳</p>
+                    <p className="text-[11px] font-bold text-amber-700">خدمة الرد الآلي متوقفة مؤقتاً</p>
                   </div>
                 ) : (
-                  <div className="relative">
-                    <input
-                      className="w-full bg-white border border-primary/10 rounded-xl h-11 pr-4 pl-10 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
-                      placeholder="كيف يمكنني مساعدتك؟"
+                  <div className="relative flex items-center gap-2">
+                    <Input
+                      className="flex-1 bg-slate-50 border-none rounded-xl h-11 pr-4 focus-visible:ring-1 focus-visible:ring-primary/20 text-sm"
+                      placeholder="اكتب رسالتك هنا..."
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                     />
-                    <button 
+                    <Button 
                       onClick={handleSend}
                       disabled={isLoading || !input.trim()}
-                      className="absolute left-1 top-1/2 -translate-y-1/2 h-9 w-9 bg-primary text-white rounded-lg flex items-center justify-center transition-all hover:bg-primary/90 active:scale-95 disabled:opacity-50"
+                      className="h-11 w-11 p-0 bg-primary text-white rounded-xl flex items-center justify-center shrink-0"
                     >
-                      <Send className="w-3.5 h-3.5 rotate-180" />
-                    </button>
+                      <Send className="w-4 h-4 rotate-180" />
+                    </Button>
                   </div>
                 )}
-                <div className="mt-2 flex items-center justify-center gap-1 opacity-20">
-                  <Sparkles className="w-2.5 h-2.5" />
-                  <span className="text-[8px] font-black uppercase tracking-widest">Siraj AI Assistant</span>
-                </div>
               </div>
             </>
           )}
@@ -187,7 +207,7 @@ export default function SirajAiChat() {
       {!isOpen && (
         <button
           onClick={toggleChat}
-          className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-2xl border-4 border-white overflow-hidden transition-all duration-300 hover:scale-110 active:scale-95 hover:rotate-12"
+          className="w-16 h-16 rounded-full bg-white shadow-2xl border-4 border-white overflow-hidden transition-all duration-300 hover:scale-110 active:scale-95 hover:rotate-12 flex items-center justify-center"
         >
           <Image src="/SirajAi.png" alt="Siraj AI" width={64} height={64} className="object-cover" />
         </button>
