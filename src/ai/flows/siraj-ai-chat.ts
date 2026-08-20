@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat.
@@ -62,6 +63,7 @@ ${history?.map(m => `${m.role === 'user' ? 'الطالب' : 'سراج AI'}: ${m.
 سؤال الطالب الحالي: ${message}`;
 
     // نستخدم الموديل عبر ملحق openai المعرف في genkit.ts
+    // ملاحظة: نستخدم البادئة openai/ لضمان توجيه الطلب عبر الملحق الصحيح
     const { text } = await ai.generate({
       model: 'openai/google/gemini-2.0-flash-lite:preview',
       prompt: systemPrompt,
