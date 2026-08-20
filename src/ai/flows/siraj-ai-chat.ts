@@ -62,6 +62,7 @@ ${history?.map(m => `${m.role === 'user' ? 'الطالب' : 'سراج AI'}: ${m.
 سؤال الطالب الحالي: ${message}`;
 
     const { text } = await ai.generate({
+      model: 'openai/google/gemini-2.0-flash-lite:preview',
       prompt: systemPrompt,
     });
 

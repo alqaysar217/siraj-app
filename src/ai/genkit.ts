@@ -8,5 +8,4 @@ export const ai = genkit({
       baseURL: 'https://openrouter.ai/api/v1',
     }),
   ],
-  model: 'openai/google/gemini-2.0-flash-lite:preview',
 });
