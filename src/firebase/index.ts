@@ -1,11 +1,12 @@
 'use client';
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { 
   Firestore, 
   initializeFirestore, 
   persistentLocalCache, 
+  persistentSingleTabManager,
   getFirestore
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
@@ -31,16 +32,23 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   if ((window as any)._firebaseDb) {
     db = (window as any)._firebaseDb;
   } else {
-    // إعدادات المحرك المستقر (إلزامي للشبكات الضعيفة)
-    // قمنا بإزالة tabManager لتقليل احتمالية حدوث تعارض Lease في المتصفحات
+    /**
+     * إعدادات المحرك المستقر:
+     * - experimentalForceLongPolling: لتجنب مشاكل GRPC في الشبكات المقيدة أو البطئ الشديد.
+     * - persistentLocalCache: لتفعيل العمل في وضع الاوفلاين وتحسين السرعة.
+     * - tabManager: استخدام persistentSingleTabManager لتقليل تأخير الاتصال الناتج عن مزامنة التبويبات المتعددة.
+     */
     const firestoreSettings = {
       experimentalForceLongPolling: true,
-      localCache: persistentLocalCache({}) 
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager()
+      })
     };
 
     try {
+      // محاولة التهيئة بالإعدادات المستقرة
       db = initializeFirestore(app, firestoreSettings);
-      console.log("🚀 تم تفعيل محرك البيانات المستقر");
+      console.log("🚀 تم تفعيل محرك البيانات المستقر (Long Polling + Single Tab)");
     } catch (e) {
       console.warn("فشلت التهيئة المخصصة، يتم التراجع للنسخة الأساسية");
       db = getFirestore(app);
@@ -53,6 +61,8 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     auth = (window as any)._firebaseAuth;
   } else {
     auth = getAuth(app);
+    // ضمان بقاء الجلسة نشطة في المتصفح
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
     (window as any)._firebaseAuth = auth;
   }
 }
