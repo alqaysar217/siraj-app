@@ -62,13 +62,18 @@ ${history?.map(m => `${m.role === 'user' ? 'الطالب' : 'سراج AI'}: ${m.
 
 سؤال الطالب الحالي: ${message}`;
 
-    // نستخدم الموديل عبر ملحق openai المعرف في genkit.ts
-    // ملاحظة: نستخدم البادئة openai/ لضمان توجيه الطلب عبر الملحق الصحيح
-    const { text } = await ai.generate({
-      model: 'openai/google/gemini-2.0-flash-lite:preview',
-      prompt: systemPrompt,
-    });
+    try {
+      // نستخدم الموديل عبر ملحق OpenAI المسجل في genkit.ts
+      // ملاحظة: نستخدم البادئة openai/ لضمان توجيه الطلب عبر الملحق الصحيح
+      const { text } = await ai.generate({
+        model: 'openai/google/gemini-2.0-flash-lite:preview',
+        prompt: systemPrompt,
+      });
 
-    return { text: text || 'عذراً، لم أستطع فهم طلبك بشكل صحيح. هل يمكنك إعادة صياغة السؤال؟' };
+      return { text: text || 'عذراً، لم أستطع فهم طلبك بشكل صحيح. هل يمكنك إعادة صياغة السؤال؟' };
+    } catch (error) {
+      console.error("AI Generation Error:", error);
+      return { text: "عذراً، أواجه صعوبة في الاتصال بخدمات الذكاء الاصطناعي حالياً. يرجى مراجعة إعدادات OpenRouter." };
+    }
   }
 );

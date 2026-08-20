@@ -3,26 +3,23 @@ import { genkit } from 'genkit';
 import { openAI } from 'genkitx-openai';
 
 /**
- * تهيئة Genkit للعمل مع OpenRouter بشكل احترافي.
- * نستخدم "مغلف ملحق" (Plugin Wrapper) لضمان التوافق مع محرك Genkit 1.x 
- * وتجنب خطأ "plugin is not a function" بغض النظر عن طريقة تصدير المكتبة.
+ * تهيئة Genkit 1.x مع دعم OpenRouter.
+ * نستخدم نمطاً مرناً لتسجيل الملحق لضمان التوافق مع إصدارات المكتبة المختلفة.
  */
+
+// إعداد خيارات OpenAI لـ OpenRouter
+const openAiOptions = {
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+};
+
+// استدعاء دالة بناء الملحق
+const openAiPlugin = openAI(openAiOptions);
+
 export const ai = genkit({
   plugins: [
-    (aiInstance: any) => {
-      const pluginInstance: any = openAI({
-        apiKey: process.env.OPENROUTER_API_KEY,
-        baseURL: 'https://openrouter.ai/api/v1',
-      });
-
-      // التحقق من نوع الملحق للتعامل مع الأنماط المختلفة للمكتبات (دالة أو كائن)
-      if (typeof pluginInstance === 'function') {
-        return pluginInstance(aiInstance);
-      } else if (pluginInstance && typeof pluginInstance.register === 'function') {
-        return pluginInstance.register(aiInstance);
-      }
-      
-      return pluginInstance;
-    }
+    // في Genkit 1.x، الملحقات يجب أن تكون دوال. 
+    // إذا كان الملحق المستورد يعود ككائن، نقوم بتغليفه في دالة.
+    typeof openAiPlugin === 'function' ? openAiPlugin : () => openAiPlugin,
   ],
 });
