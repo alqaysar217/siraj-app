@@ -291,26 +291,28 @@ ${certNameEn}`;
                       <h2 className="text-3xl md:text-5xl font-black text-green-800 font-headline">ألف مبروك! 🎓</h2>
                       <p className="text-muted-foreground font-bold md:text-lg">لقد أتممت كافة دروس المنهج بنجاح.</p>
                     </div>
-                    <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-14 md:h-16 rounded-2xl px-6 md:px-12 font-black text-sm md:text-lg gap-2 shadow-xl transition-transform hover:scale-105 active:scale-95">
-                       {hasAlreadyReviewed ? "طلب الشهادة" : "تقييم الكورس"} <ArrowRight className="w-5 h-5 rotate-180" />
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                      <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-14 rounded-2xl px-8 font-black text-sm md:text-base gap-2 shadow-xl transition-transform hover:scale-105 active:scale-95">
+                         {hasAlreadyReviewed ? "طلب الشهادة" : "تقييم الكورس"} <ArrowRight className="w-5 h-5 rotate-180" />
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               )}
 
               {finishingStep === 'review' && (
-                <Card className="bg-white p-8 md:p-12 rounded-[2.5rem] luxury-shadow space-y-8 text-right">
+                <Card className="bg-white p-6 md:p-12 rounded-[2.5rem] luxury-shadow space-y-8 text-right">
                   <div className="text-center space-y-2">
-                    <div className="w-16 h-16 bg-secondary/10 text-secondary rounded-2xl flex items-center justify-center mx-auto mb-4"><Star className="w-10 h-10 fill-current" /></div>
-                    <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">ما هو انطباعك؟</h2>
-                    <p className="text-muted-foreground text-sm font-bold">رأيك يهمنا ويساعد زملائك في الاختيار.</p>
+                    <div className="w-14 h-14 bg-secondary/10 text-secondary rounded-2xl flex items-center justify-center mx-auto mb-4"><Star className="w-8 h-8 fill-current" /></div>
+                    <h2 className="text-xl md:text-3xl font-black text-primary font-headline">ما هو انطباعك؟</h2>
+                    <p className="text-muted-foreground text-[10px] md:text-sm font-bold">رأيك يهمنا ويساعد زملائك في الاختيار.</p>
                   </div>
 
-                  <div className="flex flex-col items-center gap-4 py-4">
+                  <div className="flex flex-col items-center gap-4 py-2">
                     <div className="flex gap-2">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <button key={s} onClick={() => setReviewRating(s)} className="transition-transform active:scale-90">
-                          <Star className={cn("w-8 h-8 md:w-10 md:h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted opacity-30")} />
+                          <Star className={cn("w-7 h-7 md:w-10 md:h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted opacity-30")} />
                         </button>
                       ))}
                     </div>
@@ -320,24 +322,24 @@ ${certNameEn}`;
                     <Label className="text-xs font-black text-primary mr-1">اكتب رأيك باختصار:</Label>
                     <Textarea 
                       placeholder="كيف كانت تجربة التعلم؟" 
-                      className="min-h-[100px] rounded-2xl border-primary/10 text-right text-sm"
+                      className="min-h-[80px] rounded-2xl border-primary/10 text-right text-sm"
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
                     />
                   </div>
 
-                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-12 md:h-14 rounded-2xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
+                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-12 rounded-2xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
                     {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ التقييم"}
                   </Button>
                 </Card>
               )}
 
               {finishingStep === 'certificate' && (
-                <Card className="bg-white p-8 md:p-12 rounded-[2.5rem] luxury-shadow space-y-8 text-right">
+                <Card className="bg-white p-6 md:p-12 rounded-[2.5rem] luxury-shadow space-y-8 text-right">
                   <div className="text-center space-y-2">
-                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Award className="w-10 h-10" /></div>
-                    <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">بيانات الشهادة</h2>
-                    <p className="text-muted-foreground text-sm font-bold">يرجى كتابة الاسم بالعربية والإنجليزية بدقة.</p>
+                    <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Award className="w-8 h-8" /></div>
+                    <h2 className="text-xl md:text-3xl font-black text-primary font-headline">بيانات الشهادة</h2>
+                    <p className="text-muted-foreground text-[10px] md:text-sm font-bold">يرجى كتابة الاسم بالعربية والإنجليزية بدقة.</p>
                   </div>
 
                   <div className="space-y-5">
@@ -366,13 +368,13 @@ ${certNameEn}`;
                     </div>
                   </div>
 
-                  <Button onClick={handleRequestCertificate} className="w-full h-12 md:h-14 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-base gap-3 shadow-xl">
+                  <Button onClick={handleRequestCertificate} className="w-full h-12 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-base gap-3 shadow-xl">
                     <MessageCircle className="w-5 h-5" /> طلب الشهادة واتساب
                   </Button>
                 </Card>
               )}
 
-              <Button onClick={() => { setIsFinishing(false); selectLesson(lessons?.[lessons.length-1]?.id || ""); }} variant="ghost" className="text-muted-foreground block mx-auto font-bold text-xs">العودة لمراجعة المنهج</Button>
+              <Button onClick={() => { setIsFinishing(false); selectLesson(lessons?.[lessons.length-1]?.id || ""); }} variant="ghost" className="text-muted-foreground block mx-auto font-bold text-[10px]">العودة لمراجعة المنهج</Button>
             </div>
           ) : currentLesson ? (
             <>
