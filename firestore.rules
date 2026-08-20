@@ -6,20 +6,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // دالة فحص الآدمن - قمنا بتبسيطها لمنع التكرار اللانهائي
+    // Function to check if the user is an admin
     function isAdmin() {
       return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     match /users/{userId} {
-      // قاعدة ذهبية: المستخدم يقرأ ملفه الشخصي بناءً على UID مباشرة (تمنع التكرار)
-      allow read: if isAuthenticated() && (request.auth.uid == userId || resource.data.showInLeaderboard == true);
-      allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isAuthenticated() && (request.auth.uid == userId);
+      // Users can read their own profile or public profiles
+      // Admins can read all profiles
+      allow get: if isAuthenticated() && (request.auth.uid == userId || resource.data.showInLeaderboard == true || isAdmin());
       
-      // الآدمن يملك صلاحية القراءة والكتابة الكاملة على كل المستخدمين
-      allow read, write: if isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // Allow listing users if admin, or if filtering by public visibility (for leaderboard)
+      allow list: if isAuthenticated() && (isAdmin() || resource.data.showInLeaderboard == true);
+      
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
     }
 
     match /courses/{courseId} {
@@ -51,8 +54,15 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
     
-    match /subscriptions/{subId} { allow read, write: if isAdmin(); }
-    match /bankAccounts/{accountId} { allow read: if true; allow write: if isAdmin(); }
+    match /subscriptions/{subId} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /bankAccounts/{accountId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
     match /books/{bookId} { 
       allow read: if true; 
       allow write: if isAdmin();
@@ -61,8 +71,25 @@ service cloud.firestore {
         allow write: if isAdmin();
       }
     }
-    match /socialLinks/{linkId} { allow read: if true; allow write: if isAdmin(); }
-    match /trash/{trashId} { allow read, write: if isAdmin(); }
-    match /certificates/{certId} { allow read: if true; allow write: if isAdmin(); }
+    
+    match /socialLinks/{linkId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /trash/{trashId} {
+      allow read, write: if isAdmin();
+    }
+    
+    match /certificates/{certId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Rule for AI configuration and other app settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
