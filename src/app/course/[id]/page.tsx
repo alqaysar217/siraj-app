@@ -133,14 +133,16 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     return !allCompletedIds.includes(lessons?.[index - 1]?.id);
   }, [isAdmin, allCompletedIds, lessons]);
 
-  const goToNext = useCallback(() => {
+  const goToNext = useCallback((isAutomatic = false) => {
     if (!isEnrolled && currentLessonIndex === 0) {
       window.open(whatsappUrl, '_blank');
       return;
     }
 
     const isCurrentCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
-    if (!isAdmin && !isCurrentCompleted) {
+    
+    // إظهار التنبيه فقط إذا كان الضغط يدوياً (وليس تلقائياً من انتهاء الفيديو)
+    if (!isAdmin && !isCurrentCompleted && !isAutomatic) {
       toast({
         variant: "destructive",
         title: "تنبيه التعليمات",
@@ -151,7 +153,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
     if (lessons && currentLessonIndex < lessons.length - 1) {
       selectLesson(lessons[currentLessonIndex + 1].id);
-    } else if (isAllLessonsCompleted) {
+    } else if (isAllLessonsCompleted || (isAutomatic && currentLessonIndex === lessons!.length - 1)) {
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
@@ -188,8 +190,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
+    // عند اكتمال الفيديو، ننتقل تلقائياً للدرس التالي بعد ثانية واحدة بشكل صامت
     if (currentLesson.type === "video") {
-      setTimeout(goToNext, 2000);
+      setTimeout(() => goToNext(true), 1000);
     }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
 
@@ -241,7 +244,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               
               <div className="flex gap-4">
                 <Button 
-                  onClick={goToNext} 
+                  onClick={() => goToNext(false)} 
                   className={cn(
                     "h-14 flex-1 font-black text-lg shadow-xl gap-2", 
                     (!isEnrolled && currentLessonIndex === 0) ? "bg-secondary" : 
