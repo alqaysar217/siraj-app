@@ -118,27 +118,24 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     if (userLoading || courseLoading || !lessons || !mounted || hasInitializedRef.current) return;
     
-    const completedIdsFromProfile = profile?.progress?.[id]?.completedLessons || [];
-    
     if (!isEnrolled && lessons.length > 0) {
       setSelectedLessonId(lessons[0].id);
       hasInitializedRef.current = true;
       return;
     }
 
-    const nextUncompletedLesson = lessons.find(l => !completedIdsFromProfile.includes(l.id));
+    const firstUncompletedLesson = lessons.find(l => !allCompletedIds.includes(l.id));
 
-    if (nextUncompletedLesson) {
-      setSelectedLessonId(nextUncompletedLesson.id);
+    if (firstUncompletedLesson) {
+      setSelectedLessonId(firstUncompletedLesson.id);
       setIsFinishing(false);
     } else if (lessons.length > 0) {
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
 
-    setLocalCompleted(completedIdsFromProfile);
     hasInitializedRef.current = true;
-  }, [lessons, profile, id, userLoading, courseLoading, mounted, isEnrolled]);
+  }, [lessons, profile, id, userLoading, courseLoading, mounted, isEnrolled, allCompletedIds]);
 
   const selectLesson = useCallback((lessonId: string) => {
     setIsFinishing(false);
@@ -164,15 +161,15 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (!isAdmin && !isCurrentCompleted && !isAutomatic) {
       toast({
         variant: "destructive",
-        title: "تنبيه التعليمات",
-        description: "يرجى إكمال الدرس الحالي أولاً لتتمكن من الانتقال."
+        title: "تنبيه",
+        description: "يرجى اكمال مشاهدة الفيديو او حل التقويم للانتقال للدرس للتالي"
       });
       return;
     }
 
     if (lessons && currentLessonIndex < lessons.length - 1) {
       selectLesson(lessons[currentLessonIndex + 1].id);
-    } else if (isAllLessonsCompleted || (isAutomatic && currentLessonIndex === lessons!.length - 1)) {
+    } else if (isAllLessonsCompleted) {
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
@@ -250,11 +247,14 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
 
     const msg = `أهلاً سراج، لقد أكملت دورة (${course?.title}) بنجاح! 🎉
+
 أرغب في طلب شهادتي الموثقة بالبيانات التالية:
-- الاسم بالعربي: ${certNameAr}
-- الاسم بالإنجليزي: ${certNameEn}
-- التقييم: ${reviewRating} نجوم
-- رأيي في الدورة: ${reviewComment || 'ممتازة جداً'}`;
+
+- الاسم بالعربي:
+${certNameAr}
+
+- الاسم بالإنجليزي:
+${certNameEn}`;
 
     window.open(`${baseWhatsappUrl}?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -291,7 +291,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                       <h2 className="text-3xl md:text-5xl font-black text-green-800 font-headline">ألف مبروك! 🎓</h2>
                       <p className="text-muted-foreground font-bold md:text-lg">لقد أتممت كافة دروس المنهج بنجاح.</p>
                     </div>
-                    <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-14 md:h-16 rounded-2xl px-8 md:px-12 font-black text-sm md:text-lg gap-2 shadow-xl transition-transform hover:scale-105 active:scale-95">
+                    <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-14 md:h-16 rounded-2xl px-6 md:px-12 font-black text-sm md:text-lg gap-2 shadow-xl transition-transform hover:scale-105 active:scale-95">
                        {hasAlreadyReviewed ? "طلب الشهادة" : "تقييم الكورس"} <ArrowRight className="w-5 h-5 rotate-180" />
                     </Button>
                   </div>
@@ -310,11 +310,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <div className="flex gap-2">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <button key={s} onClick={() => setReviewRating(s)} className="transition-transform active:scale-90">
-                          <Star className={cn("w-10 h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted opacity-30")} />
+                          <Star className={cn("w-8 h-8 md:w-10 md:h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted opacity-30")} />
                         </button>
                       ))}
                     </div>
-                    <span className="text-[10px] font-black text-secondary uppercase tracking-widest">تقييمك: {reviewRating} / 5</span>
                   </div>
 
                   <div className="space-y-2">
@@ -327,7 +326,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     />
                   </div>
 
-                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-base gap-2 shadow-lg">
+                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
                     {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ التقييم"}
                   </Button>
                 </Card>
@@ -367,7 +366,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     </div>
                   </div>
 
-                  <Button onClick={handleRequestCertificate} className="w-full h-14 md:h-16 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-base md:text-lg gap-3 shadow-xl">
+                  <Button onClick={handleRequestCertificate} className="w-full h-14 md:h-16 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-lg gap-3 shadow-xl">
                     <MessageCircle className="w-5 h-5" /> طلب الشهادة واتساب
                   </Button>
                 </Card>
@@ -395,7 +394,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 <Button 
                   onClick={() => goToNext(false)} 
                   className={cn(
-                    "h-14 flex-1 font-black text-lg shadow-xl gap-2", 
+                    "h-14 flex-1 font-black text-base md:text-lg shadow-xl gap-2", 
                     (!isEnrolled && currentLessonIndex === 0) ? "bg-secondary" : 
                     (!isCurrentLessonCompleted && !isAdmin) ? "bg-muted text-muted-foreground cursor-not-allowed opacity-70" : "bg-primary"
                   )}
@@ -404,9 +403,9 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                    <span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span>
                    {!isCurrentLessonCompleted && !isAdmin && isEnrolled && <Lock className="w-4 h-4" />}
                 </Button>
-                <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-lg">السابق</Button>
+                <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-base md:text-lg">السابق</Button>
               </div>
-              <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج</Button>
+              <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-base md:text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج</Button>
             </>
           ) : <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center"><Lock className="w-16 h-16 text-primary opacity-40 mb-4" /><h2 className="text-2xl font-black text-primary">المحتوى قريباً</h2><p className="text-muted-foreground font-bold">يعمل فريق سراج حالياً على تجهيز المنهج.</p></div>}
         </div>
@@ -435,7 +434,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <p className="text-muted-foreground text-xs font-bold">آراء الطلاب الذين خاضوا هذه التجربة التعليمية.</p>
                </div>
                {isAllLessonsCompleted && !hasAlreadyReviewed && (
-                 <Button onClick={() => setIsFinishing(true)} className="bg-secondary text-white rounded-xl font-black gap-2 h-11 px-6 shadow-lg shadow-secondary/10">
+                 <Button onClick={() => setIsFinishing(true)} className="bg-secondary text-white rounded-xl font-black gap-2 h-11 px-6 shadow-lg shadow-secondary/10 text-xs">
                    <Star className="w-4 h-4 fill-current" /> أضف تقييمك الآن
                  </Button>
                )}
@@ -447,7 +446,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <Quote className="absolute top-4 left-4 w-12 h-12 text-primary/5 -z-0" />
                   
                   <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4 flex-1 overflow-hidden">
+                    <div className="flex items-center gap-3 md:gap-4 flex-1 overflow-hidden">
                       <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-md shrink-0">
                         <AvatarImage src={review.userPhoto || undefined} className="object-cover" />
                         <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
@@ -468,21 +467,19 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     </div>
                   </div>
 
-                  <p className="text-sm md:text-base text-primary/80 font-medium leading-relaxed italic pr-2 relative z-10">
+                  <p className="text-xs md:text-base text-primary/80 font-medium leading-relaxed italic pr-2 relative z-10">
                     "{review.comment}"
                   </p>
 
                   {review.adminReply && (
                     <div className="mt-6 p-5 bg-muted/30 rounded-[1.5rem] border-r-4 border-secondary text-right animate-in slide-in-from-right-2 duration-700 relative z-10">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-8 h-8 bg-secondary rounded-xl flex items-center justify-center text-white shadow-md">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-8 h-8 bg-secondary rounded-xl flex items-center justify-center text-white shadow-md ring-2 ring-white">
                            <UserCheck className="w-4.5 h-4.5" />
                         </div>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-1.5">
-                            <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
-                            <span className="text-[10px] font-black text-secondary uppercase tracking-widest leading-none">رد إدارة سراج</span>
-                          </div>
+                        <div className="flex items-center gap-1.5">
+                           <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
+                           <span className="text-[10px] font-black text-secondary uppercase tracking-widest leading-none">رد إدارة سراج</span>
                         </div>
                       </div>
                       <p className="text-xs md:text-sm text-primary font-bold leading-relaxed">{review.adminReply}</p>
@@ -492,7 +489,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
               )) : (
                 <div className="py-20 text-center border-2 border-dashed rounded-[2.5rem] bg-muted/20 opacity-40">
                    <MessageSquare className="w-12 h-12 mx-auto mb-4" />
-                   <p className="font-bold">لا يوجد تقييمات لهذه الدورة بعد. كن أول من يضع بصمته!</p>
+                   <p className="font-bold text-sm">لا يوجد تقييمات لهذه الدورة بعد. كن أول من يضع بصمته!</p>
                 </div>
               )}
             </div>
