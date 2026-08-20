@@ -3,38 +3,31 @@ import { openAI } from 'genkitx-openai';
 
 /**
  * تهيئة Genkit 1.x مع دعم OpenRouter.
- * نستخدم كائن ملحق صريح يحتوي على اسم (name) لتجنب أخطاء تعريف الملحقات في المحرك الجديد.
+ * نستخدم دالة مزود (Plugin Provider) لضمان التوافق مع محرك Genkit 1.x وتجنب أخطاء التشغيل.
  */
 
 export const ai = genkit({
   plugins: [
-    {
-      // يجب أن يكون الاسم 'openai' ليتطابق مع بادئة الموديلات المستخدمة في التدفقات
-      name: 'openai',
-      register: (aiInstance: any) => {
-        try {
-          // التأكد من أن الدالة المستوردة موجودة وصالحة
-          const pluginFactory = openAI;
-          if (typeof pluginFactory !== 'function') {
-            console.error("Critical: openAI from genkitx-openai is not a valid function.");
-            return;
-          }
+    (aiInstance: any) => {
+      try {
+        const plugin = openAI({
+          apiKey: process.env.OPENROUTER_API_KEY,
+          baseURL: 'https://openrouter.ai/api/v1',
+        });
 
-          const p = pluginFactory({
-            apiKey: process.env.OPENROUTER_API_KEY,
-            baseURL: 'https://openrouter.ai/api/v1',
-          });
-
-          // دعم أنماط الملحقات المختلفة (دالة أو كائن يحتوي على register)
-          if (typeof p === 'function') {
-            p(aiInstance);
-          } else if (p && (p as any).register) {
-            (p as any).register(aiInstance);
-          }
-        } catch (error) {
-          console.error("OpenAI Plugin Registration Error:", error);
+        // دعم أنماط الملحقات المختلفة لضمان التسجيل الصحيح
+        if (typeof plugin === 'function') {
+          plugin(aiInstance);
+        } else if (plugin && (plugin as any).register) {
+          (plugin as any).register(aiInstance);
         }
+
+        // يجب إرجاع كائن يحتوي على اسم الملحق ليتعرف عليه Genkit
+        return { name: 'openai' };
+      } catch (error) {
+        console.error("OpenAI Plugin Registration Error:", error);
+        return { name: 'openai' };
       }
-    } as any
+    }
   ],
 });
