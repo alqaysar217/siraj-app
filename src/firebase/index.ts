@@ -34,7 +34,7 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   } else {
     /**
      * إعدادات المحرك المستقر لحل مشكلة Connection Timeout:
-     * - experimentalForceLongPolling: إجباري لتجاوز مشاكل GRPC/HTTP2 في البروكسي والشبكات المحلية.
+     * - experimentalForceLongPolling: إجباري لتجاوز مشاكل gRPC/HTTP2 التي تسبب مهلة الـ 10 ثوانٍ.
      * - persistentLocalCache: يضمن عمل التطبيق حتى لو انقطع الاتصال مؤقتاً.
      */
     try {
@@ -44,9 +44,9 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
           tabManager: persistentSingleTabManager()
         })
       });
-      console.log("🚀 تم تفعيل محرك Firestore بنظام Long Polling المستقر");
-    } catch (e) {
-      console.warn("تنبيه: فشلت التهيئة المخصصة، يتم التراجع للتهيئة الافتراضية");
+      console.log("🚀 Firestore Initialized with Long Polling");
+    } catch (e: any) {
+      // التراجع للتهيئة الافتراضية في حال وجود تهيئة سابقة نشطة
       db = getFirestore(app);
     }
     (window as any)._firebaseDb = db;
