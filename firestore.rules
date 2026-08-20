@@ -1,93 +1,104 @@
-rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Function to check if the user is an admin
     function isAdmin() {
       return isAuthenticated() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User profiles
     match /users/{userId} {
-      // Users can read their own profile or public profiles
-      // Admins can read all profiles
       allow get: if isAuthenticated() && (request.auth.uid == userId || resource.data.showInLeaderboard == true || isAdmin());
-      
-      // Allow listing users if admin, or if filtering by public visibility (for leaderboard)
       allow list: if isAuthenticated() && (isAdmin() || resource.data.showInLeaderboard == true);
-      
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
+      
+      // User-specific messages (for AI chat history)
+      match /messages/{messageId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
+    // Courses and nested subcollections
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAdmin();
       
-      match /lessons/{lessonId} {
-        allow read: if true;
-        allow write: if isAdmin();
-      }
-      match /batches/{batchId} {
+      match /{allSubcollections=**} {
         allow read: if true;
         allow write: if isAdmin();
       }
     }
 
+    // Global settings (used by AI chat)
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // WhatsApp grades management
     match /whatsapp_grades/{docId} {
       allow read, write: if isAdmin();
     }
 
+    // Instructors
     match /instructors/{instructorId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
+    // Course reviews
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
     
+    // Subscriptions/Licenses
     match /subscriptions/{subId} {
-      allow read, write: if isAdmin();
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
     }
     
+    // Bank accounts for payments
     match /bankAccounts/{accountId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
+    // Books/Library
     match /books/{bookId} { 
       allow read: if true; 
       allow write: if isAdmin();
-      match /chapters/{chapterId} {
+      match /{allSubcollections=**} {
         allow read: if true; 
         allow write: if isAdmin();
       }
     }
     
+    // Social links
     match /socialLinks/{linkId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
+    // Trash/Audit logs
     match /trash/{trashId} {
       allow read, write: if isAdmin();
     }
     
+    // Certificates
     match /certificates/{certId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Rule for AI configuration and other app settings
-    match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
     }
