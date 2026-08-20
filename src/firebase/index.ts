@@ -29,7 +29,7 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   if (!(window as any)._firebaseDb) {
     db = initializeFirestore(app, {
       experimentalForceLongPolling: true,
-      useFetchStreams: false, // تعطيل الـ streams لزيادة الاستقرار في المتصفحات القديمة
+      useFetchStreams: false, 
     });
     (window as any)._firebaseDb = db;
   } else {

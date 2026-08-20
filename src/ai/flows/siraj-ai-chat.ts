@@ -35,7 +35,7 @@ const sirajAiChatFlow = ai.defineFlow(
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      return { text: "⚠️ عذراً، مفتاح الـ API غير متوفر في إعدادات الخادم." };
+      return { text: "⚠️ عذراً، مفتاح الـ API الخاص بـ OpenRouter غير متوفر في إعدادات الخادم." };
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
@@ -59,7 +59,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Llama 3.1 المجاني وهو الأكثر استقراراً حالياً على OpenRouter
+      // استخدام موديل Llama 3.2 3B المجاني وهو الأكثر توفراً واستقراراً حالياً على OpenRouter
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -69,7 +69,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.1-8b-instruct:free', 
+          model: 'meta-llama/llama-3.2-3b-instruct:free', 
           messages: apiMessages,
           temperature: 0.7,
           max_tokens: 1000
