@@ -5,10 +5,8 @@ import {
   X, 
   Send, 
   Loader2, 
-  Bot, 
   User, 
-  Sparkles,
-  Minimize2,
+  Minimize2, 
   Maximize2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
