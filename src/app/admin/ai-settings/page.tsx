@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { 
   Bot, 
   Save, 
@@ -57,6 +58,7 @@ export default function AiSettingsPage() {
 
   const handleSave = async () => {
     if (!db) return;
+    
     setSaving(true);
     try {
       await setDoc(doc(db, "settings", "ai_config"), {
