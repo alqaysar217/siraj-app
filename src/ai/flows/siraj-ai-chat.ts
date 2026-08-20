@@ -1,11 +1,8 @@
-
 'use server';
 /**
- * @fileOverview A Genkit flow for the Siraj AI assistant chat.
+ * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch to OpenRouter.
  * 
- * - sirajAiChat - A function that handles conversation with students about the platform.
- * - SirajAiChatInput - Input containing user message and chat history.
- * - SirajAiChatOutput - The AI's response text.
+ * - sirajAiChat - Handles conversation with students using direct API calls.
  */
 
 import { ai } from '@/ai/genkit';
@@ -40,14 +37,15 @@ const sirajAiChatFlow = ai.defineFlow(
   },
   async (input) => {
     const { message, history, knowledge } = input;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
-    // التحقق من وجود مفتاح الـ API قبل البدء
-    if (!process.env.OPENROUTER_API_KEY) {
-      console.error("Critical: OPENROUTER_API_KEY is missing in environment variables.");
+    if (!apiKey) {
+      console.error("Critical: OPENROUTER_API_KEY is missing.");
       return { text: "عذراً، نظام الذكاء الاصطناعي غير مهيأ حالياً (مفتاح API مفقود). يرجى مراجعة إدارة المنصة." };
     }
 
-    const systemPrompt = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
+    // بناء سياق الرسائل لـ OpenRouter
+    const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
 مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول:
 - الدورات المتاحة (برمجة، شبكات، تصميم، محاسبة، إلخ).
 - المدربين المعتمدين وخبراتهم.
@@ -60,39 +58,60 @@ const sirajAiChatFlow = ai.defineFlow(
 1. أجب فقط بناءً على المعلومات المتعلقة بمنصة سراج.
 2. إذا سُئلت عن شيء خارج نطاق المنصة، اعتذر بلباقة وقل أنك متخصص في شؤون "سراج" فقط.
 3. استخدم لهجة ودودة، مشجعة، واحترافية باللغة العربية.
-4. استخدم المعلومات التالية كمرجع إضافي:
-${knowledge || 'لا توجد معلومات إضافية حالياً.'}
+4. المعلومات الإضافية من الإدارة:
+${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
 
-سياق المحادثة السابقة:
-${history?.map(m => `${m.role === 'user' ? 'الطالب' : 'سراج AI'}: ${m.content[0].text}`).join('\n')}
+    const apiMessages: any[] = [
+      { role: 'system', content: systemContent }
+    ];
 
-سؤال الطالب الحالي: ${message}`;
+    // إضافة التاريخ إذا وجد
+    if (history && history.length > 0) {
+      history.forEach(m => {
+        apiMessages.push({
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content[0].text
+        });
+      });
+    }
+
+    // إضافة الرسالة الحالية
+    apiMessages.push({ role: 'user', content: message });
 
     try {
-      // نستخدم الموديل عبر ملحق OpenAI المسجل في genkit.ts
-      // موديل gemini-2.0-flash-lite عبر OpenRouter هو خيار سريع واقتصادي
-      const response = await ai.generate({
-        model: 'openai/google/gemini-2.0-flash-lite:preview',
-        prompt: systemPrompt,
-        config: {
+      // الاتصال المباشر بـ OpenRouter لضمان الاستقرار التام
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://siraj-app.vercel.app',
+          'X-Title': 'Siraj AI Assistant'
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.0-flash-lite:preview',
+          messages: apiMessages,
           temperature: 0.7,
-        }
+        })
       });
 
-      return { text: response.text || 'عذراً، لم أستطع فهم طلبك بشكل صحيح. هل يمكنك إعادة صياغة السؤال؟' };
-    } catch (error: any) {
-      console.error("AI Generation Error Details:", error);
-      
-      // توفير رسالة خطأ أكثر تفصيلاً في سجلات الخادم لسهولة الإصلاح
-      let errorMessage = "عذراً، أواجه صعوبة في الاتصال بخدمات الذكاء الاصطناعي حالياً.";
-      
-      if (error.message?.includes('401')) {
-        errorMessage += " يبدو أن مفتاح OpenRouter غير صالح أو منتهي الصلاحية.";
-      } else if (error.message?.includes('openai')) {
-        errorMessage += " هناك مشكلة في تسجيل ملحق OpenAI داخل النظام.";
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("OpenRouter API Error:", data);
+        throw new Error(data.error?.message || "فشل الاتصال بمحرك الذكاء الاصطناعي");
       }
 
-      return { text: errorMessage };
+      const aiResponse = data.choices?.[0]?.message?.content;
+
+      return { 
+        text: aiResponse || 'عذراً، لم أستطع فهم طلبك بشكل صحيح. هل يمكنك إعادة صياغة السؤال؟' 
+      };
+    } catch (error: any) {
+      console.error("AI Chat Error Details:", error);
+      return { 
+        text: "عذراً، أواجه صعوبة في الاتصال بخدمات الذكاء الاصطناعي حالياً. يرجى مراجعة إعدادات OpenRouter." 
+      };
     }
   }
 );
