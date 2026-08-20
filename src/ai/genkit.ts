@@ -1,6 +1,11 @@
+
 import { genkit } from 'genkit';
 import { openAI } from 'genkitx-openai';
 
+/**
+ * تهيئة Genkit للعمل مع OpenRouter باستخدام واجهة OpenAI.
+ * نستخدم openAI من genkitx-openai لضمان التوافق مع OpenRouter.
+ */
 export const ai = genkit({
   plugins: [
     openAI({
