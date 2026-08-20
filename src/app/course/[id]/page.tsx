@@ -7,16 +7,16 @@ import QuizPlayer from "@/components/course/quiz-player";
 import CurriculumAccordion from "@/components/course/curriculum-accordion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { 
-  Loader2, 
+  BookOpen, 
+  User, 
   Star, 
-  Award, 
-  Lock, 
+  Loader2, 
   MessageCircle, 
   Copy, 
   Trophy, 
@@ -40,6 +40,7 @@ import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -248,12 +249,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
     const msg = `أهلاً سراج، لقد أكملت دورة (${course?.title}) بنجاح! 🎉
 
-أرغب في طلب شهادتي الموثقة بالبيانات التالية:
-
-الاسم بالعربي:
+الاسم بالعربي: 
 ${certNameAr}
 
-الاسم بالإنجليزي:
+الاسم بالإنجليزي: 
 ${certNameEn}`;
 
     window.open(`${baseWhatsappUrl}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -320,7 +319,7 @@ ${certNameEn}`;
                     <div className="flex gap-2">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <button key={s} onClick={() => setReviewRating(s)} className="transition-transform active:scale-90">
-                          <Star className={cn("w-7 h-7 md:w-10 md:h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted opacity-30")} />
+                          <Star className={cn("w-7 h-7 md:w-10 md:h-10", s <= reviewRating ? "text-secondary fill-secondary" : "text-muted")} />
                         </button>
                       ))}
                     </div>
@@ -337,7 +336,8 @@ ${certNameEn}`;
                   </div>
 
                   <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-11 rounded-xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
-                    {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ التقييم"}
+                    {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5 ml-2" />}
+                    حفظ التقييم
                   </Button>
                 </Card>
               )}
@@ -352,7 +352,7 @@ ${certNameEn}`;
 
                   <div className="space-y-5">
                     <div className="space-y-2">
-                      <Label className="text-xs font-black text-primary mr-1 flex items-center gap-2">
+                      <Label className="font-black text-primary mr-1 flex items-center gap-2">
                         <Languages className="w-4 h-4 text-secondary" /> الاسم باللغة العربية
                       </Label>
                       <Input 
@@ -363,7 +363,7 @@ ${certNameEn}`;
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs font-black text-primary mr-1 flex items-center gap-2">
+                      <Label className="font-black text-primary mr-1 flex items-center gap-2">
                         <Languages className="w-4 h-4 text-secondary" /> Name in English
                       </Label>
                       <Input 
@@ -492,7 +492,7 @@ ${certNameEn}`;
                            <span className="text-[10px] font-black text-secondary uppercase tracking-widest leading-none">رد إدارة سراج</span>
                         </div>
                       </div>
-                      <p className="text-xs md:text-sm text-primary font-bold leading-relaxed">{review.adminReply}</p>
+                      <p className="text-xs md:sm text-primary font-bold leading-relaxed">{review.adminReply}</p>
                     </div>
                   )}
                 </Card>
