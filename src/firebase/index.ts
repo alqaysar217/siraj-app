@@ -5,8 +5,6 @@ import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase
 import { 
   Firestore, 
   initializeFirestore, 
-  persistentLocalCache, 
-  persistentSingleTabManager,
   getFirestore
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
@@ -16,11 +14,11 @@ let auth: Auth;
 let db: Firestore;
 
 /**
- * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر جداً.
- * نستخدم متغيراً عالمياً (window) لضمان عدم إعادة التهيئة التي تسبب خطأ Primary Lease.
+ * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر.
+ * نفرض استخدام Long Polling لتجاوز مشاكل الاتصال (Timeout) الناتجة عن gRPC.
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
-  // 1. تهيئة التطبيق (App Singleton)
+  // 1. تهيئة التطبيق
   const existingApps = getApps();
   if (existingApps.length > 0) {
     app = existingApps[0];
@@ -28,38 +26,30 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     app = initializeApp(firebaseConfig);
   }
 
-  // 2. تهيئة قاعدة البيانات (Firestore Singleton)
-  if ((window as any)._firebaseDb) {
-    db = (window as any)._firebaseDb;
-  } else {
-    /**
-     * إعدادات المحرك المستقر لحل مشكلة Connection Timeout:
-     * - experimentalForceLongPolling: إجباري لتجاوز مشاكل gRPC/HTTP2 التي تسبب مهلة الـ 10 ثوانٍ.
-     * - persistentLocalCache: يضمن عمل التطبيق حتى لو انقطع الاتصال مؤقتاً.
-     */
+  // 2. تهيئة قاعدة البيانات مع فرض Long Polling بشكل إلزامي
+  if (!(window as any)._firebaseDb) {
     try {
       db = initializeFirestore(app, {
         experimentalForceLongPolling: true,
-        localCache: persistentLocalCache({
-          tabManager: persistentSingleTabManager()
-        })
+        // هذا الخيار يساعد في البيئات التي تمنع الـ WebSockets
       });
-      console.log("🚀 Firestore Initialized with Long Polling");
+      console.log("🚀 Firestore Initialized with Forced Long Polling");
     } catch (e: any) {
-      // التراجع للتهيئة الافتراضية في حال وجود تهيئة سابقة نشطة
+      // في حال تم التهيئة مسبقاً، نكتفي بجلب المثيل الحالي
       db = getFirestore(app);
     }
     (window as any)._firebaseDb = db;
+  } else {
+    db = (window as any)._firebaseDb;
   }
   
-  // 3. تهيئة نظام المصادقة (Auth Singleton)
-  if ((window as any)._firebaseAuth) {
-    auth = (window as any)._firebaseAuth;
-  } else {
+  // 3. تهيئة نظام المصادقة
+  if (!(window as any)._firebaseAuth) {
     auth = getAuth(app);
-    // ضمان بقاء الجلسة نشطة في المتصفح
     setPersistence(auth, browserLocalPersistence).catch(() => {});
     (window as any)._firebaseAuth = auth;
+  } else {
+    auth = (window as any)._firebaseAuth;
   }
 }
 
