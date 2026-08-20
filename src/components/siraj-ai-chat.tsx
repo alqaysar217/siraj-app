@@ -69,7 +69,8 @@ export default function SirajAiChat() {
     if (!input.trim() || isLoading) return;
     
     const userMsg: Message = { role: 'user', content: [{ text: input }] };
-    setMessages(prev => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     const currentInput = input;
     setInput('');
     setIsLoading(true);
@@ -77,14 +78,15 @@ export default function SirajAiChat() {
     try {
       const response = await sirajAiChat({
         message: currentInput,
-        history: messages,
+        history: messages, // نرسل التاريخ القديم قبل الرسالة الجديدة للتدفق
         knowledge: config.knowledgeBase
       });
 
       const aiMsg: Message = { role: 'model', content: [{ text: response.text }] };
-      setMessages(prev => [...prev, aiMsg]);
+      setMessages([...newMessages, aiMsg]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', content: [{ text: 'عذراً، حدث خطأ ما. يرجى المحاولة لاحقاً.' }] }]);
+      console.error("AI Chat Error:", error);
+      setMessages([...newMessages, { role: 'model', content: [{ text: 'عذراً، حدث خطأ ما. يرجى التأكد من إعداد مفتاح الـ API بشكل صحيح.' }] }]);
     } finally {
       setIsLoading(false);
     }
