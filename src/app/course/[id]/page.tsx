@@ -326,7 +326,7 @@ ${certNameEn}`;
                     />
                   </div>
 
-                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
+                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-12 md:h-14 rounded-2xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
                     {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ التقييم"}
                   </Button>
                 </Card>
@@ -366,7 +366,7 @@ ${certNameEn}`;
                     </div>
                   </div>
 
-                  <Button onClick={handleRequestCertificate} className="w-full h-14 md:h-16 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-lg gap-3 shadow-xl">
+                  <Button onClick={handleRequestCertificate} className="w-full h-12 md:h-14 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-base gap-3 shadow-xl">
                     <MessageCircle className="w-5 h-5" /> طلب الشهادة واتساب
                   </Button>
                 </Card>
@@ -474,8 +474,8 @@ ${certNameEn}`;
                   {review.adminReply && (
                     <div className="mt-6 p-5 bg-muted/30 rounded-[1.5rem] border-r-4 border-secondary text-right animate-in slide-in-from-right-2 duration-700 relative z-10">
                       <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 bg-secondary rounded-xl flex items-center justify-center text-white shadow-md ring-2 ring-white">
-                           <UserCheck className="w-4.5 h-4.5" />
+                        <div className="w-8 h-8 rounded-xl overflow-hidden border border-secondary/20 shadow-md bg-white">
+                           <img src="/logo.png" className="w-full h-full object-contain p-1" alt="سراج" />
                         </div>
                         <div className="flex items-center gap-1.5">
                            <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
