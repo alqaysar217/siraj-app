@@ -250,10 +250,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
 
 أرغب في طلب شهادتي الموثقة بالبيانات التالية:
 
-- الاسم بالعربي:
+الاسم بالعربي:
 ${certNameAr}
 
-- الاسم بالإنجليزي:
+الاسم بالإنجليزي:
 ${certNameEn}`;
 
     window.open(`${baseWhatsappUrl}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -264,6 +264,14 @@ ${certNameEn}`;
   }
 
   const isCurrentLessonCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
+
+  // دالة لاختصار الاسم (الاسم الأول والثاني فقط)
+  const getShortName = (fullName: string) => {
+    if (!fullName) return "طالب سراج";
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length <= 2) return fullName;
+    return `${parts[0]} ${parts[1]}`;
+  };
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -292,7 +300,7 @@ ${certNameEn}`;
                       <p className="text-muted-foreground font-bold md:text-lg">لقد أتممت كافة دروس المنهج بنجاح.</p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                      <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-14 rounded-2xl px-8 font-black text-sm md:text-base gap-2 shadow-xl transition-transform hover:scale-105 active:scale-95">
+                      <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-12 rounded-xl px-8 font-black text-sm md:text-base gap-2 shadow-xl transition-transform hover:scale-105 active:scale-95">
                          {hasAlreadyReviewed ? "طلب الشهادة" : "تقييم الكورس"} <ArrowRight className="w-5 h-5 rotate-180" />
                       </Button>
                     </div>
@@ -328,7 +336,7 @@ ${certNameEn}`;
                     />
                   </div>
 
-                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-12 rounded-2xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
+                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-11 rounded-xl bg-primary text-white font-black text-xs md:text-base gap-2 shadow-lg">
                     {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : "حفظ التقييم"}
                   </Button>
                 </Card>
@@ -368,7 +376,7 @@ ${certNameEn}`;
                     </div>
                   </div>
 
-                  <Button onClick={handleRequestCertificate} className="w-full h-12 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-base gap-3 shadow-xl">
+                  <Button onClick={handleRequestCertificate} className="w-full h-11 rounded-xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xs md:text-base gap-3 shadow-xl">
                     <MessageCircle className="w-5 h-5" /> طلب الشهادة واتساب
                   </Button>
                 </Card>
@@ -455,7 +463,7 @@ ${certNameEn}`;
                       </Avatar>
                       <div className="text-right overflow-hidden flex-1">
                         <div className="text-xs md:text-sm font-black text-primary leading-tight">
-                          {review.userName}
+                          {getShortName(review.userName)}
                         </div>
                         <div className="flex items-center gap-0.5 mt-1">
                           {[...Array(5)].map((_, s) => (
