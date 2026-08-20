@@ -8,11 +8,6 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-const MessageSchema = z.object({
-  role: z.enum(['user', 'model']),
-  content: z.array(z.object({ text: z.string() })),
-});
-
 const SirajAiChatInputSchema = z.object({
   message: z.string().describe('The student\'s question.'),
   history: z.array(z.any()).optional().describe('The conversation history for context.'),
@@ -64,7 +59,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Gemma 2 المجاني المستقر جداً والمفضل للمستخدم
+      // استخدام موديل Llama 3.1 المجاني وهو الأكثر استقراراً حالياً على OpenRouter
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -74,7 +69,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-9b-it:free', 
+          model: 'meta-llama/llama-3.1-8b-instruct:free', 
           messages: apiMessages,
           temperature: 0.7,
           max_tokens: 1000
@@ -84,7 +79,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("OpenRouter Error:", data);
+        console.error("OpenRouter Error Details:", data);
         const errorMsg = data.error?.message || 'فشل الاتصال بمزود الخدمة';
         return { text: `❌ حدث خطأ في النظام: ${errorMsg}.` };
       }
