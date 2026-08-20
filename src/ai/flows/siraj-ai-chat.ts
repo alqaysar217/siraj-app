@@ -40,8 +40,8 @@ const sirajAiChatFlow = ai.defineFlow(
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      console.error("Critical: OPENROUTER_API_KEY is missing from environment variables.");
-      return { text: "⚠️ عذراً، يبدو أن إعدادات الاتصال (API Key) غير مكتملة في الخادم. يرجى مراجعة الإدارة." };
+      console.error("Critical: OPENROUTER_API_KEY is missing.");
+      return { text: "⚠️ عذراً، يبدو أن إعدادات الاتصال (API Key) غير مكتملة في الخادم." };
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
@@ -65,7 +65,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام الموديل المجاني والمستقر جداً Gemini 2.0 Flash Lite
+      // استخدام الموديل المجاني المستقر google/gemini-2.0-flash-exp:free
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -75,7 +75,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-lite-preview-02-05:free', 
+          model: 'google/gemini-2.0-flash-exp:free', 
           messages: apiMessages,
           temperature: 0.7,
         })
@@ -85,11 +85,8 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
 
       if (!response.ok) {
         console.error("OpenRouter Error Response:", data);
-        // تقديم رسالة ذكية إذا كان الخطأ بسبب الرصيد أو الموديل
-        if (data.error?.code === 402 || data.error?.message?.includes('credit')) {
-          return { text: "❌ عذراً، يبدو أن رصيد خدمة الذكاء الاصطناعي قد نفد. يرجى إبلاغ الإدارة لتجديد الاشتراك." };
-        }
-        return { text: `❌ حدث خطأ في النظام: ${data.error?.message || 'فشل الاتصال بمزود الخدمة'}.` };
+        const errorMsg = data.error?.message || 'فشل الاتصال بمزود الخدمة';
+        return { text: `❌ حدث خطأ في النظام: ${errorMsg}.` };
       }
 
       const aiResponse = data.choices?.[0]?.message?.content;
