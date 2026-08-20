@@ -65,7 +65,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام الموديل المجاني المستقر google/gemini-2.0-flash-exp:free
+      // استخدام موديل Llama 3.3 المجاني المستقر جداً على OpenRouter
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -75,7 +75,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-exp:free', 
+          model: 'meta-llama/llama-3.3-70b-instruct:free', 
           messages: apiMessages,
           temperature: 0.7,
         })

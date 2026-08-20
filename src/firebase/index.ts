@@ -4,8 +4,7 @@ import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { 
   Firestore, 
-  initializeFirestore, 
-  getFirestore
+  initializeFirestore
 } from 'firebase/firestore';
 import { firebaseConfig, isFirebaseConfigValid } from './config';
 
@@ -15,10 +14,9 @@ let db: Firestore;
 
 /**
  * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر.
- * نفرض استخدام Long Polling لتجاوز مشاكل الاتصال (Timeout) الناتجة عن gRPC.
+ * فرض استخدام Long Polling بشكل قطعي لحل مشكلة الـ 10 ثوانٍ (Timeout).
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
-  // 1. تهيئة التطبيق
   const existingApps = getApps();
   if (existingApps.length > 0) {
     app = existingApps[0];
@@ -26,24 +24,17 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     app = initializeApp(firebaseConfig);
   }
 
-  // 2. تهيئة قاعدة البيانات مع فرض Long Polling بشكل إلزامي
+  // تهيئة قاعدة البيانات مع فرض نظام Long Polling (HTTPS بدلاً من gRPC)
   if (!(window as any)._firebaseDb) {
-    try {
-      db = initializeFirestore(app, {
-        experimentalForceLongPolling: true,
-        // هذا الخيار يساعد في البيئات التي تمنع الـ WebSockets
-      });
-      console.log("🚀 Firestore Initialized with Forced Long Polling");
-    } catch (e: any) {
-      // في حال تم التهيئة مسبقاً، نكتفي بجلب المثيل الحالي
-      db = getFirestore(app);
-    }
+    db = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+      useFetchStreams: false // زيادة استقرار الاتصال في البيئات المقيدة
+    });
     (window as any)._firebaseDb = db;
   } else {
     db = (window as any)._firebaseDb;
   }
   
-  // 3. تهيئة نظام المصادقة
   if (!(window as any)._firebaseAuth) {
     auth = getAuth(app);
     setPersistence(auth, browserLocalPersistence).catch(() => {});
