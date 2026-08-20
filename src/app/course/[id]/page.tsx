@@ -289,10 +289,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                     <div className="w-24 h-24 bg-green-50 rounded-full flex items-center justify-center mx-auto shadow-inner"><PartyPopper className="w-14 h-14 text-green-600" /></div>
                     <div className="space-y-2">
                       <h2 className="text-3xl md:text-5xl font-black text-green-800 font-headline">ألف مبروك! 🎓</h2>
-                      <p className="text-muted-foreground font-bold md:text-lg">لقد أتممت كافة دروس المنهج بنجاح واقتدار.</p>
+                      <p className="text-muted-foreground font-bold md:text-lg">لقد أتممت كافة دروس المنهج بنجاح.</p>
                     </div>
-                    <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-16 rounded-2xl px-12 font-black text-lg gap-3 shadow-xl transition-transform hover:scale-105 active:scale-95">
-                       {hasAlreadyReviewed ? "طلب الشهادة الآن" : "تقييم الدورة والمتابعة"} <ArrowRight className="w-6 h-6 rotate-180" />
+                    <Button onClick={() => setFinishingStep(hasAlreadyReviewed ? 'certificate' : 'review')} className="bg-primary text-white h-14 md:h-16 rounded-2xl px-10 md:px-12 font-black text-base md:text-lg gap-3 shadow-xl transition-transform hover:scale-105 active:scale-95">
+                       {hasAlreadyReviewed ? "طلب الشهادة الآن" : "تقييم الكورس"} <ArrowRight className="w-5 h-5 md:w-6 md:h-6 rotate-180" />
                     </Button>
                   </div>
                 </Card>
@@ -302,8 +302,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 <Card className="bg-white p-8 md:p-12 rounded-[2.5rem] luxury-shadow space-y-8 text-right">
                   <div className="text-center space-y-2">
                     <div className="w-16 h-16 bg-secondary/10 text-secondary rounded-2xl flex items-center justify-center mx-auto mb-4"><Star className="w-10 h-10 fill-current" /></div>
-                    <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">ما هو انطباعك عن الدورة؟</h2>
-                    <p className="text-muted-foreground text-sm font-bold">رأيك يساعدنا على التطوير ويساعد زملائك في الاختيار.</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">ما هو انطباعك؟</h2>
+                    <p className="text-muted-foreground text-sm font-bold">رأيك يهمنا ويساعد زملائك في الاختيار.</p>
                   </div>
 
                   <div className="flex flex-col items-center gap-4 py-4">
@@ -314,22 +314,22 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                         </button>
                       ))}
                     </div>
-                    <span className="text-xs font-black text-secondary uppercase tracking-widest">تقييمك: {reviewRating} / 5</span>
+                    <span className="text-[10px] font-black text-secondary uppercase tracking-widest">تقييمك: {reviewRating} / 5</span>
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="font-black text-primary mr-1">اكتب رأيك باختصار:</Label>
+                    <Label className="font-black text-primary text-xs mr-1">اكتب رأيك باختصار:</Label>
                     <Textarea 
-                      placeholder="كيف كانت جودة الشرح والمحتوى؟" 
-                      className="min-h-[120px] rounded-2xl border-primary/10 text-right"
+                      placeholder="كيف كانت تجربة التعلم؟" 
+                      className="min-h-[120px] rounded-2xl border-primary/10 text-right text-sm"
                       value={reviewComment}
                       onChange={(e) => setReviewComment(e.target.value)}
                     />
                   </div>
 
-                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-lg gap-2 shadow-lg">
-                    {isSubmittingReview ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
-                    تثبيت التقييم والمتابعة
+                  <Button disabled={isSubmittingReview} onClick={handleSubmitReview} className="w-full h-14 rounded-2xl bg-primary text-white font-black text-base gap-2 shadow-lg">
+                    {isSubmittingReview ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+                    حفظ التقييم
                   </Button>
                 </Card>
               )}
@@ -338,50 +338,43 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                 <Card className="bg-white p-8 md:p-12 rounded-[2.5rem] luxury-shadow space-y-8 text-right">
                   <div className="text-center space-y-2">
                     <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Award className="w-10 h-10" /></div>
-                    <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">طلب إصدار الشهادة</h2>
-                    <p className="text-muted-foreground text-sm font-bold">يرجى إدخال اسمك كما ترغب أن يظهر في الشهادة الرسمية.</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-primary font-headline">بيانات الشهادة</h2>
+                    <p className="text-muted-foreground text-sm font-bold">يرجى كتابة الاسم بالعربية والإنجليزية بدقة.</p>
                   </div>
 
                   <div className="space-y-5">
                     <div className="space-y-2">
-                      <Label className="font-black text-primary mr-1 flex items-center gap-2">
+                      <Label className="font-black text-primary text-xs mr-1 flex items-center gap-2">
                         <Languages className="w-4 h-4 text-secondary" /> الاسم باللغة العربية
                       </Label>
                       <Input 
-                        placeholder="الاسم الثلاثي أو الرباعي بالعربي" 
-                        className="h-12 rounded-xl border-primary/10"
+                        placeholder="الاسم الرباعي بالعربي" 
+                        className="h-12 rounded-xl border-primary/10 text-sm"
                         value={certNameAr}
                         onChange={(e) => setCertNameAr(e.target.value)}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="font-black text-primary mr-1 flex items-center gap-2">
+                      <Label className="font-black text-primary text-xs mr-1 flex items-center gap-2">
                         <Languages className="w-4 h-4 text-secondary" /> Name in English
                       </Label>
                       <Input 
                         dir="ltr"
                         placeholder="Full Name in English" 
-                        className="h-12 rounded-xl border-primary/10 text-left"
+                        className="h-12 rounded-xl border-primary/10 text-left text-sm"
                         value={certNameEn}
                         onChange={(e) => setCertNameEn(e.target.value)}
                       />
                     </div>
                   </div>
 
-                  <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 flex items-start gap-3">
-                     <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                     <p className="text-[10px] text-amber-700 font-bold leading-relaxed">
-                        ملاحظة: سيتم إرسال هذه البيانات للإدارة لمراجعتها وإصدار شهادتك الرقمية الموثقة في أقرب وقت.
-                     </p>
-                  </div>
-
-                  <Button onClick={handleRequestCertificate} className="w-full h-16 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-xl gap-3 shadow-xl">
-                    <MessageCircle className="w-7 h-7" /> إرسال الطلب عبر واتساب
+                  <Button onClick={handleRequestCertificate} className="w-full h-14 md:h-16 rounded-2xl bg-[#25D366] hover:bg-[#25D366]/90 text-white font-black text-base md:text-lg gap-3 shadow-xl">
+                    <MessageCircle className="w-5 h-5 md:w-6 md:h-6" /> طلب الشهادة واتساب
                   </Button>
                 </Card>
               )}
 
-              <Button onClick={() => { setIsFinishing(false); selectLesson(lessons?.[lessons.length-1]?.id || ""); }} variant="ghost" className="text-muted-foreground block mx-auto font-bold">العودة لمراجعة المنهج</Button>
+              <Button onClick={() => { setIsFinishing(false); selectLesson(lessons?.[lessons.length-1]?.id || ""); }} variant="ghost" className="text-muted-foreground block mx-auto font-bold text-xs">العودة لمراجعة المنهج</Button>
             </div>
           ) : currentLesson ? (
             <>
@@ -455,29 +448,28 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                   <Quote className="absolute top-4 left-4 w-12 h-12 text-primary/5 -z-0" />
                   
                   <div className="flex items-center justify-between relative z-10">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-12 w-12 md:h-14 md:w-14 border-2 border-white shadow-md">
+                    <div className="flex items-center gap-4 flex-1 overflow-hidden">
+                      <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-white shadow-md shrink-0">
                         <AvatarImage src={review.userPhoto || undefined} className="object-cover" />
-                        <AvatarFallback className="bg-primary/5 text-primary text-xs font-black">{review.userName?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div className="text-right">
-                        <div className="text-base font-black text-primary flex items-center gap-1.5">
+                      <div className="text-right overflow-hidden flex-1">
+                        <div className="text-sm font-black text-primary truncate leading-tight">
                           {review.userName}
-                          <ShieldCheck className="w-3.5 h-3.5 text-blue-500" />
                         </div>
                         <div className="flex items-center gap-0.5 mt-1">
                           {[...Array(5)].map((_, s) => (
-                            <Star key={s} className={cn("w-3.5 h-3.5", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
+                            <Star key={s} className={cn("w-3 h-3 md:w-3.5 md:h-3.5", s < review.rating ? "text-secondary fill-secondary" : "text-muted")} />
                           ))}
                         </div>
                       </div>
                     </div>
-                    <div className="text-[10px] font-bold text-muted-foreground opacity-40">
+                    <div className="text-[9px] font-bold text-muted-foreground opacity-40 shrink-0">
                       {review.createdAt?.toDate ? new Date(review.createdAt.toDate()).toLocaleDateString('ar-YE') : ''}
                     </div>
                   </div>
 
-                  <p className="text-sm md:text-lg text-primary/80 font-medium leading-relaxed md:leading-[1.8] italic pr-2 relative z-10">
+                  <p className="text-sm md:text-base text-primary/80 font-medium leading-relaxed italic pr-2 relative z-10">
                     "{review.comment}"
                   </p>
 
@@ -488,7 +480,10 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
                            <UserCheck className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-secondary uppercase tracking-widest leading-none">رد إدارة سراج</span>
+                          <div className="flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-secondary" />
+                            <span className="text-[10px] font-black text-secondary uppercase tracking-widest leading-none">رد إدارة سراج</span>
+                          </div>
                           <span className="text-[8px] font-bold text-muted-foreground">خبير تعليمي</span>
                         </div>
                       </div>
