@@ -2,7 +2,7 @@
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch to OpenRouter.
  * 
- * - sirajAiChat - Handles conversation with students using direct API calls to Gemini 2.0 Flash Lite (Free).
+ * - sirajAiChat - Handles conversation with students using direct API calls to Qwen 2.5 (Stable Free).
  */
 
 import { ai } from '@/ai/genkit';
@@ -39,7 +39,7 @@ const sirajAiChatFlow = ai.defineFlow(
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
-مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول منصة سراج فقط بأسلوب ودي واحترافي.
+مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول منصة سراج بأسلوب ودي واحترافي.
 المعلومات الإضافية من الإدارة لتلتزم بها:
 ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
 
@@ -64,7 +64,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Gemini 2.0 Flash Lite المجاني والمستقر حالياً
+      // استخدام موديل Qwen 2.5 7B المجاني والمستقر جداً حالياً
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -74,7 +74,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-lite-preview-02-05:free', 
+          model: 'qwen/qwen-2.5-7b-instruct:free', 
           messages: apiMessages,
           temperature: 0.7,
           max_tokens: 1000
