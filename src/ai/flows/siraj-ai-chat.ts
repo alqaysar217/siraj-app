@@ -2,7 +2,7 @@
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch to OpenRouter.
  * 
- * - sirajAiChat - Handles conversation with students using direct API calls to Qwen 2.5.
+ * - sirajAiChat - Handles conversation with students using direct API calls to Gemma (Free).
  */
 
 import { ai } from '@/ai/genkit';
@@ -49,17 +49,23 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
 
     if (history && history.length > 0) {
       history.forEach(m => {
-        apiMessages.push({
-          role: m.role === 'user' ? 'user' : 'assistant',
-          content: m.content?.[0]?.text || m.text || ""
-        });
+        // تحويل الهستوري لتنسيق OpenRouter
+        const role = (m.role === 'user' || m.role === 'user') ? 'user' : 'assistant';
+        let textContent = "";
+        if (typeof m.content === 'string') textContent = m.content;
+        else if (Array.isArray(m.content)) textContent = m.content[0]?.text || "";
+        else textContent = m.text || "";
+
+        if (textContent) {
+          apiMessages.push({ role, content: textContent });
+        }
       });
     }
 
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Qwen 2.5 7B Instruct المجاني وهو الأفضل حالياً في الاستقرار والأداء
+      // استخدام موديل Gemma 2 27B المجاني وهو الأقوى حالياً في هذه الفئة
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -69,7 +75,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'qwen/qwen-2.5-7b-instruct:free', 
+          model: 'google/gemma-2-27b-it:free', 
           messages: apiMessages,
           temperature: 0.7,
           max_tokens: 1000
