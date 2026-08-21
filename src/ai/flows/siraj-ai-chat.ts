@@ -2,7 +2,7 @@
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch to OpenRouter.
  * 
- * - sirajAiChat - Handles conversation with students using direct API calls to Gemma (Free).
+ * - sirajAiChat - Handles conversation with students using direct API calls to Gemini 2.0 Flash Lite (Free).
  */
 
 import { ai } from '@/ai/genkit';
@@ -49,8 +49,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
 
     if (history && history.length > 0) {
       history.forEach(m => {
-        // تحويل الهستوري لتنسيق OpenRouter
-        const role = (m.role === 'user' || m.role === 'user') ? 'user' : 'assistant';
+        const role = (m.role === 'user') ? 'user' : 'assistant';
         let textContent = "";
         if (typeof m.content === 'string') textContent = m.content;
         else if (Array.isArray(m.content)) textContent = m.content[0]?.text || "";
@@ -65,7 +64,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Gemma 2 27B المجاني وهو الأقوى حالياً في هذه الفئة
+      // استخدام موديل Gemini 2.0 Flash Lite المجاني والمستقر حالياً
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -75,7 +74,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-27b-it:free', 
+          model: 'google/gemini-2.0-flash-lite-preview-02-05:free', 
           messages: apiMessages,
           temperature: 0.7,
           max_tokens: 1000
