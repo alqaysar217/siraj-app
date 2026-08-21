@@ -23,7 +23,11 @@ import {
   Copy,
   ChevronLeft,
   Smartphone,
-  LayoutDashboard
+  LayoutDashboard,
+  Facebook,
+  Youtube,
+  Music2,
+  Twitter
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -90,7 +94,7 @@ function AiResponseRenderer({ text }: { text: string }) {
   if (courseMatch) {
     const [full, name, price, instructor, url] = courseMatch;
     return (
-      <Card className="my-3 rounded-2xl border-secondary/20 bg-white overflow-hidden luxury-shadow">
+      <Card className="my-3 rounded-2xl border-secondary/20 bg-white overflow-hidden shadow-md">
         <div className="bg-secondary/5 p-2 px-4 flex items-center justify-between border-b border-secondary/10">
           <span className="font-black text-secondary text-[10px] uppercase tracking-wider">تفاصيل الدورة</span>
           <GraduationCap className="w-4 h-4 text-secondary" />
@@ -111,8 +115,8 @@ function AiResponseRenderer({ text }: { text: string }) {
                 </div>
              </div>
           </div>
-          <Button asChild className="w-full h-10 bg-primary text-white rounded-xl font-black text-xs gap-2">
-            <a href={cleanUrl(url)} target="_blank">فتح صفحة الدورة <ExternalLink className="w-3.5 h-3.5" /></a>
+          <Button asChild className="w-full h-10 bg-primary text-white rounded-xl font-black text-xs gap-2 shadow-lg">
+            <a href={cleanUrl(url)} target="_blank">عرض الدورة الآن <ExternalLink className="w-3.5 h-3.5" /></a>
           </Button>
         </CardContent>
       </Card>
@@ -124,19 +128,19 @@ function AiResponseRenderer({ text }: { text: string }) {
   if (bookMatch) {
     const [full, name, author, price, url] = bookMatch;
     return (
-      <Card className="my-3 rounded-2xl border-primary/10 bg-white overflow-hidden luxury-shadow">
+      <Card className="my-3 rounded-2xl border-primary/10 bg-white overflow-hidden shadow-md">
         <div className="bg-primary/5 p-2 px-4 flex items-center justify-between border-b border-primary/10">
           <span className="font-black text-primary text-[10px] uppercase tracking-wider">إصدار علمي</span>
           <Library className="w-4 h-4 text-primary" />
         </div>
         <CardContent className="p-4 flex gap-4">
-          <div className="w-10 h-14 bg-muted rounded shadow-sm flex items-center justify-center shrink-0 border border-primary/5">
-             <BookOpen className="w-5 h-5 text-secondary opacity-40" />
+          <div className="w-12 h-16 bg-muted rounded shadow-sm flex items-center justify-center shrink-0 border border-primary/5">
+             <BookOpen className="w-6 h-6 text-secondary opacity-40" />
           </div>
           <div className="text-right space-y-2 flex-1">
             <h3 className="font-black text-primary text-sm leading-tight line-clamp-1">{name.trim()}</h3>
             <div className="flex items-center justify-between">
-               <span className="text-[10px] font-bold text-muted-foreground">تأليف: {author.trim()}</span>
+               <span className="text-[10px] font-bold text-muted-foreground">بواسطة: {author.trim()}</span>
                <span className="text-[10px] font-black text-secondary">{price.trim()}</span>
             </div>
             <Button asChild variant="outline" className="w-full h-8 rounded-lg border-primary/20 text-primary font-black text-[10px] gap-2">
@@ -148,8 +152,8 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // 3. روابط التواصل (واتساب، إيميل، إلخ)
-  if (text.includes('واتساب') || text.includes('إيميل') || text.includes('انستقرام')) {
+  // 3. روابط التواصل الاجتماعية الحقيقية
+  if (text.includes('واتساب') || text.includes('إيميل') || text.includes('انستقرام') || text.includes('فيسبوك') || text.includes('تيك توك') || text.includes('يوتيوب') || text.includes('إكس')) {
     const lines = text.split('\n');
     return (
       <div className="my-3 space-y-2">
@@ -157,77 +161,89 @@ function AiResponseRenderer({ text }: { text: string }) {
           if (line.includes('واتساب')) {
             const num = line.split(':')[1]?.trim() || '+967735952927';
             return (
-              <a key={i} href={`https://wa.me/${num.replace(/\D/g, '')}`} target="_blank" className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-100 hover:bg-green-100 transition-colors shadow-sm">
+              <a key={i} href={`https://wa.me/${num.replace(/\D/g, '')}`} target="_blank" className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-200 hover:bg-green-100 transition-all shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-green-500 rounded-lg text-white"><MessageCircle className="w-4 h-4" /></div>
+                  <div className="p-2 bg-[#25D366] rounded-lg text-white shadow-md"><MessageCircle className="w-4 h-4" /></div>
                   <span className="text-xs font-black text-green-900">تواصل عبر واتساب</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold text-green-600" dir="ltr">{num}</span>
+                <ChevronLeft className="w-4 h-4 text-green-400" />
               </a>
             );
           }
           if (line.includes('إيميل')) {
             const email = line.split(':')[1]?.trim() || 'siraj.io@gmail.com';
             return (
-              <a key={i} href={`mailto:${email}`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100 hover:bg-blue-100 transition-colors shadow-sm">
+              <a key={i} href={`mailto:${email}`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200 hover:bg-blue-100 transition-all shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-blue-600 rounded-lg text-white"><Mail className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-blue-900">البريد الرسمي</span>
+                  <div className="p-2 bg-[#EA4335] rounded-lg text-white shadow-md"><Mail className="w-4 h-4" /></div>
+                  <span className="text-xs font-black text-blue-900">مراسلة الجيميل</span>
                 </div>
-                <span className="text-[10px] font-bold text-blue-600 truncate max-w-[120px]">{email}</span>
+                <ChevronLeft className="w-4 h-4 text-blue-400" />
+              </a>
+            );
+          }
+          if (line.includes('فيسبوك')) {
+            return (
+              <a key={i} href="https://facebook.com" target="_blank" className="flex items-center justify-between p-3 bg-[#1877F2]/5 rounded-xl border border-[#1877F2]/20 hover:bg-[#1877F2]/10 transition-all shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-[#1877F2] rounded-lg text-white shadow-md"><Facebook className="w-4 h-4" /></div>
+                  <span className="text-xs font-black text-[#1877F2]">صفحة فيسبوك</span>
+                </div>
+                <ChevronLeft className="w-4 h-4 text-[#1877F2]/40" />
               </a>
             );
           }
           if (line.includes('انستقرام')) {
-            const handle = line.split(':')[1]?.trim() || 'siraj.io';
-            return (
-              <a key={i} href={`https://instagram.com/${handle}`} target="_blank" className="flex items-center justify-between p-3 bg-pink-50 rounded-xl border border-pink-100 hover:bg-pink-100 transition-colors shadow-sm">
+             return (
+              <a key={i} href="https://instagram.com" target="_blank" className="flex items-center justify-between p-3 bg-pink-50 rounded-xl border border-pink-200 hover:bg-pink-100 transition-all shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-lg text-white"><Instagram className="w-4 h-4" /></div>
+                  <div className="p-2 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-lg text-white shadow-md"><Instagram className="w-4 h-4" /></div>
                   <span className="text-xs font-black text-pink-900">حساب انستقرام</span>
                 </div>
-                <span className="text-[10px] font-bold text-pink-600" dir="ltr">@{handle}</span>
+                <ChevronLeft className="w-4 h-4 text-pink-400" />
               </a>
             );
           }
-          return line.trim() ? <p key={i} className="text-xs font-bold text-slate-600 px-2">{line}</p> : null;
+          if (line.includes('يوتيوب')) {
+            return (
+              <a key={i} href="https://youtube.com" target="_blank" className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-200 hover:bg-red-100 transition-all shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-[#FF0000] rounded-lg text-white shadow-md"><Youtube className="w-4 h-4" /></div>
+                  <span className="text-xs font-black text-red-900">قناة يوتيوب</span>
+                </div>
+                <ChevronLeft className="w-4 h-4 text-red-400" />
+              </a>
+            );
+          }
+          if (line.includes('تيك توك')) {
+            return (
+              <a key={i} href="https://tiktok.com" target="_blank" className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-black rounded-lg text-white shadow-md"><Music2 className="w-4 h-4" /></div>
+                  <span className="text-xs font-black text-slate-900">حساب تيك توك</span>
+                </div>
+                <ChevronLeft className="w-4 h-4 text-slate-400" />
+              </a>
+            );
+          }
+          return line.trim() ? <p key={i} className="text-xs font-bold text-slate-700 px-2 py-1">{line}</p> : null;
         })}
       </div>
     );
   }
 
-  // 4. معالجة روابط المنصة الداخلية وتحويلها لأزرار
-  if (text.includes('/verify-certificate')) {
-    return (
-      <div className="my-3 p-4 bg-primary/5 rounded-2xl border border-primary/10 space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary text-white rounded-xl"><SearchCheck className="w-5 h-5" /></div>
-          <p className="text-xs font-black text-primary">بوابة التحقق من الشهادات</p>
-        </div>
-        <Button asChild className="w-full bg-primary text-white rounded-xl h-10 text-xs font-black">
-          <a href="/verify-certificate">التحقق من الشهادة الآن</a>
-        </Button>
-      </div>
-    );
-  }
-
-  if (text.includes('/leaderboard')) {
-    return (
-       <Button asChild variant="outline" className="w-full h-11 my-2 rounded-xl border-secondary/20 text-secondary bg-secondary/5 font-black text-xs gap-2">
-         <a href="/leaderboard"><Trophy className="w-4 h-4" /> عرض قائمة المتصدرين والأبطال</a>
+  // 4. تحويل أي رابط يبدأ بـ https إلى زر
+  const genericUrlMatch = text.match(/رابط:\s*(https?:\/\/\S+)/);
+  if (genericUrlMatch) {
+     const url = cleanUrl(genericUrlMatch[1]);
+     return (
+       <Button asChild className="w-full h-11 my-2 rounded-xl bg-primary text-white font-black text-xs gap-2 shadow-lg">
+         <a href={url} target="_blank">فتح الرابط المباشر <ExternalLink className="w-4 h-4" /></a>
        </Button>
-    );
+     );
   }
 
-  if (text.includes('/dashboard')) {
-    return (
-       <Button asChild className="w-full h-11 my-2 rounded-xl bg-primary text-white font-black text-xs gap-2">
-         <a href="/dashboard"><LayoutDashboard className="w-4 h-4" /> الذهاب إلى مساحتي التعليمية</a>
-       </Button>
-    );
-  }
-
-  // 5. معالجة الخطوات والقوائم
+  // 5. معالجة الخطوات والترقيم
   const stepsMatch = text.match(/^\d+\.\s.*(?:\n\d+\.\s.*)*/m);
   if (stepsMatch) {
     const steps = stepsMatch[0].split('\n').filter(Boolean);
@@ -236,8 +252,8 @@ function AiResponseRenderer({ text }: { text: string }) {
         {steps.map((step, i) => {
           const content = step.replace(/^\d+\.\s/, '');
           return (
-            <div key={i} className="flex items-start gap-3 group animate-in slide-in-from-right duration-300" style={{ delay: `${i * 100}ms` }}>
-              <div className="w-7 h-7 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center text-xs font-black shrink-0 mt-0.5 border border-secondary/20 group-hover:bg-secondary group-hover:text-white transition-colors">
+            <div key={i} className="flex items-start gap-3 animate-in slide-in-from-right duration-300" style={{ delay: `${i * 100}ms` }}>
+              <div className="w-7 h-7 rounded-lg bg-secondary text-white flex items-center justify-center text-xs font-black shrink-0 mt-0.5 shadow-md">
                 {i + 1}
               </div>
               <p className="text-sm font-bold text-slate-700 leading-relaxed py-0.5">{content}</p>
@@ -248,7 +264,6 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // النص العادي مع تنظيف التنسيقات الخام لضمان RTL سليم
   const cleanText = text
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/### (.*)/g, '$1')
@@ -256,7 +271,7 @@ function AiResponseRenderer({ text }: { text: string }) {
     .replace(/^- (.*)/gm, '• $1');
 
   return (
-    <p className="text-sm md:text-base leading-[1.8] font-bold text-slate-800 whitespace-pre-wrap [unicode-bidi:plaintext]" style={{ direction: 'rtl', textAlign: 'right' }}>
+    <p className="text-sm md:text-base leading-[1.8] font-bold text-slate-800 whitespace-pre-wrap break-words text-right" style={{ direction: 'rtl' }}>
       {cleanText}
     </p>
   );
@@ -333,14 +348,14 @@ export default function SirajAiChat() {
       {isOpen && (
         <div className="absolute inset-0 flex flex-col items-center justify-end pointer-events-auto bg-black/40 backdrop-blur-sm sm:bg-transparent sm:backdrop-blur-none sm:p-4 sm:items-end">
           <Card className={cn(
-            "w-full bg-[#FDFCFB] flex flex-col transition-all duration-500 ease-in-out luxury-shadow border-none overflow-hidden",
-            "sm:w-[400px] sm:max-w-[95vw] sm:rounded-[2rem] sm:border sm:border-primary/10",
+            "w-full bg-[#FDFCFB] flex flex-col transition-all duration-500 ease-in-out shadow-2xl border-none overflow-hidden",
+            "sm:w-[420px] sm:max-w-[95vw] sm:rounded-[2.5rem] sm:border sm:border-primary/10",
             isMinimized 
               ? "h-[30vh] sm:h-[250px]" 
-              : "h-[100dvh] sm:h-[80vh] sm:max-h-[700px]"
+              : "h-[100dvh] sm:h-[80vh] sm:max-h-[750px]"
           )}>
-            {/* Header - Slim & Professional */}
-            <div className="bg-primary p-2.5 md:p-3.5 flex items-center justify-between text-white shrink-0 sm:rounded-t-[2rem]">
+            {/* Header */}
+            <div className="bg-primary p-3 md:p-4 flex items-center justify-between text-white shrink-0 sm:rounded-t-[2.5rem] shadow-md">
               <div className="flex items-center gap-3 pr-1">
                 <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg border border-white/20 shrink-0">
                   <Image src="/SirajAi.png" alt="سراج" width={36} height={36} className="object-cover" />
@@ -349,7 +364,7 @@ export default function SirajAiChat() {
                   <p className="font-black text-sm leading-none tracking-tight">مساعد سراج</p>
                   <div className="flex items-center gap-1 mt-1">
                      <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                     <span className="text-[8px] text-white/50 font-black tracking-widest uppercase">متصل الآن</span>
+                     <span className="text-[8px] text-white/50 font-black tracking-widest uppercase">متاح لخدمتك</span>
                   </div>
                 </div>
               </div>
@@ -363,11 +378,11 @@ export default function SirajAiChat() {
               </div>
             </div>
 
-            {/* Chat Area - Focused on readability */}
-            <ScrollArea className="flex-1 p-4 md:p-5" ref={scrollRef}>
+            {/* Chat Area */}
+            <ScrollArea className="flex-1 p-4 md:p-6" ref={scrollRef}>
               <div className="space-y-6">
                 {messages.map((msg, i) => (
-                  <div key={i} className={cn("flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-1 duration-300", msg.role === 'user' ? "flex-row" : "flex-row-reverse")}>
+                  <div key={i} className={cn("flex items-start gap-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300", msg.role === 'user' ? "flex-row" : "flex-row-reverse")}>
                     <div className={cn(
                       "w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-sm overflow-hidden",
                       msg.role === 'user' ? "bg-white border-primary/5" : "bg-white border-secondary/10"
@@ -375,10 +390,10 @@ export default function SirajAiChat() {
                       {msg.role === 'user' ? <User className="w-4 h-4 text-primary" /> : <Image src="/SirajAi.png" alt="AI" width={32} height={32} />}
                     </div>
                     <div className={cn(
-                      "p-3.5 md:p-4 rounded-2xl text-sm shadow-sm max-w-[88%] leading-relaxed",
+                      "p-3.5 md:p-4 rounded-2xl text-sm shadow-sm max-w-[88%] leading-relaxed word-break break-words",
                       msg.role === 'user' 
-                        ? "bg-white text-slate-800 rounded-tr-none border border-primary/10 font-bold" 
-                        : "bg-primary text-white rounded-tl-none font-medium"
+                        ? "bg-primary text-white rounded-tr-none font-bold" 
+                        : "bg-white text-slate-800 rounded-tl-none border border-primary/10 font-medium"
                     )}>
                       {msg.role === 'user' ? (
                         <p className="text-right" style={{ direction: 'rtl' }}>{msg.content[0].text}</p>
@@ -393,11 +408,11 @@ export default function SirajAiChat() {
                      <div className="w-8 h-8 rounded-xl bg-white border border-secondary/10 flex items-center justify-center overflow-hidden shrink-0">
                         <Image src="/SirajAi.png" alt="AI" width={32} height={32} />
                      </div>
-                     <div className="bg-primary/5 p-3 rounded-2xl rounded-tl-none border border-primary/5">
+                     <div className="bg-primary/5 p-4 rounded-2xl rounded-tl-none border border-primary/5">
                         <div className="flex gap-1.5">
-                          <span className="w-1.5 h-1.5 bg-primary/20 rounded-full animate-bounce"></span>
-                          <span className="w-1.5 h-1.5 bg-primary/20 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                          <span className="w-1.5 h-1.5 bg-primary/20 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                          <span className="w-1.5 h-1.5 bg-primary/30 rounded-full animate-bounce"></span>
+                          <span className="w-1.5 h-1.5 bg-primary/30 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                          <span className="w-1.5 h-1.5 bg-primary/30 rounded-full animate-bounce [animation-delay:0.4s]"></span>
                         </div>
                      </div>
                   </div>
@@ -405,8 +420,8 @@ export default function SirajAiChat() {
               </div>
             </ScrollArea>
 
-            {/* Input Area - Compact & Balanced */}
-            <div className="p-3 md:p-4 bg-white border-t border-border/30 shrink-0 sm:rounded-b-[2rem]">
+            {/* Input Area */}
+            <div className="p-3 md:p-5 bg-white border-t border-border/30 shrink-0 sm:rounded-b-[2.5rem] shadow-inner">
               {!config.enabled ? (
                 <div className="text-center py-2 bg-amber-50 rounded-xl border border-amber-100">
                   <p className="text-[10px] font-black text-amber-700">المساعد في وضع الصيانة حالياً.</p>
@@ -414,8 +429,8 @@ export default function SirajAiChat() {
               ) : (
                 <div className="flex items-center gap-2">
                   <Input
-                    className="flex-1 bg-slate-100/70 border-none rounded-xl h-10 md:h-12 pr-4 focus-visible:ring-1 focus-visible:ring-primary/20 text-sm font-bold text-slate-800"
-                    placeholder="اكتب سؤالك هنا..."
+                    className="flex-1 bg-slate-100/80 border-none rounded-xl h-11 md:h-12 pr-4 focus-visible:ring-2 focus-visible:ring-primary/10 text-sm font-bold text-slate-800"
+                    placeholder="اكتب استفسارك هنا..."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -423,9 +438,9 @@ export default function SirajAiChat() {
                   <Button 
                     onClick={handleSend}
                     disabled={isLoading || !input.trim()}
-                    className="h-10 w-10 md:h-12 md:w-12 p-0 bg-primary text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg active:scale-90 transition-all"
+                    className="h-11 w-11 md:h-12 md:w-12 p-0 bg-primary text-white rounded-xl flex items-center justify-center shrink-0 shadow-lg active:scale-90 transition-all"
                   >
-                    <Send className="w-4 h-4 rotate-180" />
+                    <Send className="w-5 h-5 rotate-180" />
                   </Button>
                 </div>
               )}
@@ -434,13 +449,12 @@ export default function SirajAiChat() {
         </div>
       )}
 
-      {/* Floating Toggle Button - Slower and calmer */}
+      {/* Floating Toggle Button */}
       {!isOpen && (
         <div className="fixed bottom-6 left-6 pointer-events-auto">
           <button
             onClick={toggleChat}
-            className="w-16 h-16 md:w-18 md:h-18 rounded-[1.8rem] bg-white shadow-2xl border-4 border-white overflow-hidden transition-all duration-700 hover:scale-110 active:scale-90 flex items-center justify-center group animate-float-siraj"
-            style={{ animationDuration: '6s' }}
+            className="w-16 h-16 md:w-18 md:h-18 rounded-[2rem] bg-white shadow-2xl border-4 border-white overflow-hidden transition-all duration-700 hover:scale-110 active:scale-90 flex items-center justify-center group animate-float-siraj"
           >
             <Image 
               src="/SirajAi.png" 
@@ -452,8 +466,8 @@ export default function SirajAiChat() {
             <div className="absolute top-1 right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white shadow-sm" />
           </button>
           
-          <div className="absolute -top-10 left-0 bg-primary text-white text-[9px] font-black px-3 py-1.5 rounded-full whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none luxury-shadow flex items-center gap-2">
-            مساعد سراج الذكي <ChevronLeft className="w-3 h-3 rotate-180" />
+          <div className="absolute -top-10 left-0 bg-primary text-white text-[9px] font-black px-4 py-2 rounded-full whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl flex items-center gap-2">
+            اسأل سراج <ChevronLeft className="w-3 h-3 rotate-180" />
           </div>
         </div>
       )}
