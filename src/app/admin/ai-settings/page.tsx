@@ -20,7 +20,7 @@ import {
   Copy,
   CheckCircle2,
   Database,
-  ArrowDownWideArrow
+  ArrowDown
 } from "lucide-react";
 import { useFirestore } from "@/firebase/provider";
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
@@ -172,7 +172,7 @@ export default function AiSettingsPage() {
                     </div>
                     <div className="flex gap-3">
                        <Button onClick={copyToKnowledge} className="flex-1 h-12 rounded-xl bg-green-600 text-white font-black gap-2">
-                          <ArrowDownWideArrow className="w-4 h-4" /> إضافة للمربع أدناه
+                          <ArrowDown className="w-4 h-4" /> إضافة للمربع أدناه
                        </Button>
                        <Button variant="outline" onClick={() => setGeneratedData("")} className="h-12 rounded-xl border-primary/10 font-bold">إلغاء</Button>
                     </div>
@@ -234,7 +234,7 @@ export default function AiSettingsPage() {
                     onChange={(e) => setConfig({...config, knowledgeBase: e.target.value})}
                   />
                   <div className="flex items-start gap-2 bg-amber-50 p-4 rounded-xl border border-amber-100 mt-2">
-                     <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                     <div className="p-1 bg-amber-600 rounded-md text-white"><Info className="w-4 h-4 shrink-0" /></div>
                      <p className="text-[10px] text-amber-800 font-bold leading-relaxed">هذا هو "عقل" المساعد. أي معلومة تضعها هنا سيعتبرها حقيقة وسيجيب بناءً عليها فوراً دون تأخير.</p>
                   </div>
                </div>

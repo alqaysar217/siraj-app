@@ -1,7 +1,7 @@
 'use server';
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat.
- * تم تحسين السرعة بإزالة الاستعلامات المباشرة والاعتماد على قاعدة المعرفة التي يغذيها الأدمن.
+ * تم تحسين السرعة القصوى بالاعتماد الكامل على قاعدة المعرفة التي يغذيها الأدمن.
  */
 
 import { ai } from '@/ai/genkit';
@@ -97,7 +97,7 @@ ${knowledge || 'لا توجد معلومات إضافية متوفرة حالي�
         body: JSON.stringify({
           model: 'google/gemma-4-31b-it',
           messages: apiMessages,
-          temperature: 0.2, // تقليل درجة الحرارة لزيادة الدقة في المعلومات
+          temperature: 0.2,
           max_tokens: 1000
         })
       });
