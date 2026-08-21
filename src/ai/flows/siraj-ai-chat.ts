@@ -2,7 +2,7 @@
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch to OpenRouter.
  * 
- * - sirajAiChat - Handles conversation with students using direct API calls.
+ * - sirajAiChat - Handles conversation with students using direct API calls to Qwen 2.5.
  */
 
 import { ai } from '@/ai/genkit';
@@ -59,7 +59,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Llama 3.2 3B المجاني وهو الأكثر توفراً واستقراراً حالياً على OpenRouter
+      // استخدام موديل Qwen 2.5 7B Instruct المجاني وهو الأفضل حالياً في الاستقرار والأداء
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -69,7 +69,7 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-3.2-3b-instruct:free', 
+          model: 'qwen/qwen-2.5-7b-instruct:free', 
           messages: apiMessages,
           temperature: 0.7,
           max_tokens: 1000
