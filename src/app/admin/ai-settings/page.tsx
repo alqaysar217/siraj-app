@@ -13,16 +13,17 @@ import {
   Bot, 
   Save, 
   Loader2, 
-  Eye, 
-  EyeOff, 
   Zap, 
-  ShieldCheck, 
   MessageSquare,
-  Sparkles,
-  Info
+  Info,
+  RefreshCw,
+  Copy,
+  CheckCircle2,
+  Database,
+  ArrowDownWideArrow
 } from "lucide-react";
 import { useFirestore } from "@/firebase/provider";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AiSettingsPage() {
@@ -30,6 +31,8 @@ export default function AiSettingsPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [fetchingData, setFetchingData] = useState(false);
+  const [generatedKnowledge, setGeneratedData] = useState("");
 
   const [config, setConfig] = useState({
     enabled: true,
@@ -56,9 +59,47 @@ export default function AiSettingsPage() {
     fetchConfig();
   }, [db]);
 
+  // دالة ذكية لجلب كافة بيانات المنصة وصياغتها كمحتوى معرفي
+  const generateKnowledgeFromDB = async () => {
+    if (!db) return;
+    setFetchingData(true);
+    try {
+      let fullText = "--- بيانات الدورات المتاحة حالياً ---\n";
+      
+      // 1. جلب الدورات
+      const coursesSnap = await getDocs(collection(db, "courses"));
+      coursesSnap.forEach(d => {
+        const data = d.data();
+        fullText += `- دورة: ${data.title} | السعر: ${data.price} ر.ي | المدرب: ${data.instructor} | الرابط: https://siraj-app.vercel.app/course/${d.id}\n`;
+      });
+
+      fullText += "\n--- بيانات الكتب المتاحة حالياً ---\n";
+      // 2. جلب الكتب
+      const booksSnap = await getDocs(collection(db, "books"));
+      booksSnap.forEach(d => {
+        const data = d.data();
+        fullText += `- كتاب: ${data.title} | الكاتب: ${data.author} | السعر: ${data.price} ر.ي | الرابط: https://siraj-app.vercel.app/book/${d.id}\n`;
+      });
+
+      fullText += "\n--- قائمة المدربين المعتمدين ---\n";
+      // 3. جلب المدربين
+      const instructorsSnap = await getDocs(collection(db, "instructors"));
+      instructorsSnap.forEach(d => {
+        const data = d.data();
+        fullText += `- المدرب: ${data.name} | التخصص: ${data.specialty} | الملف الشخصي: https://siraj-app.vercel.app/instructor/${d.id}\n`;
+      });
+
+      setGeneratedData(fullText);
+      toast({ title: "تم توليد البيانات", description: "يمكنك الآن نسخ النص وإضافته لقاعدة المعرفة." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل جلب البيانات من Firestore." });
+    } finally {
+      setFetchingData(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!db) return;
-    
     setSaving(true);
     try {
       await setDoc(doc(db, "settings", "ai_config"), {
@@ -71,6 +112,13 @@ export default function AiSettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const copyToKnowledge = () => {
+    if (!generatedKnowledge) return;
+    setConfig({ ...config, knowledgeBase: config.knowledgeBase + "\n\n" + generatedKnowledge });
+    setGeneratedData("");
+    toast({ title: "تم الإلحاق", description: "تمت إضافة البيانات الجديدة إلى المربع أدناه. لا تنسَ الحفظ." });
   };
 
   if (loading) {
@@ -99,6 +147,40 @@ export default function AiSettingsPage() {
         </header>
 
         <div className="grid gap-8">
+          {/* قسم جلب البيانات الحية */}
+          <Card className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md border-2 border-secondary/20">
+            <CardHeader className="bg-secondary/10 border-b p-8">
+               <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
+                 <Database className="w-5 h-5 text-secondary" /> مزامنة بيانات المنصة
+               </CardTitle>
+               <CardDescription className="text-primary/70 font-bold">استخرج أحدث الدورات والكتب من قاعدة البيانات لتعليمها للمساعد.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8 space-y-6 text-right">
+               {!generatedKnowledge ? (
+                 <Button 
+                   disabled={fetchingData} 
+                   onClick={generateKnowledgeFromDB}
+                   className="w-full h-14 rounded-2xl bg-secondary text-white font-black gap-2"
+                 >
+                   {fetchingData ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                   جلب وتوليد بيانات الدورات والكتب والمدربين
+                 </Button>
+               ) : (
+                 <div className="space-y-4 animate-in slide-in-from-top-2">
+                    <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 text-[10px] font-mono whitespace-pre-wrap max-h-40 overflow-y-auto">
+                       {generatedKnowledge}
+                    </div>
+                    <div className="flex gap-3">
+                       <Button onClick={copyToKnowledge} className="flex-1 h-12 rounded-xl bg-green-600 text-white font-black gap-2">
+                          <ArrowDownWideArrow className="w-4 h-4" /> إضافة للمربع أدناه
+                       </Button>
+                       <Button variant="outline" onClick={() => setGeneratedData("")} className="h-12 rounded-xl border-primary/10 font-bold">إلغاء</Button>
+                    </div>
+                 </div>
+               )}
+            </CardContent>
+          </Card>
+
           <Card className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
             <CardHeader className="bg-muted/30 border-b p-8">
                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
@@ -131,29 +213,29 @@ export default function AiSettingsPage() {
                </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
-               <div className="space-y-3">
+               <div className="space-y-3 text-right">
                   <Label className="font-black text-primary mr-1">رسالة الترحيب الأولى</Label>
                   <Input 
                     value={config.welcomeMessage} 
                     onChange={(e) => setConfig({...config, welcomeMessage: e.target.value})}
-                    className="h-12 rounded-xl border-primary/10 bg-background font-bold text-sm" 
+                    className="h-12 rounded-xl border-primary/10 bg-background font-bold text-sm text-right" 
                   />
                </div>
 
-               <div className="space-y-3">
+               <div className="space-y-3 text-right">
                   <div className="flex items-center justify-between">
-                    <Label className="font-black text-primary mr-1">قاعدة المعرفة الخاصة (Knowledge Base)</Label>
+                    <Label className="font-black text-primary mr-1">قاعدة المعرفة الكاملة (التي سيعتمد عليها الرد)</Label>
                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 text-[10px] font-black">هام جداً</Badge>
                   </div>
                   <Textarea 
-                    placeholder="اكتب هنا أي تفاصيل حالية عن الدورات، الخصومات، أو تنبيهات تريد من المساعد معرفتها والرد بناءً عليها..."
-                    className="min-h-[250px] rounded-[1.5rem] border-primary/10 bg-background p-5 text-sm leading-relaxed"
+                    placeholder="ضع هنا كل المعلومات عن المنصة، الدورات، الأسعار، وقائمة البيانات التي ولدتها أعلاه..."
+                    className="min-h-[350px] rounded-[1.5rem] border-primary/10 bg-background p-5 text-sm leading-relaxed text-right"
                     value={config.knowledgeBase}
                     onChange={(e) => setConfig({...config, knowledgeBase: e.target.value})}
                   />
                   <div className="flex items-start gap-2 bg-amber-50 p-4 rounded-xl border border-amber-100 mt-2">
                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                     <p className="text-[10px] text-amber-800 font-bold leading-relaxed">هذا المربع هو "عقل" المساعد. أي معلومة تكتبها هنا سيعتبرها المساعد حقيقة وسيجيب الطلاب بناءً عليها.</p>
+                     <p className="text-[10px] text-amber-800 font-bold leading-relaxed">هذا هو "عقل" المساعد. أي معلومة تضعها هنا سيعتبرها حقيقة وسيجيب بناءً عليها فوراً دون تأخير.</p>
                   </div>
                </div>
             </CardContent>
