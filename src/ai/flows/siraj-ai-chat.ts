@@ -1,8 +1,7 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch to OpenRouter.
- * 
- * - sirajAiChat - Handles conversation with students using direct API calls to Qwen 2.5 (Stable Free).
+ * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch.
+ * تم تحسين المحرك ليعتمد على النموذج الذي أثبت كفاءته في اختبار المستخدم.
  */
 
 import { ai } from '@/ai/genkit';
@@ -38,15 +37,21 @@ const sirajAiChatFlow = ai.defineFlow(
       return { text: "⚠️ عذراً، مفتاح الـ API الخاص بـ OpenRouter غير متوفر في إعدادات الخادم." };
     }
 
-    const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
-مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول منصة سراج بأسلوب ودي واحترافي.
-المعلومات الإضافية من الإدارة لتلتزم بها:
-${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
+    const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي والودود لمنصة سراج التعليمية.
+مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول منصة سراج والدورات المتاحة بأسلوب احترافي ومشجع.
+استخدم المعلومات التالية (المعرفة الخاصة) للإجابة بدقة:
+${knowledge || 'منصة سراج تقدم دورات تقنية متميزة وكتباً تعليمية لتمكين الشباب.'}
+
+قواعد الرد:
+1. أجب دائماً باللغة العربية.
+2. كن ملهماً، واضحاً، ومختصراً.
+3. إذا سألك الطالب عن شيء لا تعرفه، وجهه للتواصل مع الدعم الفني عبر الواتساب.`;
 
     const apiMessages: any[] = [
       { role: 'system', content: systemContent }
     ];
 
+    // إضافة تاريخ المحادثة لذكاء الردود المتتابعة
     if (history && history.length > 0) {
       history.forEach(m => {
         const role = (m.role === 'user') ? 'user' : 'assistant';
@@ -64,7 +69,6 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
     apiMessages.push({ role: 'user', content: message });
 
     try {
-      // استخدام موديل Qwen 2.5 7B المجاني والمستقر جداً حالياً
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -74,10 +78,10 @@ ${knowledge || 'لا توجد معلومات إضافية حالياً.'}`;
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'qwen/qwen-2.5-7b-instruct:free', 
+          model: 'google/gemma-2-9b-it:free', // استخدام الموديل المستقر من عائلة جيما
           messages: apiMessages,
-          temperature: 0.7,
-          max_tokens: 1000
+          temperature: 0.5,
+          max_tokens: 800
         })
       });
 

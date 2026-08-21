@@ -13,8 +13,8 @@ let auth: Auth;
 let db: Firestore;
 
 /**
- * تهيئة فايربيس بنظام "المثيل الوحيد" المستقر.
- * فرض استخدام Long Polling بشكل قطعي لحل مشكلة الـ 10 ثوانٍ (Timeout).
+ * تهيئة فايربيس بنظام الاتصال المستقر.
+ * فرض استخدام Long Polling لحل مشكلة الـ 10 ثوانٍ (Timeout) بشكل نهائي.
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   const existingApps = getApps();
@@ -24,12 +24,10 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     app = initializeApp(firebaseConfig);
   }
 
-  // تهيئة قاعدة البيانات مع فرض نظام Long Polling (HTTPS بدلاً من gRPC)
-  // هذا الإعداد ضروري جداً لتجاوز مشاكل الاتصال في البيئات المقيدة وحل خطأ الـ 10 ثوانٍ
+  // استخدام Long Polling يضمن تجاوز جدران الحماية وقيود الشبكة التي تسبب تعليق gRPC
   if (!(window as any)._firebaseDb) {
     db = initializeFirestore(app, {
       experimentalForceLongPolling: true,
-      useFetchStreams: false, 
     });
     (window as any)._firebaseDb = db;
   } else {
