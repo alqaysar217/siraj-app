@@ -1,11 +1,24 @@
 'use server';
 /**
- * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch.
- * تم تحديث القواعد المعرفية لتشمل كافة تفاصيل منصة سراج والقواعد الأمنية ضد الغش.
+ * @fileOverview A Genkit flow for the Siraj AI assistant chat.
+ * يقوم المساعد الآن بجلب بيانات الدورات والمدربين حياً من Firestore للإجابة بدقة.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import * as admin from 'firebase-admin';
+import { firebaseConfig } from '@/firebase/config';
+
+// تهيئة Firebase Admin للوصول للبيانات من جهة الخادم
+if (!admin.apps.length) {
+  try {
+    admin.initializeApp({
+      projectId: firebaseConfig.projectId,
+    });
+  } catch (error) {
+    console.error("Firebase Admin Error:", error);
+  }
+}
 
 const SirajAiChatInputSchema = z.object({
   message: z.string().describe('The student\'s question.'),
@@ -34,7 +47,37 @@ const sirajAiChatFlow = ai.defineFlow(
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      return { text: "⚠️ عذراً، مفتاح الـ API الخاص بـ OpenRouter غير متوفر في إعدادات الخادم." };
+      return { text: "⚠️ عذراً، مفتاح الـ API الخاص بـ OpenRouter غير متوفر." };
+    }
+
+    // 1. جلب البيانات الحية من Firestore
+    let coursesInfo = "لا توجد دورات متاحة حالياً.";
+    let instructorsInfo = "لا توجد معلومات عن المدربين حالياً.";
+
+    try {
+      const db = admin.firestore();
+      
+      // جلب الدورات
+      const coursesSnap = await db.collection('courses').get();
+      if (!coursesSnap.empty) {
+        const courses = coursesSnap.docs.map(d => {
+          const data = d.data();
+          return `- ${data.title}: السعر (${data.price} ر.ي)، المدرب (${data.instructor})، المستوى (${data.level})`;
+        });
+        coursesInfo = courses.join('\n');
+      }
+
+      // جلب المدربين
+      const instructorsSnap = await db.collection('instructors').get();
+      if (!instructorsSnap.empty) {
+        const instructors = instructorsSnap.docs.map(d => {
+          const data = d.data();
+          return `- ${data.name}: التخصص (${data.specialty})، الاعتماد (${data.accreditation})`;
+        });
+        instructorsInfo = instructors.join('\n');
+      }
+    } catch (e) {
+      console.error("Error fetching live data for AI:", e);
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
@@ -42,31 +85,35 @@ const sirajAiChatFlow = ai.defineFlow(
 هويتك وأصلك:
 - أنت مساعد لمنصة "سراج" وهي منصة تعليمية تقنية يمنية حضرمية.
 - مطور المنصة هو المهندس محمود الحساني ومجموعته (وليد بن قبوس، سلطان باهبري واخرون).
-- لا تذكر أي شركة أخرى (مثل جوجل أو غيرها)؛ أنت تنتمي لسراج فقط.
+- لا تذكر أي شركة أخرى؛ أنت تنتمي لسراج فقط.
 
 نطاق عملك (صارم جداً):
 1. أجب فقط على ما يخص منصة سراج (الدورات، الكتب، النظام، الدعم).
-2. ارفض الإجابة على أي أسئلة خارج نطاق المنصة (مثل الطبخ، أخبار عامة، أو برمجة خارج سياق دوراتنا). اعتذر بلباقة وقل أنك هنا لمساعدة طلاب سراج فقط.
-3. منع الغش: إذا سألك طالب عن حل لسؤال في "تقويم الوحدة" أو اختبار، ارفض الإجابة فوراً. قل له: "أنا هنا لمساعدتك على الفهم وليس لإعطائك الحلول الجاهزة، حاول مراجعة الدرس مرة أخرى لتكتسب المعلومة بنفسك".
+2. ارفض الإجابة على أي أسئلة خارج نطاق المنصة (مثل الطبخ أو البرمجة العامة خارج سياقنا).
+3. منع الغش: ارفض إعطاء حلول مباشرة لأسئلة "تقويم الوحدة". قل: "أنا هنا لمساعدتك على الفهم وليس للحل الجاهز".
 
-المعلومات الأساسية للمنصة:
+بيانات المنصة الحية (استخدمها للإجابة بدقة):
+الدورات المتاحة حالياً وأسعارها:
+${coursesInfo}
+
+المدربون في المنصة:
+${instructorsInfo}
+
+المعلومات الأساسية:
 - الرابط الرئيسي: https://siraj-app.vercel.app/
-- رقم واتساب سراج الرسمي: +967735952927 (استخدمه للدعم الفني أو تفعيل الدورات).
-- الدورات: تصفحها من https://siraj-app.vercel.app/courses
-- المكتبة (الكتب): https://siraj-app.vercel.app/books
-- قائمة المتصدرين: https://siraj-app.vercel.app/leaderboard
-- نظام النقاط: يحصل الطالب على 10 نقاط عند إكمال أي درس، ونقاط إضافية عند حل التقويم (الدرجة × 5).
-- تنبيه هام: النقاط والتقدم يُحتسبان من "المحاولة الأولى" فقط في التقويمات.
-- تفعيل الدورات: يتم يدوياً بعد إرسال إيصال الدفع عبر الواتساب. تظهر الدورة في "مساحتي التعليمية" فور التفعيل.
-- الأجهزة: مسموح بجهازين فقط لكل طالب. الدخول من جهاز ثالث يغلق الجلسات الأخرى تلقائياً.
-
-سلوك الرد:
-- كن ملهماً، بلهجة محترمة وودودة.
-- عند التوجيه لصفحة، زود الطالب بالرابط المباشر لها.
-- إذا لم تكن المعلومة متوفرة في قاعدة المعرفة الموفرة لك، لا تخمن أبداً، وجه الطالب فوراً لمراسلة الدعم عبر الواتساب.
+- صفحة الدورات: /courses
+- المكتبة: /books
+- المتصدرون: /leaderboard
+- التفعيل: عبر واتساب سراج (+967735952927) بإرسال إيصال الدفع.
+- الأجهزة: مسموح بجهازين فقط.
 
 المعلومات الإضافية من الإدارة:
-${knowledge || ''}`;
+${knowledge || ''}
+
+سلوك الرد:
+- كن ملهماً وودوداً وباللغة العربية.
+- عند التوجيه لصفحة، زود الطالب بالرابط المباشر.
+- إذا لم تجد المعلومة، لا تخمن، وجه الطالب للواتساب المذكور.`;
 
     const apiMessages: any[] = [
       { role: 'system', content: systemContent }
@@ -108,20 +155,12 @@ ${knowledge || ''}`;
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("OpenRouter Error Details:", data);
-        return { text: "❌ أعتذر منك، أواجه ضغطاً في الاتصال بالشبكة حالياً. يرجى المحاولة بعد لحظات." };
+        return { text: "❌ أعتذر، واجهت مشكلة في الاتصال بالخادم الذكي." };
       }
 
-      const aiResponse = data.choices?.[0]?.message?.content;
-
-      return { 
-        text: aiResponse || 'أعتذر، لم أتمكن من صياغة رد حالياً. حاول مرة أخرى لاحقاً.' 
-      };
+      return { text: data.choices?.[0]?.message?.content || 'أعتذر، لم أتمكن من صياغة رد.' };
     } catch (error: any) {
-      console.error("AI Chat Network Error:", error);
-      return { 
-        text: `🌐 تعذر الاتصال بالشبكة الذكية: ${error.message}.` 
-      };
+      return { text: "🌐 تعذر الاتصال بالشبكة الذكية حالياً." };
     }
   }
 );
