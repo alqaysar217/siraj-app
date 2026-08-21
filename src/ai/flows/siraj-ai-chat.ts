@@ -1,7 +1,7 @@
 'use server';
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat using Direct Fetch.
- * تم تحسين المحرك ليعتمد على النموذج الذي أثبت كفاءته في اختبار المستخدم.
+ * تم تحديث الموديل ليتطابق مع نسخة الاختبار الناجحة للمستخدم: google/gemma-4-31b-it
  */
 
 import { ai } from '@/ai/genkit';
@@ -38,8 +38,8 @@ const sirajAiChatFlow = ai.defineFlow(
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي والودود لمنصة سراج التعليمية.
-مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول منصة سراج والدورات المتاحة بأسلوب احترافي ومشجع.
-استخدم المعلومات التالية (المعرفة الخاصة) للإجابة بدقة:
+مهمتك هي مساعدة الطلاب والإجابة على استفساراتهم حول منصة سراج بأسلوب احترافي ومشجع.
+استخدم المعلومات التالية للإجابة بدقة:
 ${knowledge || 'منصة سراج تقدم دورات تقنية متميزة وكتباً تعليمية لتمكين الشباب.'}
 
 قواعد الرد:
@@ -51,7 +51,6 @@ ${knowledge || 'منصة سراج تقدم دورات تقنية متميزة و
       { role: 'system', content: systemContent }
     ];
 
-    // إضافة تاريخ المحادثة لذكاء الردود المتتابعة
     if (history && history.length > 0) {
       history.forEach(m => {
         const role = (m.role === 'user') ? 'user' : 'assistant';
@@ -78,9 +77,9 @@ ${knowledge || 'منصة سراج تقدم دورات تقنية متميزة و
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-9b-it:free', // استخدام الموديل المستقر من عائلة جيما
+          model: 'google/gemma-4-31b-it', // الموديل الذي نجح في اختبار المستخدم
           messages: apiMessages,
-          temperature: 0.5,
+          temperature: 0.3,
           max_tokens: 800
         })
       });

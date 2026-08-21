@@ -24,10 +24,9 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     app = initializeApp(firebaseConfig);
   }
 
-  // استخدام Long Polling يضمن تجاوز جدران الحماية وقيود الشبكة التي تسبب تعليق gRPC
   if (!(window as any)._firebaseDb) {
     db = initializeFirestore(app, {
-      experimentalForceLongPolling: true,
+      experimentalForceLongPolling: true, // فرض البروتوكول المستقر
     });
     (window as any)._firebaseDb = db;
   } else {
