@@ -76,6 +76,16 @@
   .glass-card {
     @apply bg-card border border-border/50 shadow-sm transition-all duration-300 hover:shadow-lg hover:border-secondary/30;
   }
+
+  .animate-float-siraj {
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-15px); }
+    100% { transform: translateY(0px); }
+  }
 }
 
 /* YouTube Wrapper Style */
@@ -124,7 +134,6 @@
   position: relative !important;
 }
 
-/* التخلص من حدود المكتبة الافتراضية وجعل المربع في المنتصف */
 #qr-reader__scan_region canvas {
   position: absolute !important;
   top: 50% !important;
