@@ -14,7 +14,7 @@ let db: Firestore;
 
 /**
  * تهيئة فايربيس بنظام الاتصال المستقر.
- * فرض استخدام Long Polling لحل مشكلة الـ 10 ثوانٍ (Timeout) بشكل نهائي.
+ * فرض استخدام Long Polling لحل مشكلة الـ 10 ثوانٍ (Timeout) بشكل نهائي وقاطع.
  */
 if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
   const existingApps = getApps();
@@ -24,9 +24,11 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     app = initializeApp(firebaseConfig);
   }
 
+  // استخدام تهيئة Firestore مخصصة لضمان عدم حدوث Timeout
   if (!(window as any)._firebaseDb) {
     db = initializeFirestore(app, {
-      experimentalForceLongPolling: true, // فرض البروتوكول المستقر
+      experimentalForceLongPolling: true, // تحويل كافة الطلبات لـ HTTPS
+      useFetchStreams: false // زيادة استقرار الاتصال في المتصفحات
     });
     (window as any)._firebaseDb = db;
   } else {
