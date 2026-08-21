@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Bot, 
   Save, 
@@ -17,13 +18,15 @@ import {
   MessageSquare,
   Info,
   RefreshCw,
-  Copy,
-  CheckCircle2,
   Database,
-  ArrowDown
+  ArrowDown,
+  LayoutGrid,
+  Trophy,
+  Share2,
+  BookOpen
 } from "lucide-react";
 import { useFirestore } from "@/firebase/provider";
-import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AiSettingsPage() {
@@ -33,6 +36,14 @@ export default function AiSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [fetchingData, setFetchingData] = useState(false);
   const [generatedKnowledge, setGeneratedData] = useState("");
+
+  const [selectedTypes, setSelectedTypes] = useState({
+    courses: true,
+    books: false,
+    instructors: false,
+    leaderboard: false,
+    socials: false
+  });
 
   const [config, setConfig] = useState({
     enabled: true,
@@ -59,40 +70,76 @@ export default function AiSettingsPage() {
     fetchConfig();
   }, [db]);
 
-  // دالة ذكية لجلب كافة بيانات المنصة وصياغتها كمحتوى معرفي
   const generateKnowledgeFromDB = async () => {
     if (!db) return;
     setFetchingData(true);
     try {
-      let fullText = "--- بيانات الدورات المتاحة حالياً ---\n";
-      
-      // 1. جلب الدورات
-      const coursesSnap = await getDocs(collection(db, "courses"));
-      coursesSnap.forEach(d => {
-        const data = d.data();
-        fullText += `- دورة: ${data.title} | السعر: ${data.price} ر.ي | المدرب: ${data.instructor} | الرابط: https://siraj-app.vercel.app/course/${d.id}\n`;
-      });
+      let fullText = "";
 
-      fullText += "\n--- بيانات الكتب المتاحة حالياً ---\n";
+      // 1. جلب الدورات مع المنهج
+      if (selectedTypes.courses) {
+        fullText += "\n--- بيانات الدورات والمنهج الدراسي ---\n";
+        const coursesSnap = await getDocs(collection(db, "courses"));
+        for (const d of coursesSnap.docs) {
+          const data = d.data();
+          fullText += `- دورة: ${data.title} | السعر: ${data.price} ر.ي | المدرب: ${data.instructor}\n`;
+          fullText += `  الرابط: https://siraj-app.vercel.app/course/${d.id}\n`;
+          
+          // جلب الدروس
+          const lessonsSnap = await getDocs(query(collection(db, "courses", d.id, "lessons"), orderBy("order", "asc")));
+          if (!lessonsSnap.empty) {
+            fullText += `  محتوى المنهج: ${lessonsSnap.docs.map(l => l.data().title).join("، ")}\n`;
+          }
+        }
+      }
+
       // 2. جلب الكتب
-      const booksSnap = await getDocs(collection(db, "books"));
-      booksSnap.forEach(d => {
-        const data = d.data();
-        fullText += `- كتاب: ${data.title} | الكاتب: ${data.author} | السعر: ${data.price} ر.ي | الرابط: https://siraj-app.vercel.app/book/${d.id}\n`;
-      });
+      if (selectedTypes.books) {
+        fullText += "\n--- بيانات المكتبة والكتب ---\n";
+        const booksSnap = await getDocs(collection(db, "books"));
+        booksSnap.forEach(d => {
+          const data = d.data();
+          fullText += `- كتاب: ${data.title} | الكاتب: ${data.author} | السعر: ${data.price} ر.ي\n`;
+          fullText += `  الرابط: https://siraj-app.vercel.app/book/${d.id}\n`;
+        });
+      }
 
-      fullText += "\n--- قائمة المدربين المعتمدين ---\n";
       // 3. جلب المدربين
-      const instructorsSnap = await getDocs(collection(db, "instructors"));
-      instructorsSnap.forEach(d => {
-        const data = d.data();
-        fullText += `- المدرب: ${data.name} | التخصص: ${data.specialty} | الملف الشخصي: https://siraj-app.vercel.app/instructor/${d.id}\n`;
-      });
+      if (selectedTypes.instructors) {
+        fullText += "\n--- قائمة المدربين المعتمدين ---\n";
+        const instructorsSnap = await getDocs(collection(db, "instructors"));
+        instructorsSnap.forEach(d => {
+          const data = d.data();
+          fullText += `- المدرب: ${data.name} | التخصص: ${data.specialty} | الملف: https://siraj-app.vercel.app/instructor/${d.id}\n`;
+        });
+      }
+
+      // 4. جلب المتصدرين
+      if (selectedTypes.leaderboard) {
+        fullText += "\n--- قائمة المتصدرين (الأبطال) ---\n";
+        const usersSnap = await getDocs(query(collection(db, "users"), where("showInLeaderboard", "==", true), limit(5)));
+        let rank = 1;
+        usersSnap.forEach(d => {
+          const data = d.data();
+          fullText += `#${rank} الطالب: ${data.name} | النقاط: ${data.points || 0}\n`;
+          rank++;
+        });
+      }
+
+      // 5. جلب حسابات التواصل
+      if (selectedTypes.socials) {
+        fullText += "\n--- حسابات التواصل والدعم الرسمي ---\n";
+        const socialSnap = await getDocs(query(collection(db, "socialLinks"), orderBy("order", "asc")));
+        socialSnap.forEach(d => {
+          const data = d.data();
+          fullText += `- ${data.label}: ${data.url}\n`;
+        });
+      }
 
       setGeneratedData(fullText);
-      toast({ title: "تم توليد البيانات", description: "يمكنك الآن نسخ النص وإضافته لقاعدة المعرفة." });
+      toast({ title: "تم توليد البيانات", description: "يمكنك الآن دمج النص في قاعدة المعرفة." });
     } catch (e) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل جلب البيانات من Firestore." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل جلب البيانات." });
     } finally {
       setFetchingData(false);
     }
@@ -106,31 +153,15 @@ export default function AiSettingsPage() {
         ...config,
         updatedAt: serverTimestamp()
       });
-      toast({ title: "تم حفظ الإعدادات", description: "تم تحديث سلوك المساعد الذكي بنجاح." });
+      toast({ title: "تم حفظ الإعدادات", description: "المساعد يعمل الآن بالمعلومات الجديدة." });
     } catch (error) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ الإعدادات." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل الحفظ." });
     } finally {
       setSaving(false);
     }
   };
 
-  const copyToKnowledge = () => {
-    if (!generatedKnowledge) return;
-    setConfig({ ...config, knowledgeBase: config.knowledgeBase + "\n\n" + generatedKnowledge });
-    setGeneratedData("");
-    toast({ title: "تم الإلحاق", description: "تمت إضافة البيانات الجديدة إلى المربع أدناه. لا تنسَ الحفظ." });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background" dir="rtl">
-        <Navbar />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-12 h-12 animate-spin text-secondary" />
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-secondary" /></div>;
 
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
@@ -138,24 +169,44 @@ export default function AiSettingsPage() {
       <div className="container mx-auto px-4 py-10 max-w-4xl">
         <header className="mb-10 text-right space-y-2">
           <div className="flex items-center gap-3">
-             <div className="p-3 bg-primary text-white rounded-2xl shadow-xl shadow-primary/10">
+             <div className="p-3 bg-primary text-white rounded-2xl shadow-xl">
                 <Bot className="w-8 h-8" />
              </div>
-             <h1 className="text-3xl font-black font-headline text-primary">إعدادات سراج AI</h1>
+             <h1 className="text-3xl font-black font-headline text-primary">ذكاء منصة سراج</h1>
           </div>
-          <p className="text-muted-foreground font-bold pr-1">تحكم في ذكاء المنصة، فعل المساعد أو عدل معرفته الخاصة.</p>
+          <p className="text-muted-foreground font-bold">تحكم في قاعدة المعرفة والردود الذكية للمساعد.</p>
         </header>
 
         <div className="grid gap-8">
-          {/* قسم جلب البيانات الحية */}
-          <Card className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md border-2 border-secondary/20">
+          <Card className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
             <CardHeader className="bg-secondary/10 border-b p-8">
                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
-                 <Database className="w-5 h-5 text-secondary" /> مزامنة بيانات المنصة
+                 <Database className="w-5 h-5 text-secondary" /> مزامنة وتحديث المعلومات
                </CardTitle>
-               <CardDescription className="text-primary/70 font-bold">استخرج أحدث الدورات والكتب من قاعدة البيانات لتعليمها للمساعد.</CardDescription>
+               <CardDescription className="text-primary/70 font-bold">اختر البيانات التي تريد سحبها من المنصة لتعليمها للمساعد.</CardDescription>
             </CardHeader>
-            <CardContent className="p-8 space-y-6 text-right">
+            <CardContent className="p-8 space-y-8 text-right">
+               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {[
+                    { id: 'courses', label: 'الدورات والمنهج', icon: BookOpen },
+                    { id: 'books', label: 'المكتبة والكتب', icon: LayoutGrid },
+                    { id: 'instructors', label: 'المدربين', icon: Bot },
+                    { id: 'leaderboard', label: 'قائمة المتصدرين', icon: Trophy },
+                    { id: 'socials', label: 'حسابات التواصل', icon: Share2 },
+                  ].map((type) => (
+                    <div key={type.id} className="flex items-center space-x-reverse space-x-2 bg-primary/5 p-3 rounded-xl border border-primary/5">
+                      <Checkbox 
+                        id={type.id} 
+                        checked={(selectedTypes as any)[type.id]} 
+                        onCheckedChange={(val) => setSelectedTypes({...selectedTypes, [type.id]: val})} 
+                      />
+                      <label htmlFor={type.id} className="text-xs font-black cursor-pointer flex items-center gap-1.5">
+                        <type.icon className="w-3.5 h-3.5 text-secondary" /> {type.label}
+                      </label>
+                    </div>
+                  ))}
+               </div>
+
                {!generatedKnowledge ? (
                  <Button 
                    disabled={fetchingData} 
@@ -163,7 +214,7 @@ export default function AiSettingsPage() {
                    className="w-full h-14 rounded-2xl bg-secondary text-white font-black gap-2"
                  >
                    {fetchingData ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-                   جلب وتوليد بيانات الدورات والكتب والمدربين
+                   بدء استخراج البيانات المحددة
                  </Button>
                ) : (
                  <div className="space-y-4 animate-in slide-in-from-top-2">
@@ -171,7 +222,7 @@ export default function AiSettingsPage() {
                        {generatedKnowledge}
                     </div>
                     <div className="flex gap-3">
-                       <Button onClick={copyToKnowledge} className="flex-1 h-12 rounded-xl bg-green-600 text-white font-black gap-2">
+                       <Button onClick={() => { setConfig({...config, knowledgeBase: config.knowledgeBase + "\n" + generatedKnowledge}); setGeneratedData(""); }} className="flex-1 h-12 rounded-xl bg-green-600 text-white font-black gap-2">
                           <ArrowDown className="w-4 h-4" /> إضافة للمربع أدناه
                        </Button>
                        <Button variant="outline" onClick={() => setGeneratedData("")} className="h-12 rounded-xl border-primary/10 font-bold">إلغاء</Button>
@@ -184,59 +235,32 @@ export default function AiSettingsPage() {
           <Card className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
             <CardHeader className="bg-muted/30 border-b p-8">
                <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
-                 <Zap className="w-5 h-5 text-secondary" /> التحكم في الميزة
-               </CardTitle>
-            </CardHeader>
-            <CardContent className="p-8 space-y-8">
-               <div className="flex items-center justify-between p-6 bg-primary/5 rounded-[1.5rem] border border-primary/5">
-                  <div className="text-right space-y-1">
-                     <p className="font-black text-primary">ظهور أيقونة المساعد</p>
-                     <p className="text-[10px] text-muted-foreground font-bold">عند التفعيل، ستظهر الأيقونة العائمة لجميع الطلاب في الأسفل.</p>
-                  </div>
-                  <Switch checked={config.visible} onCheckedChange={(val) => setConfig({...config, visible: val})} />
-               </div>
-
-               <div className="flex items-center justify-between p-6 bg-secondary/5 rounded-[1.5rem] border border-secondary/5">
-                  <div className="text-right space-y-1">
-                     <p className="font-black text-primary">تفعيل الدردشة والرد</p>
-                     <p className="text-[10px] text-muted-foreground font-bold">عند التعطيل، ستظهر رسالة "سأتوفر قريباً" ولن يتم معالجة الرسائل.</p>
-                  </div>
-                  <Switch checked={config.enabled} onCheckedChange={(val) => setConfig({...config, enabled: val})} />
-               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-            <CardHeader className="bg-muted/30 border-b p-8">
-               <CardTitle className="text-xl font-black text-primary flex items-center gap-2">
-                 <MessageSquare className="w-5 h-5 text-secondary" /> تخصيص المساعد
+                 <MessageSquare className="w-5 h-5 text-secondary" /> عقل المساعد (Knowledge Base)
                </CardTitle>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
                <div className="space-y-3 text-right">
-                  <Label className="font-black text-primary mr-1">رسالة الترحيب الأولى</Label>
-                  <Input 
-                    value={config.welcomeMessage} 
-                    onChange={(e) => setConfig({...config, welcomeMessage: e.target.value})}
-                    className="h-12 rounded-xl border-primary/10 bg-background font-bold text-sm text-right" 
-                  />
-               </div>
-
-               <div className="space-y-3 text-right">
-                  <div className="flex items-center justify-between">
-                    <Label className="font-black text-primary mr-1">قاعدة المعرفة الكاملة (التي سيعتمد عليها الرد)</Label>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-100 text-[10px] font-black">هام جداً</Badge>
-                  </div>
+                  <Label className="font-black text-primary mr-1">قاعدة المعرفة الكاملة</Label>
                   <Textarea 
-                    placeholder="ضع هنا كل المعلومات عن المنصة، الدورات، الأسعار، وقائمة البيانات التي ولدتها أعلاه..."
-                    className="min-h-[350px] rounded-[1.5rem] border-primary/10 bg-background p-5 text-sm leading-relaxed text-right"
+                    placeholder="هنا يتم تخزين كل ما يعرفه المساعد عن سراج..."
+                    className="min-h-[400px] rounded-[1.5rem] border-primary/10 bg-background p-5 text-sm leading-relaxed text-right"
                     value={config.knowledgeBase}
                     onChange={(e) => setConfig({...config, knowledgeBase: e.target.value})}
                   />
-                  <div className="flex items-start gap-2 bg-amber-50 p-4 rounded-xl border border-amber-100 mt-2">
-                     <div className="p-1 bg-amber-600 rounded-md text-white"><Info className="w-4 h-4 shrink-0" /></div>
-                     <p className="text-[10px] text-amber-800 font-bold leading-relaxed">هذا هو "عقل" المساعد. أي معلومة تضعها هنا سيعتبرها حقيقة وسيجيب بناءً عليها فوراً دون تأخير.</p>
+                  <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 mt-2">
+                     <p className="text-[10px] text-amber-800 font-bold leading-relaxed">أي معلومة يتم وضعها هنا سيتم اعتبارها حقيقة مطلقة للمساعد.</p>
                   </div>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="flex items-center justify-between p-5 bg-primary/5 rounded-2xl border border-primary/5">
+                    <span className="font-black text-xs text-primary">ظهور الأيقونة للطلاب</span>
+                    <Switch checked={config.visible} onCheckedChange={(val) => setConfig({...config, visible: val})} />
+                 </div>
+                 <div className="flex items-center justify-between p-5 bg-secondary/5 rounded-2xl border border-secondary/5">
+                    <span className="font-black text-xs text-primary">تفعيل الرد الآلي</span>
+                    <Switch checked={config.enabled} onCheckedChange={(val) => setConfig({...config, enabled: val})} />
+                 </div>
                </div>
             </CardContent>
           </Card>
@@ -244,7 +268,7 @@ export default function AiSettingsPage() {
           <Button 
             disabled={saving} 
             onClick={handleSave} 
-            className="h-16 rounded-[1.5rem] bg-primary text-white font-black text-xl shadow-xl shadow-primary/10 transition-transform active:scale-95"
+            className="h-16 rounded-[1.5rem] bg-primary text-white font-black text-xl shadow-xl shadow-primary/10"
           >
             {saving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6 ml-2" />}
             حفظ إعدادات المساعد الذكي
