@@ -24,11 +24,11 @@ if (typeof window !== 'undefined' && isFirebaseConfigValid()) {
     app = initializeApp(firebaseConfig);
   }
 
-  // استخدام تهيئة Firestore مخصصة لضمان عدم حدوث Timeout
+  // استخدام تهيئة Firestore مخصصة لضمان استقرار الاتصال في كافة الشبكات
   if (!(window as any)._firebaseDb) {
     db = initializeFirestore(app, {
-      experimentalForceLongPolling: true, // تحويل كافة الطلبات لـ HTTPS
-      useFetchStreams: false // زيادة استقرار الاتصال في المتصفحات
+      experimentalForceLongPolling: true, // فرض الاتصال عبر HTTPS وتجنب الـ WebSockets غير المستقرة
+      useFetchStreams: false 
     });
     (window as any)._firebaseDb = db;
   } else {

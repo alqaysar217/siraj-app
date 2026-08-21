@@ -1,15 +1,15 @@
 'use server';
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat.
- * يقوم المساعد الآن بجلب بيانات الدورات والمدربين حياً من Firestore مع معالجة أخطاء شاملة.
+ * يقوم المساعد الآن بجلب بيانات الدورات والمدربين حياً من Firestore مع معالجة أخطاء شاملة لمنع خطأ Unexpected Response.
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'zod'; // استخدام zod مباشرة لضمان الاستقرار
+import { z } from 'zod';
 import * as admin from 'firebase-admin';
 import { firebaseConfig } from '@/firebase/config';
 
-// تهيئة Firebase Admin بشكل آمن للعمل في بيئة الخادم
+// تهيئة Firebase Admin بشكل آمن للعمل في بيئة الخادم (Server-side only)
 if (!admin.apps.length) {
   try {
     admin.initializeApp({
@@ -33,14 +33,16 @@ const SirajAiChatOutputSchema = z.object({
 export type SirajAiChatOutput = z.infer<typeof SirajAiChatOutputSchema>;
 
 /**
- * غلاف الـ Server Action الرئيسي مع معالجة أخطاء تمنع انهيار Next.js
+ * غلاف الـ Server Action الرئيسي
+ * تم تحصينه بـ try-catch شامل لضمان إرجاع رد JSON سليم دائماً ومنع انهيار Next.js
  */
 export async function sirajAiChat(input: SirajAiChatInput): Promise<SirajAiChatOutput> {
   try {
-    return await sirajAiChatFlow(input);
+    const result = await sirajAiChatFlow(input);
+    return { text: result.text };
   } catch (error: any) {
     console.error("Critical Server Action Error:", error);
-    return { text: "❌ أعتذر، حدث خطأ فني غير متوقع على الخادم. يرجى المحاولة مرة أخرى." };
+    return { text: "❌ أعتذر، واجهت مشكلة فنية في الاتصال بالخادم. يرجى المحاولة مرة أخرى بعد قليل." };
   }
 }
 
@@ -55,18 +57,18 @@ const sirajAiChatFlow = ai.defineFlow(
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      return { text: "⚠️ عذراً، مفتاح الـ API الخاص بـ OpenRouter غير متوفر." };
+      return { text: "⚠️ عذراً، مفتاح الـ API الخاص بـ OpenRouter غير متوفر حالياً." };
     }
 
-    // 1. جلب البيانات الحية من Firestore (مع حدود لضمان السرعة)
+    // 1. جلب البيانات الحية من Firestore (مع عزل الأخطاء لضمان استقرار الرد)
     let coursesInfo = "لا توجد دورات متاحة حالياً.";
     let instructorsInfo = "لا توجد معلومات عن المدربين حالياً.";
 
     try {
       const db = admin.firestore();
       
-      // جلب الدورات (بحد أقصى 20 دورة لتجنب البطء)
-      const coursesSnap = await db.collection('courses').limit(20).get();
+      // جلب الدورات وتحويلها لنصوص بسيطة (Strings) لضمان Serialization
+      const coursesSnap = await db.collection('courses').limit(15).get();
       if (!coursesSnap.empty) {
         const courses = coursesSnap.docs.map(d => {
           const data = d.data();
@@ -85,7 +87,7 @@ const sirajAiChatFlow = ai.defineFlow(
         instructorsInfo = instructors.join('\n');
       }
     } catch (e) {
-      console.warn("Firestore data fetch failed for AI, using fallback.", e);
+      console.warn("Firestore data fetch failed, continuing with static info.", e);
     }
 
     const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
@@ -100,24 +102,24 @@ const sirajAiChatFlow = ai.defineFlow(
 2. ارفض الإجابة على أي أسئلة خارج نطاق المنصة (مثل الطبخ أو البرمجة العامة خارج سياقنا).
 3. منع الغش: ارفض إعطاء حلول مباشرة لأسئلة "تقويم الوحدة". قل: "أنا هنا لمساعدتك على الفهم وليس للحل الجاهز".
 
-بيانات المنصة الحية:
-الدورات المتاحة:
+بيانات المنصة الحية (من قاعدة البيانات):
+الدورات المتاحة حالياً:
 ${coursesInfo}
 
-المدربون:
+المدربون المعتمدون:
 ${instructorsInfo}
 
 المعلومات الأساسية:
 - الرابط الرئيسي: https://siraj-app.vercel.app/
-- التفعيل: عبر واتساب سراج (+967735952927).
-- الأجهزة: مسموح بجهازين فقط.
+- تفعيل الدورات: عبر واتساب سراج (+967735952927).
+- الأجهزة: مسموح بالدخول من جهازين فقط لكل طالب.
 
 المعلومات الإضافية من الإدارة:
 ${knowledge || ''}
 
 سلوك الرد:
-- كن ملهماً وودوداً وباللغة العربية.
-- إذا لم تجد المعلومة، لا تخمن، وجه الطالب للواتساب المذكور.`;
+- كن ملهماً وودوداً وباللغة العربية الفصحى المبسطة.
+- يمنع التخمين؛ إذا لم تجد المعلومة، وجه الطالب لخدمة العملاء عبر الواتساب.`;
 
     const apiMessages: any[] = [
       { role: 'system', content: systemContent }
@@ -125,7 +127,7 @@ ${knowledge || ''}
 
     // إضافة تاريخ المحادثة بشكل سليم
     if (history && Array.isArray(history)) {
-      history.slice(-10).forEach(m => {
+      history.slice(-8).forEach(m => {
         const role = (m.role === 'user') ? 'user' : 'assistant';
         let textContent = "";
         if (typeof m.content === 'string') textContent = m.content;
@@ -148,23 +150,24 @@ ${knowledge || ''}
           'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
-          model: 'google/gemma-2-9b-it:free', // استخدام النسخة المجانية المستقرة
+          model: 'google/gemma-4-31b-it', // الموديل الذي نجح في اختبارك
           messages: apiMessages,
           temperature: 0.3,
-          max_tokens: 1000
+          max_tokens: 800
         })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error?.message || "OpenRouter Error");
+        throw new Error(data?.error?.message || "OpenRouter Connection Failed");
       }
 
-      return { text: data.choices?.[0]?.message?.content || 'أعتذر، لم أتمكن من صياغة رد.' };
+      const replyText = data.choices?.[0]?.message?.content;
+      return { text: replyText || 'أعتذر، لم أتمكن من صياغة رد حالياً.' };
     } catch (error: any) {
       console.error("AI Fetch Error:", error);
-      return { text: "🌐 تعذر الاتصال بالشبكة الذكية حالياً. يرجى المحاولة لاحقاً." };
+      return { text: "🌐 تعذر الاتصال بالعقل الاصطناعي حالياً. يرجى مراجعة اتصالك بالإنترنت." };
     }
   }
 );
