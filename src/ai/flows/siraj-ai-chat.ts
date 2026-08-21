@@ -1,7 +1,7 @@
 'use server';
 /**
  * @fileOverview A Genkit flow for the Siraj AI assistant chat.
- * تم تحسين السرعة القصوى بالاعتماد الكامل على قاعدة المعرفة التي يغذيها الأدمن.
+ * تم تحسين الهوية لتكون "سراج" فقط والالتزام بكافة القواعد الصارمة.
  */
 
 import { ai } from '@/ai/genkit';
@@ -19,9 +19,6 @@ const SirajAiChatOutputSchema = z.object({
 });
 export type SirajAiChatOutput = z.infer<typeof SirajAiChatOutputSchema>;
 
-/**
- * Server Action الرئيسي
- */
 export async function sirajAiChat(input: SirajAiChatInput): Promise<SirajAiChatOutput> {
   try {
     const result = await sirajAiChatFlow(input);
@@ -43,35 +40,34 @@ const sirajAiChatFlow = ai.defineFlow(
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
-      return { text: "⚠️ عذراً، خدمة الذكاء الاصطناعي غير مفعلة حالياً (API Key Mismatch)." };
+      return { text: "⚠️ عذراً، خدمة الذكاء الاصطناعي غير مفعلة حالياً." };
     }
 
-    const systemContent = `أنت "سراج AI"، المساعد الذكي الرسمي والوحيد لمنصة سراج التعليمية.
+    const systemContent = `أنت "سراج"، المساعد الذكي الرسمي لمنصة سراج التعليمية.
 
 هويتك وأصلك:
-- اسمك هو "سراج" أو "سراج AI".
+- اسمك هو "سراج".
 - أنت تنتمي لمنصة "سراج" وهي منصة تعليمية تقنية يمنية حضرمية.
-- مطور المنصة هو المهندس محمود الحساني ومجموعته (وليد بن قبوس، سلطان باهبري واخرون).
-- لا تذكر أي شركة أخرى (مثل Google أو OpenAI) أو أي موديل آخر؛ أنت سراج فقط.
+- مطور المنصة هو المهندس محمود الحساني وفريقه المبدع (وليد بن قبوس، سلطان باهبري واخرون).
+- لا تذكر أي شركة أخرى؛ أنت سراج فقط.
 
 نطاق عملك (صارم جداً):
 1. أجب فقط على ما يخص منصة سراج (الدورات، الكتب، النظام، الدعم).
 2. ارفض الإجابة بلباقة على أي أسئلة خارج نطاق المنصة (مثل الطبخ، أخبار العالم، أو البرمجة العامة التي ليس لها علاقة بدوراتنا).
-3. منع الغش: ارفض إعطاء حلول مباشرة لأسئلة "تقويم الوحدة" أو التمارين. قل: "أنا هنا لمساعدتك على فهم الفكرة وتبسيط المعلومة وليس للحل الجاهز، فهدفنا هو تعلمك الحقيقي".
+3. منع الغش: ارفض إعطاء حلول مباشرة لأسئلة "تقويم الوحدة" أو التمارين. قل: "أنا هنا لمساعدتك على فهم الفكرة وتبسيط المعلومة وليس للحل الجاهز".
 
 معلومات المنصة (من قاعدة المعرفة المحدثة):
 ${knowledge || 'لا توجد معلومات إضافية متوفرة حالياً من الإدارة.'}
 
 قواعد الرد:
-- استخدم الروابط الموفرة في قاعدة المعرفة دائماً عند توجيه الطالب لدورة أو كتاب أو صفحة (مثل /courses أو /verify-certificate).
-- كن ملهماً، ودوداً جداً، وباللغة العربية الفصحى المبسطة أو اللهجة البيضاء المفهومة.
+- استخدم الروابط الموفرة دائماً (مثل /courses أو /leaderboard).
+- كن ملهماً، ودوداً، وباللغة العربية الفصحى المبسطة.
 - يمنع التخمين؛ إذا لم تجد المعلومة، وجه الطالب فوراً لخدمة العملاء الرسمية عبر الواتساب (+967735952927).`;
 
     const apiMessages: any[] = [
       { role: 'system', content: systemContent }
     ];
 
-    // إضافة التاريخ لضمان تذكر سياق المحادثة
     if (history && Array.isArray(history)) {
       history.slice(-6).forEach(m => {
         const role = (m.role === 'user') ? 'user' : 'assistant';
@@ -92,8 +88,6 @@ ${knowledge || 'لا توجد معلومات إضافية متوفرة حالي�
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://siraj-app.vercel.app',
-          'X-Title': 'Siraj AI Assistant'
         },
         body: JSON.stringify({
           model: 'google/gemma-4-31b-it',
@@ -107,7 +101,7 @@ ${knowledge || 'لا توجد معلومات إضافية متوفرة حالي�
       const replyText = data.choices?.[0]?.message?.content;
       return { text: replyText || 'أعتذر، لم أتمكن من صياغة رد حالياً. هل يمكنني مساعدتك في شيء آخر؟' };
     } catch (error: any) {
-      return { text: "🌐 تعذر الاتصال بالعقل الاصطناعي حالياً. يرجى مراجعة اتصالك بالإنترنت." };
+      return { text: "🌐 تعذر الاتصال بالعقل الاصطناعي حالياً." };
     }
   }
 );
