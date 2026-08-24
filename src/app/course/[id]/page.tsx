@@ -35,13 +35,13 @@ import {
   Quote,
   Send,
   Languages,
-  UserCheck
+  UserCheck,
+  Lock
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -265,7 +265,6 @@ ${certNameEn}`;
 
   const isCurrentLessonCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
 
-  // دالة لاختصار الاسم (الاسم الأول والثاني فقط)
   const getShortName = (fullName: string) => {
     if (!fullName) return "طالب سراج";
     const parts = fullName.trim().split(/\s+/);

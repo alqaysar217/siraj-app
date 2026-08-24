@@ -13,17 +13,13 @@ import {
   ExternalLink,
   BookOpen,
   Library,
-  Info,
   CheckCircle2,
   MessageCircle,
   Mail,
   Instagram,
   Trophy,
-  SearchCheck,
   Copy,
   ChevronLeft,
-  Smartphone,
-  LayoutDashboard,
   Facebook,
   Youtube,
   Music2,
@@ -36,7 +32,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useFirestore } from '@/firebase/provider';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -71,40 +66,10 @@ function CodeBlock({ code }: { code: string }) {
   );
 }
 
-/**
- * عرض الجداول المنظمة
- */
-function TableRenderer({ content }: { content: string }) {
-  const lines = content.split('\n').filter(l => l.includes('|'));
-  if (lines.length < 2) return null;
-
-  const headers = lines[0].split('|').map(h => h.trim()).filter(Boolean);
-  const rows = lines.slice(2).map(r => r.split('|').map(c => c.trim()).filter(Boolean));
-
-  return (
-    <div className="my-4 overflow-hidden rounded-xl border border-primary/10 luxury-shadow bg-white">
-      <table className="w-full text-right text-[10px] md:text-xs">
-        <thead className="bg-primary/5">
-          <tr>
-            {headers.map((h, i) => <th key={i} className="p-3 font-black text-primary border-b border-primary/5">{h}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-primary/5 last:border-none">
-              {row.map((cell, j) => <td key={j} className="p-3 font-bold text-slate-600">{cell}</td>)}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
 function AiResponseRenderer({ text }: { text: string }) {
   const cleanUrl = (url: string) => url.replace(/[()\[\]]/g, '').trim();
 
-  // معالجة الأكواد
+  // 1. معالجة الأكواد البرمجية
   if (text.includes('```')) {
     const parts = text.split('```');
     return (
@@ -116,13 +81,8 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // معالجة الجداول
-  if (text.includes('|') && text.includes('--')) {
-    return <TableRenderer content={text} />;
-  }
-
-  // بطاقة دورة
-  const courseMatch = text.match(/دورة:\s*(.*?)\nالسعر:\s*(.*?)\nالمدرب:\s*(.*?)\nالرابط:\s*(https?:\/\/\S+)/);
+  // 2. معالجة بطاقة الدورة
+  const courseMatch = text.match(/دورة:\s*(.*?)[،\n]السعر:\s*(.*?)[،\n]المدرب:\s*(.*?)[،\n]الرابط:\s*(https?:\/\/\S+)/);
   if (courseMatch) {
     const [full, name, price, instructor, url] = courseMatch;
     return (
@@ -155,8 +115,8 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // بطاقة كتاب
-  const bookMatch = text.match(/كتاب:\s*(.*?)\nالكاتب:\s*(.*?)\nالسعر:\s*(.*?)\nالرابط:\s*(https?:\/\/\S+)/);
+  // 3. معالجة بطاقة الكتاب
+  const bookMatch = text.match(/كتاب:\s*(.*?)[،\n]الكاتب:\s*(.*?)[،\n]السعر:\s*(.*?)[،\n]الرابط:\s*(https?:\/\/\S+)/);
   if (bookMatch) {
     const [full, name, author, price, url] = bookMatch;
     return (
@@ -184,85 +144,7 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // بطاقة بنك
-  const bankMatch = text.match(/بنك:\s*(.*?)\nالحساب:\s*(.*?)\nالصاحب:\s*(.*?)/);
-  if (bankMatch) {
-    const [full, bank, account, holder] = bankMatch;
-    return (
-      <div className="my-3 p-4 bg-white rounded-2xl border border-primary/10 luxury-shadow space-y-3">
-        <div className="flex items-center gap-2 text-primary border-b border-primary/5 pb-2">
-          <Building2 className="w-5 h-5 text-secondary" />
-          <span className="font-black text-sm">{bank.trim()}</span>
-        </div>
-        <div className="space-y-1.5">
-           <div className="flex items-center justify-between bg-primary/5 p-2 rounded-xl">
-              <span className="text-[10px] font-bold text-muted-foreground">رقم الحساب</span>
-              <span className="text-xs font-black font-mono text-secondary" dir="ltr">{account.trim()}</span>
-           </div>
-           <p className="text-[9px] font-black text-primary flex items-center gap-1.5 px-1">
-             <User className="w-3 h-3" /> {holder.trim()}
-           </p>
-        </div>
-      </div>
-    );
-  }
-
-  // روابط التواصل
-  if (text.includes('واتساب') || text.includes('إيميل') || text.includes('انستقرام') || text.includes('فيسبوك') || text.includes('تيك توك') || text.includes('يوتيوب') || text.includes('إكس')) {
-    const lines = text.split('\n');
-    return (
-      <div className="my-3 space-y-2">
-        {lines.map((line, i) => {
-          if (line.includes('واتساب')) {
-            const num = line.split(':')[1]?.trim() || '+967735952927';
-            return (
-              <a key={i} href={`https://wa.me/${num.replace(/\D/g, '')}`} target="_blank" className="flex items-center justify-between p-3 bg-green-50 rounded-xl border border-green-200 hover:bg-green-100 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-[#25D366] rounded-lg text-white shadow-md"><MessageCircle className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-green-900">تواصل عبر واتساب</span>
-                </div>
-                <ChevronLeft className="w-4 h-4 text-green-400" />
-              </a>
-            );
-          }
-          if (line.includes('إيميل')) {
-            return (
-              <a key={i} href={`mailto:siraj.io@gmail.com`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200 hover:bg-blue-100 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-[#EA4335] rounded-lg text-white shadow-md"><Mail className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-blue-900">مراسلة الجيميل</span>
-                </div>
-                <ChevronLeft className="w-4 h-4 text-blue-400" />
-              </a>
-            );
-          }
-          // إضافة أيقونات أخرى...
-          const platforms = [
-            { key: 'فيسبوك', icon: Facebook, color: '#1877F2', name: 'فيسبوك' },
-            { key: 'انستقرام', icon: Instagram, color: '#E4405F', name: 'انستقرام' },
-            { key: 'يوتيوب', icon: Youtube, color: '#FF0000', name: 'يوتيوب' },
-            { key: 'تيك توك', icon: Music2, color: '#000000', name: 'تيك توك' },
-            { key: 'إكس', icon: Twitter, color: '#1DA1F2', name: 'إكس' }
-          ];
-          const found = platforms.find(p => line.includes(p.key));
-          if (found) {
-            return (
-              <a key={i} href="#" className="flex items-center justify-between p-3 bg-white rounded-xl border border-primary/10 hover:bg-primary/5 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div style={{ backgroundColor: found.color }} className="p-2 rounded-lg text-white shadow-md"><found.icon className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-slate-900">حساب {found.name}</span>
-                </div>
-                <ChevronLeft className="w-4 h-4 opacity-30" />
-              </a>
-            );
-          }
-          return line.trim() ? <p key={i} className="text-xs font-bold text-slate-700 px-2 py-1">{line}</p> : null;
-        })}
-      </div>
-    );
-  }
-
-  // أي رابط عام
+  // 4. معالجة الروابط العامة
   const genericUrlMatch = text.match(/رابط:\s*(https?:\/\/\S+)/);
   if (genericUrlMatch) {
      const url = cleanUrl(genericUrlMatch[1]);
@@ -279,7 +161,44 @@ function AiResponseRenderer({ text }: { text: string }) {
      );
   }
 
-  // خطوات مرقمة
+  // 5. معالجة وسائل التواصل (أزرار ملونة)
+  const socialPlatforms = [
+    { key: 'واتساب', icon: MessageCircle, color: '#25D366', name: 'واتساب', urlPrefix: 'https://wa.me/' },
+    { key: 'WhatsApp', icon: MessageCircle, color: '#25D366', name: 'واتساب', urlPrefix: 'https://wa.me/' },
+    { key: 'إيميل', icon: Mail, color: '#EA4335', name: 'إيميل', urlPrefix: 'mailto:' },
+    { key: 'انستقرام', icon: Instagram, color: '#E4405F', name: 'انستقرام', urlPrefix: '' },
+    { key: 'Instagram', icon: Instagram, color: '#E4405F', name: 'انستقرام', urlPrefix: '' },
+    { key: 'فيسبوك', icon: Facebook, color: '#1877F2', name: 'فيسبوك', urlPrefix: '' },
+    { key: 'تيك توك', icon: Music2, color: '#000000', name: 'تيك توك', urlPrefix: '' },
+    { key: 'يوتيوب', icon: Youtube, color: '#FF0000', name: 'يوتيوب', urlPrefix: '' },
+    { key: 'إكس', icon: Twitter, color: '#1DA1F2', name: 'إكس', urlPrefix: '' }
+  ];
+
+  for (const plat of socialPlatforms) {
+    if (text.includes(plat.key)) {
+      const match = text.match(new RegExp(`${plat.key}:?\\s*(\\S+)`));
+      const value = match ? match[1].trim() : '';
+      let finalUrl = value;
+      if (plat.name === 'واتساب' && value) finalUrl = `https://wa.me/${value.replace(/\D/g, '')}`;
+      else if (plat.name === 'إيميل' && value) finalUrl = `mailto:${value}`;
+      
+      if (finalUrl) {
+        return (
+          <a href={finalUrl} target="_blank" className="flex items-center justify-between p-3.5 my-2 bg-white rounded-2xl border border-primary/10 hover:bg-primary/5 transition-all shadow-sm group">
+            <div className="flex items-center gap-3">
+              <div style={{ backgroundColor: plat.color }} className="p-2.5 rounded-xl text-white shadow-md group-hover:scale-110 transition-transform">
+                <plat.icon className="w-4.5 h-4.5" />
+              </div>
+              <span className="text-xs font-black text-slate-900">{plat.name === 'واتساب' ? 'تواصل عبر واتساب' : `حساب ${plat.name}`}</span>
+            </div>
+            <ChevronLeft className="w-4 h-4 opacity-30" />
+          </a>
+        );
+      }
+    }
+  }
+
+  // 6. معالجة الخطوات المرقمة
   const stepsMatch = text.match(/^\d+\.\s.*(?:\n\d+\.\s.*)*/m);
   if (stepsMatch) {
     const steps = stepsMatch[0].split('\n').filter(Boolean);
@@ -300,6 +219,7 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
+  // 7. تنظيف النصوص العادية
   const cleanText = text
     .replace(/\*\*(.*?)\*\*/g, '$1')
     .replace(/### (.*)/g, '$1')
@@ -307,7 +227,7 @@ function AiResponseRenderer({ text }: { text: string }) {
     .replace(/^- (.*)/gm, '• $1');
 
   return (
-    <p className="text-sm md:text-base leading-[1.8] font-bold text-slate-800 whitespace-pre-wrap break-words text-right" style={{ direction: 'rtl' }}>
+    <p className="text-sm md:text-base leading-[1.8] font-bold text-slate-800 whitespace-pre-wrap break-words text-right" style={{ direction: 'rtl', unicodeBidi: 'plaintext' }}>
       {cleanText}
     </p>
   );
@@ -397,7 +317,7 @@ export default function SirajAiChat() {
                   <Image src="/SirajAi.png" alt="سراج" width={36} height={36} className="object-cover" />
                 </div>
                 <div className="text-right">
-                  <p className="font-black text-sm leading-none tracking-tight">مساعد سراج</p>
+                  <p className="font-black text-sm leading-none tracking-tight">سراج</p>
                   <div className="flex items-center gap-1 mt-1">
                      <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                      <span className="text-[8px] text-white/50 font-black tracking-widest uppercase">متاح لخدمتك</span>
