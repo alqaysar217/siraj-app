@@ -27,7 +27,10 @@ import {
   Facebook,
   Youtube,
   Music2,
-  Twitter
+  Twitter,
+  Building2,
+  Hash,
+  ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,9 +49,6 @@ type Message = {
   content: { text: string }[];
 };
 
-/**
- * مكون لعرض الأكواد البرمجية مع خاصية النسخ
- */
 function CodeBlock({ code }: { code: string }) {
   const { toast } = useToast();
   const handleCopy = () => {
@@ -72,12 +72,39 @@ function CodeBlock({ code }: { code: string }) {
 }
 
 /**
- * محرك عرض ردود المساعد - يحول النصوص لبطاقات تفاعلية وأزرار
+ * عرض الجداول المنظمة
  */
+function TableRenderer({ content }: { content: string }) {
+  const lines = content.split('\n').filter(l => l.includes('|'));
+  if (lines.length < 2) return null;
+
+  const headers = lines[0].split('|').map(h => h.trim()).filter(Boolean);
+  const rows = lines.slice(2).map(r => r.split('|').map(c => c.trim()).filter(Boolean));
+
+  return (
+    <div className="my-4 overflow-hidden rounded-xl border border-primary/10 luxury-shadow bg-white">
+      <table className="w-full text-right text-[10px] md:text-xs">
+        <thead className="bg-primary/5">
+          <tr>
+            {headers.map((h, i) => <th key={i} className="p-3 font-black text-primary border-b border-primary/5">{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b border-primary/5 last:border-none">
+              {row.map((cell, j) => <td key={j} className="p-3 font-bold text-slate-600">{cell}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function AiResponseRenderer({ text }: { text: string }) {
   const cleanUrl = (url: string) => url.replace(/[()\[\]]/g, '').trim();
 
-  // معالجة الأكواد البرمجية
+  // معالجة الأكواد
   if (text.includes('```')) {
     const parts = text.split('```');
     return (
@@ -89,7 +116,12 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // 1. بطاقة دورة تدريبية
+  // معالجة الجداول
+  if (text.includes('|') && text.includes('--')) {
+    return <TableRenderer content={text} />;
+  }
+
+  // بطاقة دورة
   const courseMatch = text.match(/دورة:\s*(.*?)\nالسعر:\s*(.*?)\nالمدرب:\s*(.*?)\nالرابط:\s*(https?:\/\/\S+)/);
   if (courseMatch) {
     const [full, name, price, instructor, url] = courseMatch;
@@ -116,14 +148,14 @@ function AiResponseRenderer({ text }: { text: string }) {
              </div>
           </div>
           <Button asChild className="w-full h-10 bg-primary text-white rounded-xl font-black text-xs gap-2 shadow-lg">
-            <a href={cleanUrl(url)} target="_blank">عرض الدورة الآن <ExternalLink className="w-3.5 h-3.5" /></a>
+            <a href={cleanUrl(url)} target="_blank">فتح صفحة الدورة <ExternalLink className="w-3.5 h-3.5" /></a>
           </Button>
         </CardContent>
       </Card>
     );
   }
 
-  // 2. بطاقة كتاب
+  // بطاقة كتاب
   const bookMatch = text.match(/كتاب:\s*(.*?)\nالكاتب:\s*(.*?)\nالسعر:\s*(.*?)\nالرابط:\s*(https?:\/\/\S+)/);
   if (bookMatch) {
     const [full, name, author, price, url] = bookMatch;
@@ -144,7 +176,7 @@ function AiResponseRenderer({ text }: { text: string }) {
                <span className="text-[10px] font-black text-secondary">{price.trim()}</span>
             </div>
             <Button asChild variant="outline" className="w-full h-8 rounded-lg border-primary/20 text-primary font-black text-[10px] gap-2">
-              <a href={cleanUrl(url)} target="_blank">تصفح الكتاب <ChevronLeft className="w-3 h-3" /></a>
+              <a href={cleanUrl(url)} target="_blank">عرض الكتاب <ChevronLeft className="w-3.5 h-3.5" /></a>
             </Button>
           </div>
         </CardContent>
@@ -152,7 +184,30 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // 3. روابط التواصل الاجتماعية الحقيقية
+  // بطاقة بنك
+  const bankMatch = text.match(/بنك:\s*(.*?)\nالحساب:\s*(.*?)\nالصاحب:\s*(.*?)/);
+  if (bankMatch) {
+    const [full, bank, account, holder] = bankMatch;
+    return (
+      <div className="my-3 p-4 bg-white rounded-2xl border border-primary/10 luxury-shadow space-y-3">
+        <div className="flex items-center gap-2 text-primary border-b border-primary/5 pb-2">
+          <Building2 className="w-5 h-5 text-secondary" />
+          <span className="font-black text-sm">{bank.trim()}</span>
+        </div>
+        <div className="space-y-1.5">
+           <div className="flex items-center justify-between bg-primary/5 p-2 rounded-xl">
+              <span className="text-[10px] font-bold text-muted-foreground">رقم الحساب</span>
+              <span className="text-xs font-black font-mono text-secondary" dir="ltr">{account.trim()}</span>
+           </div>
+           <p className="text-[9px] font-black text-primary flex items-center gap-1.5 px-1">
+             <User className="w-3 h-3" /> {holder.trim()}
+           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // روابط التواصل
   if (text.includes('واتساب') || text.includes('إيميل') || text.includes('انستقرام') || text.includes('فيسبوك') || text.includes('تيك توك') || text.includes('يوتيوب') || text.includes('إكس')) {
     const lines = text.split('\n');
     return (
@@ -171,9 +226,8 @@ function AiResponseRenderer({ text }: { text: string }) {
             );
           }
           if (line.includes('إيميل')) {
-            const email = line.split(':')[1]?.trim() || 'siraj.io@gmail.com';
             return (
-              <a key={i} href={`mailto:${email}`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200 hover:bg-blue-100 transition-all shadow-sm">
+              <a key={i} href={`mailto:siraj.io@gmail.com`} className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-200 hover:bg-blue-100 transition-all shadow-sm">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-[#EA4335] rounded-lg text-white shadow-md"><Mail className="w-4 h-4" /></div>
                   <span className="text-xs font-black text-blue-900">مراسلة الجيميل</span>
@@ -182,47 +236,23 @@ function AiResponseRenderer({ text }: { text: string }) {
               </a>
             );
           }
-          if (line.includes('فيسبوك')) {
+          // إضافة أيقونات أخرى...
+          const platforms = [
+            { key: 'فيسبوك', icon: Facebook, color: '#1877F2', name: 'فيسبوك' },
+            { key: 'انستقرام', icon: Instagram, color: '#E4405F', name: 'انستقرام' },
+            { key: 'يوتيوب', icon: Youtube, color: '#FF0000', name: 'يوتيوب' },
+            { key: 'تيك توك', icon: Music2, color: '#000000', name: 'تيك توك' },
+            { key: 'إكس', icon: Twitter, color: '#1DA1F2', name: 'إكس' }
+          ];
+          const found = platforms.find(p => line.includes(p.key));
+          if (found) {
             return (
-              <a key={i} href="https://facebook.com" target="_blank" className="flex items-center justify-between p-3 bg-[#1877F2]/5 rounded-xl border border-[#1877F2]/20 hover:bg-[#1877F2]/10 transition-all shadow-sm">
+              <a key={i} href="#" className="flex items-center justify-between p-3 bg-white rounded-xl border border-primary/10 hover:bg-primary/5 transition-all shadow-sm">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-[#1877F2] rounded-lg text-white shadow-md"><Facebook className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-[#1877F2]">صفحة فيسبوك</span>
+                  <div style={{ backgroundColor: found.color }} className="p-2 rounded-lg text-white shadow-md"><found.icon className="w-4 h-4" /></div>
+                  <span className="text-xs font-black text-slate-900">حساب {found.name}</span>
                 </div>
-                <ChevronLeft className="w-4 h-4 text-[#1877F2]/40" />
-              </a>
-            );
-          }
-          if (line.includes('انستقرام')) {
-             return (
-              <a key={i} href="https://instagram.com" target="_blank" className="flex items-center justify-between p-3 bg-pink-50 rounded-xl border border-pink-200 hover:bg-pink-100 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 rounded-lg text-white shadow-md"><Instagram className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-pink-900">حساب انستقرام</span>
-                </div>
-                <ChevronLeft className="w-4 h-4 text-pink-400" />
-              </a>
-            );
-          }
-          if (line.includes('يوتيوب')) {
-            return (
-              <a key={i} href="https://youtube.com" target="_blank" className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-200 hover:bg-red-100 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-[#FF0000] rounded-lg text-white shadow-md"><Youtube className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-red-900">قناة يوتيوب</span>
-                </div>
-                <ChevronLeft className="w-4 h-4 text-red-400" />
-              </a>
-            );
-          }
-          if (line.includes('تيك توك')) {
-            return (
-              <a key={i} href="https://tiktok.com" target="_blank" className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200 hover:bg-slate-100 transition-all shadow-sm">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-black rounded-lg text-white shadow-md"><Music2 className="w-4 h-4" /></div>
-                  <span className="text-xs font-black text-slate-900">حساب تيك توك</span>
-                </div>
-                <ChevronLeft className="w-4 h-4 text-slate-400" />
+                <ChevronLeft className="w-4 h-4 opacity-30" />
               </a>
             );
           }
@@ -232,18 +262,24 @@ function AiResponseRenderer({ text }: { text: string }) {
     );
   }
 
-  // 4. تحويل أي رابط يبدأ بـ https إلى زر
+  // أي رابط عام
   const genericUrlMatch = text.match(/رابط:\s*(https?:\/\/\S+)/);
   if (genericUrlMatch) {
      const url = cleanUrl(genericUrlMatch[1]);
+     let label = "فتح الرابط";
+     if (url.includes('courses')) label = "تصفح الدورات";
+     if (url.includes('dashboard')) label = "لوحة التحكم";
+     if (url.includes('leaderboard')) label = "قائمة المتصدرين";
+     if (url.includes('verify')) label = "التحقق من الشهادة";
+
      return (
        <Button asChild className="w-full h-11 my-2 rounded-xl bg-primary text-white font-black text-xs gap-2 shadow-lg">
-         <a href={url} target="_blank">فتح الرابط المباشر <ExternalLink className="w-4 h-4" /></a>
+         <a href={url} target="_blank">{label} <ExternalLink className="w-4 h-4" /></a>
        </Button>
      );
   }
 
-  // 5. معالجة الخطوات والترقيم
+  // خطوات مرقمة
   const stepsMatch = text.match(/^\d+\.\s.*(?:\n\d+\.\s.*)*/m);
   if (stepsMatch) {
     const steps = stepsMatch[0].split('\n').filter(Boolean);
@@ -252,11 +288,11 @@ function AiResponseRenderer({ text }: { text: string }) {
         {steps.map((step, i) => {
           const content = step.replace(/^\d+\.\s/, '');
           return (
-            <div key={i} className="flex items-start gap-3 animate-in slide-in-from-right duration-300" style={{ delay: `${i * 100}ms` }}>
+            <div key={i} className="flex items-start gap-3 animate-in slide-in-from-right duration-300" style={{ animationDelay: `${i * 100}ms` }}>
               <div className="w-7 h-7 rounded-lg bg-secondary text-white flex items-center justify-center text-xs font-black shrink-0 mt-0.5 shadow-md">
                 {i + 1}
               </div>
-              <p className="text-sm font-bold text-slate-700 leading-relaxed py-0.5">{content}</p>
+              <p className="text-sm font-bold text-slate-700 leading-relaxed py-0.5 flex-1">{content}</p>
             </div>
           );
         })}
@@ -369,12 +405,12 @@ export default function SirajAiChat() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                 <Button variant="ghost" size="icon" onClick={() => setIsMinimized(!isMinimized)} className="h-8 w-8 hover:bg-white/10 text-white rounded-lg">
-                   {isMinimized ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
-                 </Button>
-                 <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} className="h-8 w-8 hover:bg-white/10 text-white rounded-lg">
-                   <X className="w-4 h-4" />
-                 </Button>
+                 <button onClick={() => setIsMinimized(!isMinimized)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                   {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                 </button>
+                 <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/10 rounded-lg transition-colors">
+                   <X className="w-5 h-5" />
+                 </button>
               </div>
             </div>
 

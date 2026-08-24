@@ -23,10 +23,11 @@ import {
   LayoutGrid,
   Trophy,
   Share2,
-  BookOpen
+  BookOpen,
+  CreditCard
 } from "lucide-react";
 import { useFirestore } from "@/firebase/provider";
-import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, orderBy, limit, where } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AiSettingsPage() {
@@ -42,7 +43,8 @@ export default function AiSettingsPage() {
     books: false,
     instructors: false,
     leaderboard: false,
-    socials: false
+    socials: false,
+    banks: false
   });
 
   const [config, setConfig] = useState({
@@ -82,10 +84,9 @@ export default function AiSettingsPage() {
         const coursesSnap = await getDocs(collection(db, "courses"));
         for (const d of coursesSnap.docs) {
           const data = d.data();
-          fullText += `- دورة: ${data.title} | السعر: ${data.price} ر.ي | المدرب: ${data.instructor}\n`;
+          fullText += `- دورة: ${data.title}. | السعر: ${data.price} ر.ي | المدرب: ${data.instructor}\n`;
           fullText += `  الرابط: https://siraj-app.vercel.app/course/${d.id}\n`;
           
-          // جلب الدروس
           const lessonsSnap = await getDocs(query(collection(db, "courses", d.id, "lessons"), orderBy("order", "asc")));
           if (!lessonsSnap.empty) {
             fullText += `  محتوى المنهج: ${lessonsSnap.docs.map(l => l.data().title).join("، ")}\n`;
@@ -114,7 +115,17 @@ export default function AiSettingsPage() {
         });
       }
 
-      // 4. جلب المتصدرين
+      // 4. جلب الحسابات البنكية
+      if (selectedTypes.banks) {
+        fullText += "\n--- الحسابات البنكية للإيداع ---\n";
+        const banksSnap = await getDocs(collection(db, "bankAccounts"));
+        banksSnap.forEach(d => {
+          const data = d.data();
+          fullText += `- بنك: ${data.bankName} | الحساب: ${data.accountNumber} | الصاحب: ${data.accountHolder}\n`;
+        });
+      }
+
+      // 5. جلب المتصدرين
       if (selectedTypes.leaderboard) {
         fullText += "\n--- قائمة المتصدرين (الأبطال) ---\n";
         const usersSnap = await getDocs(query(collection(db, "users"), where("showInLeaderboard", "==", true), limit(5)));
@@ -123,16 +134,6 @@ export default function AiSettingsPage() {
           const data = d.data();
           fullText += `#${rank} الطالب: ${data.name} | النقاط: ${data.points || 0}\n`;
           rank++;
-        });
-      }
-
-      // 5. جلب حسابات التواصل
-      if (selectedTypes.socials) {
-        fullText += "\n--- حسابات التواصل والدعم الرسمي ---\n";
-        const socialSnap = await getDocs(query(collection(db, "socialLinks"), orderBy("order", "asc")));
-        socialSnap.forEach(d => {
-          const data = d.data();
-          fullText += `- ${data.label}: ${data.url}\n`;
         });
       }
 
@@ -191,6 +192,7 @@ export default function AiSettingsPage() {
                     { id: 'courses', label: 'الدورات والمنهج', icon: BookOpen },
                     { id: 'books', label: 'المكتبة والكتب', icon: LayoutGrid },
                     { id: 'instructors', label: 'المدربين', icon: Bot },
+                    { id: 'banks', label: 'الحسابات البنكية', icon: CreditCard },
                     { id: 'leaderboard', label: 'قائمة المتصدرين', icon: Trophy },
                     { id: 'socials', label: 'حسابات التواصل', icon: Share2 },
                   ].map((type) => (
