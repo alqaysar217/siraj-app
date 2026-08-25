@@ -33,9 +33,7 @@ import {
   CreditCard,
   CheckCircle2,
   Quote,
-  Send,
   Languages,
-  UserCheck,
   Lock,
   Award
 } from "lucide-react";
@@ -173,6 +171,7 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     const isNew = !allCompletedIds.includes(lessonId);
     
     if (isNew) {
+      // تحديث فوري للحالة المحلية لفك القيد عن الفيديو التالي
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
@@ -203,7 +202,8 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       setIsFinishing(true);
       setSelectedLessonId(null);
     } else if (currentLesson.type === "video") {
-      setTimeout(() => goToNext(true), 1000);
+      // تأخير بسيط لضمان تحديث الـ localCompleted في الريندر القادم
+      setTimeout(() => goToNext(true), 500);
     }
   }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, allCompletedIds, lessons, currentLessonIndex]);
 

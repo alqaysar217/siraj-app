@@ -310,7 +310,7 @@ export default function SirajAiChat() {
               ? "h-[30vh] sm:h-[250px]" 
               : "h-[100dvh] sm:h-[80vh] sm:max-h-[750px]"
           )}>
-            {/* Header */}
+            {/* Header - Slim Design */}
             <div className="bg-primary p-3 md:p-4 flex items-center justify-between text-white shrink-0 sm:rounded-t-[2.5rem] shadow-md">
               <div className="flex items-center gap-3 pr-1">
                 <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg border border-white/20 shrink-0">
@@ -346,7 +346,7 @@ export default function SirajAiChat() {
                       {msg.role === 'user' ? <User className="w-4 h-4 text-primary" /> : <Image src="/SirajAi.png" alt="AI" width={32} height={32} />}
                     </div>
                     <div className={cn(
-                      "p-3.5 md:p-4 rounded-2xl text-sm shadow-sm max-w-[88%] leading-relaxed word-break break-words",
+                      "p-3.5 md:p-4 rounded-2xl text-sm shadow-sm max-w-[88%] leading-relaxed break-words",
                       msg.role === 'user' 
                         ? "bg-primary text-white rounded-tr-none font-bold" 
                         : "bg-white text-slate-800 rounded-tl-none border border-primary/10 font-medium"
@@ -376,7 +376,7 @@ export default function SirajAiChat() {
               </div>
             </ScrollArea>
 
-            {/* Input Area */}
+            {/* Input Area - Slim Design */}
             <div className="p-3 md:p-5 bg-white border-t border-border/30 shrink-0 sm:rounded-b-[2.5rem] shadow-inner">
               {!config.enabled ? (
                 <div className="text-center py-2 bg-amber-50 rounded-xl border border-amber-100">
