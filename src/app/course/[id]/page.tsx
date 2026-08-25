@@ -36,7 +36,8 @@ import {
   Send,
   Languages,
   UserCheck,
-  Lock
+  Lock,
+  Award
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -161,7 +162,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     if (lessons && currentLessonIndex < lessons.length - 1) {
       selectLesson(lessons[currentLessonIndex + 1].id);
     } else {
-      // إذا كان هذا هو الدرس الأخير وتم إكماله، نفتح شاشة النهاية
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
@@ -198,7 +198,6 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       await updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
-    // إذا كان هذا هو الدرس الأخير، ننتقل فوراً لشاشة النهاية
     const isLast = lessons && currentLessonIndex === lessons.length - 1;
     if (isLast) {
       setIsFinishing(true);
