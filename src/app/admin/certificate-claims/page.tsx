@@ -258,7 +258,7 @@ export default function CertificateClaimsAdminPage() {
             <AlertDialogFooter className="flex flex-row gap-3 mt-8">
               <AlertDialogAction onClick={handleDelete} className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90 shadow-lg shadow-primary/10">تأكيد الحذف</AlertDialogAction>
               <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">إلغاء</AlertDialogCancel>
-            </AccordionFooter>
+            </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>

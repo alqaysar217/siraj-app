@@ -17,7 +17,7 @@ import {
   MapPin,
   BookOpen,
   UserCheck,
-  ChevronDown,
+  CheckCircle2,
   AlertCircle
 } from "lucide-react";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
@@ -111,8 +111,8 @@ export default function MyCertificateDataPage() {
              </div>
              <h1 className="text-2xl font-black font-headline text-primary">بيانات الشهادة</h1>
           </div>
-          <p className="text-muted-foreground text-xs font-bold leading-relaxed pr-1 opacity-80">
-             يرجى إدخال اسمك الرباعي بدقة كما تريده أن يظهر في الشهادة المعتمدة.
+          <p className="text-muted-foreground text-[10px] md:text-xs font-bold leading-relaxed pr-1 opacity-80">
+             أدخل اسمك الرباعي بدقة كما تريده أن يظهر في الشهادة المعتمدة.
           </p>
         </header>
 
@@ -170,7 +170,7 @@ export default function MyCertificateDataPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div className="space-y-1.5 text-right">
                             <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5">
-                               <Languages className="w-3.5 h-3.5 text-secondary" /> الاسم الرباعي بالعربي
+                               <Languages className="w-3.5 h-3.5 text-secondary" /> الاسم الرباعي عربي
                             </Label>
                             <Input 
                                placeholder="محمود عمر علي حساني" 
@@ -181,7 +181,7 @@ export default function MyCertificateDataPage() {
                          </div>
                          <div className="space-y-1.5 text-right">
                             <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5">
-                               <Languages className="w-3.5 h-3.5 text-secondary" /> الاسم الرباعي بالإنجليزي
+                               <Languages className="w-3.5 h-3.5 text-secondary" /> الاسم الرباعي انجليزية
                             </Label>
                             <Input 
                                dir="ltr"
