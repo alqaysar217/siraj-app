@@ -19,7 +19,6 @@ import {
   GraduationCap,
   UsersRound,
   MessageSquare,
-  CreditCard,
   BarChart3,
   X,
   KeyRound,
@@ -27,7 +26,6 @@ import {
   Award,
   SearchCheck,
   Trophy,
-  Settings2,
   Share2,
   Trash2,
   ClipboardCheck,
@@ -35,7 +33,8 @@ import {
   FileText,
   UserCheck,
   PlayCircle,
-  Building2
+  Building2,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,15 +79,18 @@ export default function Navbar() {
   const adminLinks = [
     { name: "لوحة التحكم", href: "/admin/dashboard", icon: ShieldCheck },
     { name: "طلبات الشهادات", href: "/admin/certificate-claims", icon: UserCheck },
-    { name: "توثيق الشهادات", href: "/admin/certificates", icon: Award },
+    { name: "إصدار الشهادات", href: "/admin/certificates", icon: Award },
     { name: "إدارة الدورات", href: "/admin/manage-courses", icon: GraduationCap },
-    { name: "المحتوى والدروس", href: "/admin/add-lesson", icon: PlayCircle },
-    { name: "إدارة المكتبة", href: "/admin/manage-books", icon: Library },
+    { name: "إدارة المنهج", href: "/admin/add-lesson", icon: PlayCircle },
+    { name: "إدارة الكتب", href: "/admin/manage-books", icon: Library },
     { name: "إدارة المدربين", href: "/admin/manage-instructors", icon: UsersRound },
+    { name: "درجات الواتساب", href: "/admin/whatsapp-grades", icon: ClipboardCheck },
+    { name: "إدارة الطلاب", href: "/admin/manage-users", icon: Users },
+    { name: "تقدم المتصدرين", href: "/admin/progress", icon: TrendingUp },
+    { name: "مراجعات الطلاب", href: "/admin/manage-reviews", icon: MessageCircle },
     { name: "الحسابات البنكية", href: "/admin/bank-accounts", icon: Building2 },
     { name: "حسابات التواصل", href: "/admin/social-links", icon: Share2 },
-    { name: "ذكاء سراج (AI)", href: "/admin/ai-settings", icon: Bot },
-    { name: "درجات الواتساب", href: "/admin/whatsapp-grades", icon: ClipboardCheck },
+    { name: "إعدادات AI", href: "/admin/ai-settings", icon: Bot },
     { name: "الأمان والحسابات", href: "/admin/accounts", icon: KeyRound },
     { name: "التقارير المالية", href: "/admin/reports", icon: BarChart3 },
     { name: "سلة المهملات", href: "/admin/trash", icon: Trash2 },
@@ -128,7 +130,7 @@ export default function Navbar() {
               </SheetTrigger>
               <SheetContent 
                 side="right" 
-                className="w-[280px] sm:w-[320px] p-0 flex flex-col border-l-0 bg-background/95 backdrop-blur-xl"
+                className="w-[300px] sm:w-[340px] p-0 flex flex-col border-l-0 bg-background/95 backdrop-blur-xl"
               >
                 <SheetHeader className="p-5 text-right border-b border-border/40 relative bg-muted/20">
                    <SheetClose asChild className="absolute left-4 top-1/2 -translate-y-1/2 z-50">
@@ -156,13 +158,13 @@ export default function Navbar() {
                               variant="ghost"
                               asChild
                               className={cn(
-                                "w-full justify-start gap-4 h-11 rounded-2xl text-right font-bold transition-all border border-transparent",
+                                "w-full justify-start gap-4 h-10 rounded-xl text-right font-bold transition-all border border-transparent",
                                 isActive ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-primary hover:bg-primary/5"
                               )}
                             >
                               <Link href={link.href}>
-                                <link.icon className={cn("w-4.5 h-4.5", isActive ? "text-white" : "text-secondary")} />
-                                <span className="text-xs">{link.name}</span>
+                                <link.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-secondary")} />
+                                <span className="text-[11px]">{link.name}</span>
                               </Link>
                             </Button>
                           </SheetClose>
