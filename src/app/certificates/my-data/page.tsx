@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/navbar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ import {
   Languages,
   MapPin,
   BookOpen,
-  ArrowRight
+  UserCheck
 } from "lucide-react";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { useFirestore } from "@/firebase/provider";
@@ -33,6 +33,7 @@ export default function MyCertificateDataPage() {
   const { toast } = useToast();
 
   const [saving, setSaving] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Record<string, any>>({});
 
   // جلب الدورات المشترك فيها
   const enrolledIds = profile?.enrolledCourses || [];
@@ -49,15 +50,17 @@ export default function MyCertificateDataPage() {
   }, [db, user]);
   const { data: claims } = useCollection(claimsQuery);
 
-  // حالة الفورم المحلي
-  const [formData, setFormData] = useState<Record<string, any>>({});
-
   const handleSave = async (courseId: string, courseTitle: string) => {
     if (!db || !user) return;
     
-    const data = formData[courseId];
-    if (!data?.nameAr || !data?.nameEn || !data?.address) {
-      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى تعبئة كافة الحقول لهذا الكورس." });
+    const data = formData[courseId] || {
+      nameAr: claims?.find(c => c.courseId === courseId)?.nameAr || "",
+      nameEn: claims?.find(c => c.courseId === courseId)?.nameEn || "",
+      address: claims?.find(c => c.courseId === courseId)?.address || ""
+    };
+
+    if (!data.nameAr || !data.nameEn || !data.address) {
+      toast({ variant: "destructive", title: "بيانات ناقصة", description: "يرجى تعبئة كافة الحقول (الاسم الرباعي عربي وإنجليزي والعنوان)." });
       return;
     }
 
@@ -74,9 +77,9 @@ export default function MyCertificateDataPage() {
         address: data.address.trim(),
         updatedAt: serverTimestamp()
       });
-      toast({ title: "تم الحفظ", description: "تم تحديث بياناتك بنجاح." });
+      toast({ title: "تم الحفظ بنجاح", description: "بيانات شهادتك جاهزة للاعتماد الآن." });
     } catch (e) {
-      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ البيانات." });
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حفظ البيانات، حاول مجدداً." });
     } finally {
       setSaving(null);
     }
@@ -102,24 +105,24 @@ export default function MyCertificateDataPage() {
              <div className="p-2.5 bg-primary text-white rounded-2xl shadow-lg">
                 <FileText className="w-6 h-6" />
              </div>
-             <h1 className="text-2xl font-black font-headline text-primary">بيانات الشهادة والتوثيق</h1>
+             <h1 className="text-2xl font-black font-headline text-primary">بيانات التوثيق والشهادات</h1>
           </div>
-          <p className="text-muted-foreground text-xs font-bold leading-relaxed pr-1 opacity-80">
-             أدخل اسمك الرباعي بدقة لضمان صحة الشهادة المعتمدة وعنوان الاستلام.
+          <p className="text-muted-foreground text-[10px] font-bold leading-relaxed pr-1 opacity-80">
+             أدخل اسمك الرباعي بدقة لضمان صحة الشهادة المعتمدة. يمكنك تعديل بياناتك في أي وقت.
           </p>
         </header>
 
         {enrolledIds.length === 0 ? (
-          <div className="py-16 text-center bg-card rounded-[2rem] border-2 border-dashed border-primary/10">
+          <div className="py-20 text-center bg-card rounded-[2rem] border-2 border-dashed border-primary/10">
              <AlertCircle className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
-             <h3 className="text-lg font-bold text-primary">لا توجد دورات مفعلة حالياً</h3>
-             <p className="text-xs text-muted-foreground mt-2">اشترك في دورة أولاً لتتمكن من إدخال بيانات التوثيق.</p>
+             <h3 className="text-lg font-bold text-primary">لا توجد دورات مفعلة</h3>
+             <p className="text-xs text-muted-foreground mt-2">اشترك في دورة لتتمكن من إدخال بيانات التوثيق.</p>
              <Button asChild className="mt-6 bg-primary rounded-xl h-11 px-8 text-xs font-black">
                <Link href="/courses">تصفح الدورات</Link>
              </Button>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="grid gap-6">
             {courses?.map((course: any) => {
               const claim = claims?.find(c => c.courseId === course.id);
               const localData = formData[course.id] || {
@@ -128,61 +131,68 @@ export default function MyCertificateDataPage() {
                 address: claim?.address || ""
               };
 
+              const updateLocalData = (field: string, val: string) => {
+                setFormData(prev => ({
+                  ...prev,
+                  [course.id]: { ...localData, [field]: val }
+                }));
+              };
+
               return (
-                <Card key={course.id} className="luxury-shadow border-none rounded-[1.5rem] md:rounded-[2rem] overflow-hidden bg-white/80 backdrop-blur-md">
-                   <div className="bg-muted/20 border-b p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <Card key={course.id} className="luxury-shadow border-none rounded-[1.5rem] overflow-hidden bg-white/90 backdrop-blur-sm">
+                   <div className="bg-primary/5 border-b p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-primary/5 shadow-sm">
-                            <BookOpen className="w-5 h-5 text-secondary" />
+                         <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center border border-primary/5 shadow-sm shrink-0">
+                            <BookOpen className="w-4.5 h-4.5 text-secondary" />
                          </div>
                          <div className="text-right">
                             <h3 className="font-black text-primary text-sm leading-tight">{course.title}</h3>
-                            <p className="text-[9px] text-muted-foreground font-bold mt-0.5">يرجى التأكد من مطابقة الاسم للهوية</p>
+                            <p className="text-[9px] text-muted-foreground font-bold">يرجى كتابة الاسم الرباعي كما في الهوية</p>
                          </div>
                       </div>
                       {claim && (
-                        <Badge className="bg-green-100 text-green-700 border-none px-3 py-0.5 rounded-lg font-black text-[9px] self-start md:self-center">
-                           <CheckCircle2 className="w-3 h-3 ml-1" /> تمت إضافة البيانات
+                        <Badge className="bg-green-100 text-green-700 border-none px-3 py-0.5 rounded-lg font-black text-[9px] self-start sm:self-center">
+                           <UserCheck className="w-3 h-3 ml-1" /> البيانات محفوظة
                         </Badge>
                       )}
                    </div>
 
-                   <CardContent className="p-6 md:p-8 space-y-5">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                   <CardContent className="p-6 md:p-8 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div className="space-y-1.5 text-right">
-                            <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5 uppercase tracking-wider">
-                               <Languages className="w-3 h-3 text-secondary" /> الاسم الرباعي (بالعربية)
+                            <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5">
+                               <Languages className="w-3 h-3 text-secondary" /> الاسم الرباعي الكامل (بالعربية)
                             </Label>
                             <Input 
                                placeholder="محمود عمر علي حساني" 
                                value={localData.nameAr}
-                               onChange={(e) => setFormData({...formData, [course.id]: {...localData, nameAr: e.target.value}})}
-                               className="h-11 rounded-xl border-primary/5 bg-muted/10 text-right font-bold text-sm"
+                               onChange={(e) => updateLocalData('nameAr', e.target.value)}
+                               className="h-11 rounded-xl border-primary/5 bg-muted/10 text-right font-bold text-sm focus:bg-white transition-colors"
                             />
                          </div>
                          <div className="space-y-1.5 text-right">
-                            <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5 uppercase tracking-wider">
-                               <Languages className="w-3 h-3 text-secondary" /> Full Name (English)
+                            <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5">
+                               <Languages className="w-3 h-3 text-secondary" /> Full Quadruple Name (English)
                             </Label>
                             <Input 
                                dir="ltr"
                                placeholder="Mahmoud Omar Ali Hassani" 
                                value={localData.nameEn}
-                               onChange={(e) => setFormData({...formData, [course.id]: {...localData, nameEn: e.target.value}})}
-                               className="h-11 rounded-xl border-primary/5 bg-muted/10 text-left font-bold text-sm"
+                               onChange={(e) => updateLocalData('nameEn', e.target.value)}
+                               className="h-11 rounded-xl border-primary/5 bg-muted/10 text-left font-bold text-sm focus:bg-white transition-colors"
                             />
                          </div>
                       </div>
 
                       <div className="space-y-1.5 text-right">
-                         <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5 uppercase tracking-wider">
-                            <MapPin className="w-3 h-3 text-secondary" /> عنوان الاستلام بالتفصيل
+                         <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5">
+                            <MapPin className="w-3 h-3 text-secondary" /> عنوان استلام الشهادة بالتفصيل
                          </Label>
                          <Input 
                             placeholder="المكلا - حي السلام - صيدلية بن قيدون" 
                             value={localData.address}
-                            onChange={(e) => setFormData({...formData, [course.id]: {...localData, address: e.target.value}})}
-                            className="h-11 rounded-xl border-primary/5 bg-muted/10 text-right font-bold text-sm"
+                            onChange={(e) => updateLocalData('address', e.target.value)}
+                            className="h-11 rounded-xl border-primary/5 bg-muted/10 text-right font-bold text-sm focus:bg-white transition-colors"
                          />
                       </div>
 
@@ -196,7 +206,7 @@ export default function MyCertificateDataPage() {
                            )}
                          >
                             {saving === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                            {claim ? "تحديث البيانات المحفوظة" : "حفظ بيانات التوثيق"}
+                            {claim ? "تحديث البيانات المدخلة" : "حفظ بيانات التوثيق"}
                          </Button>
                       </div>
                    </CardContent>
@@ -207,9 +217,9 @@ export default function MyCertificateDataPage() {
             <div className="bg-amber-50 p-5 rounded-[1.5rem] border border-amber-100 flex items-start gap-3">
                <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                <div className="text-right space-y-1">
-                  <p className="font-black text-amber-800 text-xs">تنبيه هام</p>
+                  <p className="font-black text-amber-800 text-xs">تنبيه لضمان الجودة</p>
                   <p className="text-[10px] text-amber-700 leading-relaxed font-bold opacity-90">
-                     هذه البيانات هي التي سيتم استخدامها في طباعة شهادتك. يرجى مراجعة الأسماء جيداً قبل الحفظ لتجنب أي أخطاء إملائية.
+                     هذه الأسماء ستطبع على الشهادة الورقية والرقمية فوراً. يرجى المراجعة بدقة قبل الحفظ.
                   </p>
                </div>
             </div>

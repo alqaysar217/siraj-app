@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import Navbar from "@/components/navbar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,20 +14,30 @@ import {
   Check, 
   Filter, 
   Calendar,
-  Languages,
   MapPin,
   UserCheck,
   ArrowDownWideNarrow,
-  ArrowRight,
   Download,
+  Trash2,
+  AlertTriangle,
   X,
-  BookOpen
+  RefreshCw
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { useFirestore } from "@/firebase/provider";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, query, orderBy, deleteDoc, doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 export default function CertificateClaimsAdminPage() {
@@ -37,6 +47,8 @@ export default function CertificateClaimsAdminPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCourse, setFilterCourse] = useState("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [claimToDelete, setClaimToDelete] = useState<any>(null);
+  const [processing, setProcessing] = useState<string | null>(null);
 
   const claimsQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -62,7 +74,31 @@ export default function CertificateClaimsAdminPage() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-    toast({ title: "تم النسخ بنجاح" });
+    toast({ title: "تم النسخ" });
+  };
+
+  const handleDelete = async () => {
+    if (!db || !claimToDelete) return;
+    setProcessing(claimToDelete.id);
+    try {
+      const trashRef = doc(collection(db, "trash"));
+      await setDoc(trashRef, {
+        originalId: claimToDelete.id,
+        originalPath: `certificate_claims/${claimToDelete.id}`,
+        type: "certificate_claim",
+        title: `طلب شهادة: ${claimToDelete.nameAr}`,
+        data: claimToDelete,
+        deletedAt: serverTimestamp()
+      });
+
+      await deleteDoc(doc(db, "certificate_claims", claimToDelete.id));
+      toast({ title: "تم الحذف", description: "تم نقل الطلب لسلة المهملات لإعادة الرصد." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "خطأ", description: "فشل حذف الطلب." });
+    } finally {
+      setProcessing(null);
+      setClaimToDelete(null);
+    }
   };
 
   const exportToCSV = () => {
@@ -97,10 +133,10 @@ export default function CertificateClaimsAdminPage() {
                </div>
                <h1 className="text-3xl font-black font-headline text-primary">طلبات بيانات الشهادات</h1>
             </div>
-            <p className="text-muted-foreground font-bold">سجلات الأسماء الرباعية المدخلة بواسطة الطلاب لإصدار الشهادات الرسمية.</p>
+            <p className="text-muted-foreground font-bold">إدارة الأسماء الرباعية المدخلة بواسطة الطلاب لإصدار الشهادات الرسمية.</p>
           </div>
           <Button onClick={exportToCSV} variant="outline" className="rounded-xl border-primary/10 h-12 gap-2 font-bold hover:bg-primary/5">
-             <Download className="w-5 h-5 text-secondary" /> تصدير القائمة المصفاة
+             <Download className="w-5 h-5 text-secondary" /> تصدير القائمة (CSV)
           </Button>
         </header>
 
@@ -122,20 +158,18 @@ export default function CertificateClaimsAdminPage() {
                          <SelectValue placeholder="تصفية حسب الدورة" />
                       </SelectTrigger>
                       <SelectContent dir="rtl">
-                         <SelectItem value="all">كل الدورات التعليمية</SelectItem>
+                         <SelectItem value="all">كل الدورات</SelectItem>
                          {courses?.map((c: any) => (
                            <SelectItem key={c.id} value={c.id}>{c.title}</SelectItem>
                          ))}
                       </SelectContent>
                    </Select>
                 </div>
-                <div className="flex items-center justify-center md:justify-end gap-3 px-4">
+                <div className="flex items-center justify-end px-4">
                    <div className="text-right">
                       <p className="text-[10px] font-black text-muted-foreground uppercase">إجمالي الطلبات</p>
                       <p className="text-xl font-black text-primary">{filteredClaims.length}</p>
                    </div>
-                   <div className="h-8 w-px bg-primary/10 mx-2" />
-                   <Button variant="ghost" onClick={() => { setSearchTerm(""); setFilterCourse("all"); }} className="text-xs font-bold text-destructive">إعادة ضبط</Button>
                 </div>
              </div>
           </CardHeader>
@@ -147,54 +181,54 @@ export default function CertificateClaimsAdminPage() {
                 <Table className="text-right">
                   <TableHeader className="bg-muted/20">
                     <TableRow>
-                      <TableHead className="text-right font-black py-5 px-6">الطالب والدورة</TableHead>
+                      <TableHead className="text-right font-black py-5 px-6">الدورة والطالب</TableHead>
                       <TableHead className="text-right font-black py-5">الاسم الرباعي (عربي)</TableHead>
-                      <TableHead className="text-right font-black py-5">Full Name (English)</TableHead>
+                      <TableHead className="text-right font-black py-5">FullName (English)</TableHead>
                       <TableHead className="text-right font-black py-5">العنوان</TableHead>
-                      <TableHead className="text-center font-black py-5">تاريخ التحديث</TableHead>
+                      <TableHead className="text-center font-black py-5">إجراء</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredClaims.map((claim: any) => (
                       <TableRow key={claim.id} className="hover:bg-primary/5 transition-colors border-b border-primary/5">
                         <TableCell className="py-5 px-6">
-                           <div className="text-right space-y-1 max-w-[150px]">
-                              <div className="font-black text-primary text-sm truncate">{claim.courseTitle}</div>
-                              <div className="text-[10px] text-muted-foreground font-bold truncate">{claim.userEmail}</div>
+                           <div className="text-right space-y-1">
+                              <div className="font-black text-primary text-xs truncate max-w-[150px]">{claim.courseTitle}</div>
+                              <div className="text-[9px] text-muted-foreground font-bold">{claim.userEmail}</div>
                            </div>
                         </TableCell>
                         <TableCell className="py-5">
                            <div className="flex items-center gap-2 group">
                               <span className="font-bold text-slate-800 text-sm">{claim.nameAr}</span>
-                              <Button 
-                                variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-secondary opacity-0 group-hover:opacity-100 transition-opacity" 
-                                onClick={() => handleCopy(claim.nameAr, `${claim.id}_ar`)}
-                              >
-                                 {copiedId === `${claim.id}_ar` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-secondary opacity-0 group-hover:opacity-100" onClick={() => handleCopy(claim.nameAr, `${claim.id}_ar`)}>
+                                 {copiedId === `${claim.id}_ar` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                               </Button>
                            </div>
                         </TableCell>
                         <TableCell className="py-5">
                            <div className="flex items-center gap-2 group" dir="ltr">
                               <span className="font-bold text-slate-800 text-sm">{claim.nameEn}</span>
-                              <Button 
-                                variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-secondary opacity-0 group-hover:opacity-100 transition-opacity" 
-                                onClick={() => handleCopy(claim.nameEn, `${claim.id}_en`)}
-                              >
-                                 {copiedId === `${claim.id}_en` ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-secondary opacity-0 group-hover:opacity-100" onClick={() => handleCopy(claim.nameEn, `${claim.id}_en`)}>
+                                 {copiedId === `${claim.id}_en` ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                               </Button>
                            </div>
                         </TableCell>
                         <TableCell className="py-5">
-                           <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground max-w-[180px] truncate">
-                              <MapPin className="w-3 h-3 shrink-0 text-secondary" />
-                              {claim.address}
+                           <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground max-w-[150px] truncate">
+                              <MapPin className="w-3 h-3 shrink-0 text-secondary" /> {claim.address}
                            </div>
                         </TableCell>
                         <TableCell className="py-5 text-center">
-                           <div className="inline-flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-lg text-[10px] font-bold text-muted-foreground">
-                              <Calendar className="w-3 h-3" />
-                              {claim.updatedAt?.toDate ? new Date(claim.updatedAt.toDate()).toLocaleDateString('ar-YE') : '-'}
+                           <div className="flex items-center justify-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-9 w-9 text-destructive hover:bg-destructive/5 rounded-xl"
+                                onClick={() => setClaimToDelete(claim)}
+                                disabled={processing === claim.id}
+                              >
+                                 <Trash2 className="w-4 h-4" />
+                              </Button>
                            </div>
                         </TableCell>
                       </TableRow>
@@ -205,11 +239,31 @@ export default function CertificateClaimsAdminPage() {
             ) : (
               <div className="py-32 text-center opacity-40">
                  <ArrowDownWideNarrow className="w-16 h-16 mx-auto mb-4" />
-                 <p className="text-xl font-bold">لا توجد طلبات مطابقة حالياً</p>
+                 <p className="text-xl font-bold">لا توجد طلبات حالياً</p>
               </div>
             )}
           </CardContent>
         </Card>
+
+        <AlertDialog open={!!claimToDelete} onOpenChange={(open) => !open && setClaimToDelete(null)}>
+          <AlertDialogContent dir="rtl" className="rounded-[2rem] border-none luxury-shadow max-w-[400px] p-10 bg-white/95 backdrop-blur-xl">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+                <AlertTriangle className="w-10 h-10 text-destructive" />
+              </div>
+              <AlertDialogHeader className="space-y-3 p-0">
+                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">حذف طلب الرصد؟</AlertDialogTitle>
+                <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
+                  سيتم نقل بيانات الطالب <span className="text-primary font-bold">"{claimToDelete?.nameAr}"</span> لسلة المهملات. سيتمكن الطالب من إدخال بياناته من جديد.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+            </div>
+            <AlertDialogFooter className="flex flex-row gap-3 mt-8">
+              <AlertDialogAction onClick={handleDelete} className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90 shadow-lg shadow-primary/10">تأكيد الحذف</AlertDialogAction>
+              <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">إلغاء</AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
