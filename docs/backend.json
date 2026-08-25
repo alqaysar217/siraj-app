@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -21,6 +22,20 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "name", "email", "role"]
+    },
+    "CertificateClaim": {
+      "title": "طلب بيانات شهادة",
+      "description": "الأسماء الرباعية والعناوين التي يدخلها الطالب لإصدار الشهادات",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "nameAr": { "type": "string", "description": "الاسم الرباعي بالعربي" },
+        "nameEn": { "type": "string", "description": "الاسم الرباعي بالإنجليزي" },
+        "address": { "type": "string", "description": "عنوان الاستلام بالتفصيل" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     },
     "Course": {
       "title": "الدورة التدريبية",
@@ -63,6 +78,10 @@
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "بيانات الطلاب والمديرين"
+    },
+    "/certificate_claims/{claimId}": {
+      "schema": "CertificateClaim",
+      "description": "سجلات الأسماء والعناوين لإصدار الشهادات"
     },
     "/instructors/{instructorId}": {
       "schema": "Instructor",

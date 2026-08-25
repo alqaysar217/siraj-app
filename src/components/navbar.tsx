@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -30,7 +31,9 @@ import {
   Share2,
   Trash2,
   ClipboardCheck,
-  Bot
+  Bot,
+  FileText,
+  UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -66,29 +69,22 @@ export default function Navbar() {
     { name: "الرئيسية", href: "/", icon: Home },
     { name: "تصفح الدورات", href: "/courses", icon: GraduationCap },
     { name: "المكتبة العلمية", href: "/books", icon: Library },
-    { name: "التعرف على المدربين", href: "/instructors", icon: UsersRound },
+    { name: "بيانات الشهادة", href: "/certificates/my-data", icon: FileText, authRequired: true },
     { name: "نخبة الطلاب", href: "/leaderboard", icon: Trophy, authRequired: true },
-    { name: "حسابات التواصل", href: "/social-links", icon: Share2 },
     { name: "التحقق من الشهادة", href: "/verify-certificate", icon: SearchCheck },
     { name: "مساحتي التعليمية", href: "/dashboard", icon: LayoutDashboard, authRequired: true },
   ];
 
   const adminLinks = [
     { name: "لوحة التحكم", href: "/admin/dashboard", icon: ShieldCheck },
+    { name: "طلبات الشهادات", href: "/admin/certificate-claims", icon: UserCheck },
+    { name: "إصدار الشهادات", href: "/admin/certificates", icon: Award },
     { name: "إدارة الدورات", href: "/admin/manage-courses", icon: GraduationCap },
     { name: "إدارة الكتب", href: "/admin/manage-books", icon: Library },
     { name: "إعدادات AI", href: "/admin/ai-settings", icon: Bot },
-    { name: "إصدار الشهادات", href: "/admin/certificates", icon: Award },
-    { name: "إدارة المدربين", href: "/admin/manage-instructors", icon: UsersRound },
-    { name: "إدارة المنهج", href: "/admin/add-lesson", icon: Settings2 },
     { name: "درجات الواتساب", href: "/admin/whatsapp-grades", icon: ClipboardCheck },
-    { name: "إدارة الطلاب", href: "/admin/manage-users", icon: Users },
-    { name: "إدارة حسابات التواصل", href: "/admin/social-links", icon: Share2 },
     { name: "الأمان والحسابات", href: "/admin/accounts", icon: KeyRound },
-    { name: "مراجعات الطلاب", href: "/admin/manage-reviews", icon: MessageSquare },
-    { name: "الحسابات البنكية", href: "/admin/bank-accounts", icon: CreditCard },
     { name: "التقارير المالية", href: "/admin/reports", icon: BarChart3 },
-    { name: "تقدم المتصدرين", href: "/admin/progress", icon: TrendingUp },
     { name: "سلة المهملات", href: "/admin/trash", icon: Trash2 },
   ];
 

@@ -1,3 +1,4 @@
+
 service cloud.firestore {
   match /databases/{database}/documents {
     
@@ -22,11 +23,14 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId;
       allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow delete: if isAdmin();
-      
-      // User-specific messages (for AI chat history)
-      match /messages/{messageId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
+    }
+
+    // Certificate Claims (New)
+    match /certificate_claims/{claimId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // Courses and nested subcollections
@@ -40,43 +44,32 @@ service cloud.firestore {
       }
     }
 
-    // Global settings (used by AI chat)
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // WhatsApp grades management
-    match /whatsapp_grades/{docId} {
-      allow read, write: if isAdmin();
-    }
-
-    // Instructors
     match /instructors/{instructorId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
-    // Course reviews
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isAuthenticated();
       allow update, delete: if isAdmin();
     }
     
-    // Subscriptions/Licenses
     match /subscriptions/{subId} {
       allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
     
-    // Bank accounts for payments
     match /bankAccounts/{accountId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
-    // Books/Library
     match /books/{bookId} { 
       allow read: if true; 
       allow write: if isAdmin();
@@ -86,21 +79,22 @@ service cloud.firestore {
       }
     }
     
-    // Social links
     match /socialLinks/{linkId} {
       allow read: if true;
       allow write: if isAdmin();
     }
     
-    // Trash/Audit logs
     match /trash/{trashId} {
       allow read, write: if isAdmin();
     }
     
-    // Certificates
     match /certificates/{certId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /whatsapp_grades/{docId} {
+      allow read, write: if isAdmin();
     }
   }
 }
