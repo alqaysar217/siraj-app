@@ -33,7 +33,9 @@ import {
   ClipboardCheck,
   Bot,
   FileText,
-  UserCheck
+  UserCheck,
+  PlayCircle,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,10 +80,14 @@ export default function Navbar() {
   const adminLinks = [
     { name: "لوحة التحكم", href: "/admin/dashboard", icon: ShieldCheck },
     { name: "طلبات الشهادات", href: "/admin/certificate-claims", icon: UserCheck },
-    { name: "إصدار الشهادات", href: "/admin/certificates", icon: Award },
+    { name: "توثيق الشهادات", href: "/admin/certificates", icon: Award },
     { name: "إدارة الدورات", href: "/admin/manage-courses", icon: GraduationCap },
-    { name: "إدارة الكتب", href: "/admin/manage-books", icon: Library },
-    { name: "إعدادات AI", href: "/admin/ai-settings", icon: Bot },
+    { name: "المحتوى والدروس", href: "/admin/add-lesson", icon: PlayCircle },
+    { name: "إدارة المكتبة", href: "/admin/manage-books", icon: Library },
+    { name: "إدارة المدربين", href: "/admin/manage-instructors", icon: UsersRound },
+    { name: "الحسابات البنكية", href: "/admin/bank-accounts", icon: Building2 },
+    { name: "حسابات التواصل", href: "/admin/social-links", icon: Share2 },
+    { name: "ذكاء سراج (AI)", href: "/admin/ai-settings", icon: Bot },
     { name: "درجات الواتساب", href: "/admin/whatsapp-grades", icon: ClipboardCheck },
     { name: "الأمان والحسابات", href: "/admin/accounts", icon: KeyRound },
     { name: "التقارير المالية", href: "/admin/reports", icon: BarChart3 },
@@ -150,13 +156,13 @@ export default function Navbar() {
                               variant="ghost"
                               asChild
                               className={cn(
-                                "w-full justify-start gap-4 h-12 rounded-2xl text-right font-bold transition-all border border-transparent",
+                                "w-full justify-start gap-4 h-11 rounded-2xl text-right font-bold transition-all border border-transparent",
                                 isActive ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-primary hover:bg-primary/5"
                               )}
                             >
                               <Link href={link.href}>
-                                <link.icon className={cn("w-5 h-5", isActive ? "text-white" : "text-secondary")} />
-                                <span>{link.name}</span>
+                                <link.icon className={cn("w-4.5 h-4.5", isActive ? "text-white" : "text-secondary")} />
+                                <span className="text-xs">{link.name}</span>
                               </Link>
                             </Button>
                           </SheetClose>
