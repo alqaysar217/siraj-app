@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -37,7 +36,7 @@ import {
   Send,
   Languages,
   UserCheck,
-  Lock as LucideLock
+  Lock
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -407,13 +406,13 @@ ${certNameEn}`;
                 >
                    <ArrowRight className="w-5 h-5 ml-1" />
                    <span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span>
-                   {!isCurrentLessonCompleted && !isAdmin && isEnrolled && <LucideLock className="w-4 h-4" />}
+                   {!isCurrentLessonCompleted && !isAdmin && isEnrolled && <Lock className="w-4 h-4" />}
                 </Button>
                 <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-base md:text-lg">السابق</Button>
               </div>
               <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-base md:text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج</Button>
             </>
-          ) : <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center"><LucideLock className="w-16 h-16 text-primary opacity-40 mb-4" /><h2 className="text-2xl font-black text-primary">المحتوى قريباً</h2><p className="text-muted-foreground font-bold">يعمل فريق سراج حالياً على تجهيز المنهج.</p></div>}
+          ) : <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center"><Lock className="w-16 h-16 text-primary opacity-40 mb-4" /><h2 className="text-2xl font-black text-primary">المحتوى قريباً</h2><p className="text-muted-foreground font-bold">يعمل فريق سراج حالياً على تجهيز المنهج.</p></div>}
         </div>
 
         <Tabs dir="rtl" value={activeTab} onValueChange={setActiveTab} className="bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
