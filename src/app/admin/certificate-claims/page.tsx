@@ -12,7 +12,6 @@ import {
   Loader2, 
   Copy, 
   Check, 
-  Filter, 
   Calendar,
   MapPin,
   UserCheck,
@@ -20,8 +19,7 @@ import {
   Download,
   Trash2,
   AlertTriangle,
-  X,
-  RefreshCw
+  X
 } from "lucide-react";
 import { useCollection, useMemoFirebase } from "@/firebase";
 import { useFirestore } from "@/firebase/provider";
@@ -38,7 +36,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
 
 export default function CertificateClaimsAdminPage() {
   const db = useFirestore();
@@ -86,7 +83,7 @@ export default function CertificateClaimsAdminPage() {
         originalId: claimToDelete.id,
         originalPath: `certificate_claims/${claimToDelete.id}`,
         type: "certificate_claim",
-        title: `طلب شهادة: ${claimToDelete.nameAr}`,
+        title: `طلب بيانات شهادة: ${claimToDelete.nameAr}`,
         data: claimToDelete,
         deletedAt: serverTimestamp()
       });
@@ -133,10 +130,10 @@ export default function CertificateClaimsAdminPage() {
                </div>
                <h1 className="text-3xl font-black font-headline text-primary">طلبات بيانات الشهادات</h1>
             </div>
-            <p className="text-muted-foreground font-bold">إدارة الأسماء الرباعية المدخلة بواسطة الطلاب لإصدار الشهادات الرسمية.</p>
+            <p className="text-muted-foreground font-bold">إدارة الأسماء الرباعية والعناوين المدخلة من قبل الطلاب.</p>
           </div>
           <Button onClick={exportToCSV} variant="outline" className="rounded-xl border-primary/10 h-12 gap-2 font-bold hover:bg-primary/5">
-             <Download className="w-5 h-5 text-secondary" /> تصدير القائمة (CSV)
+             <Download className="w-5 h-5 text-secondary" /> تصدير CSV
           </Button>
         </header>
 
@@ -145,7 +142,7 @@ export default function CertificateClaimsAdminPage() {
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="relative">
                    <Input 
-                      placeholder="ابحث بالاسم أو البريد..." 
+                      placeholder="بحث بالاسم أو البريد..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="h-12 pr-12 rounded-xl bg-white border-primary/10 shadow-sm text-right"
@@ -183,7 +180,7 @@ export default function CertificateClaimsAdminPage() {
                     <TableRow>
                       <TableHead className="text-right font-black py-5 px-6">الدورة والطالب</TableHead>
                       <TableHead className="text-right font-black py-5">الاسم الرباعي (عربي)</TableHead>
-                      <TableHead className="text-right font-black py-5">FullName (English)</TableHead>
+                      <TableHead className="text-right font-black py-5">الاسم الرباعي (إنجليزي)</TableHead>
                       <TableHead className="text-right font-black py-5">العنوان</TableHead>
                       <TableHead className="text-center font-black py-5">إجراء</TableHead>
                     </TableRow>
@@ -252,7 +249,7 @@ export default function CertificateClaimsAdminPage() {
                 <AlertTriangle className="w-10 h-10 text-destructive" />
               </div>
               <AlertDialogHeader className="space-y-3 p-0">
-                <AlertDialogTitle className="text-2xl font-black font-headline text-primary text-center">حذف طلب الرصد؟</AlertDialogTitle>
+                <AlertDialogTitle className="text-2xl font-black text-primary text-center">حذف طلب الرصد؟</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground text-sm font-medium leading-relaxed text-center">
                   سيتم نقل بيانات الطالب <span className="text-primary font-bold">"{claimToDelete?.nameAr}"</span> لسلة المهملات. سيتمكن الطالب من إدخال بياناته من جديد.
                 </AlertDialogDescription>
@@ -261,7 +258,7 @@ export default function CertificateClaimsAdminPage() {
             <AlertDialogFooter className="flex flex-row gap-3 mt-8">
               <AlertDialogAction onClick={handleDelete} className="h-12 rounded-2xl bg-primary text-white font-black flex-1 hover:bg-primary/90 shadow-lg shadow-primary/10">تأكيد الحذف</AlertDialogAction>
               <AlertDialogCancel className="h-12 rounded-2xl border-primary/10 font-black flex-1 mt-0">إلغاء</AlertDialogCancel>
-            </AlertDialogFooter>
+            </AccordionFooter>
           </AlertDialogContent>
         </AlertDialog>
       </div>
