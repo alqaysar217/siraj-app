@@ -96,30 +96,30 @@ export default function MyCertificateDataPage() {
   return (
     <div className="min-h-screen pb-20 bg-background" dir="rtl">
       <Navbar />
-      <div className="container mx-auto px-4 py-10 max-w-4xl">
-        <header className="mb-10 text-right space-y-2">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <header className="mb-8 text-right space-y-2">
           <div className="flex items-center gap-3">
-             <div className="p-3 bg-primary text-white rounded-2xl shadow-xl">
-                <FileText className="w-8 h-8" />
+             <div className="p-2.5 bg-primary text-white rounded-2xl shadow-lg">
+                <FileText className="w-6 h-6" />
              </div>
-             <h1 className="text-3xl font-black font-headline text-primary">بيانات الشهادة والتوثيق</h1>
+             <h1 className="text-2xl font-black font-headline text-primary">بيانات الشهادة والتوثيق</h1>
           </div>
-          <p className="text-muted-foreground font-bold leading-relaxed pr-1">
-             أدخل اسمك الرباعي بدقة كما تريده أن يظهر في الشهادة المعتمدة وعنوان استلام النسخة الورقية.
+          <p className="text-muted-foreground text-xs font-bold leading-relaxed pr-1 opacity-80">
+             أدخل اسمك الرباعي بدقة لضمان صحة الشهادة المعتمدة وعنوان الاستلام.
           </p>
         </header>
 
         {enrolledIds.length === 0 ? (
-          <div className="py-20 text-center bg-card rounded-[2.5rem] border-2 border-dashed border-primary/10">
-             <AlertCircle className="w-16 h-16 text-muted-foreground/20 mx-auto mb-4" />
-             <h3 className="text-xl font-bold text-primary">لا توجد دورات مفعلة حالياً</h3>
-             <p className="text-muted-foreground mt-2">اشترك في دورة أولاً لتتمكن من إدخال بيانات التوثيق.</p>
-             <Button asChild className="mt-6 bg-primary rounded-xl">
+          <div className="py-16 text-center bg-card rounded-[2rem] border-2 border-dashed border-primary/10">
+             <AlertCircle className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+             <h3 className="text-lg font-bold text-primary">لا توجد دورات مفعلة حالياً</h3>
+             <p className="text-xs text-muted-foreground mt-2">اشترك في دورة أولاً لتتمكن من إدخال بيانات التوثيق.</p>
+             <Button asChild className="mt-6 bg-primary rounded-xl h-11 px-8 text-xs font-black">
                <Link href="/courses">تصفح الدورات</Link>
              </Button>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {courses?.map((course: any) => {
               const claim = claims?.find(c => c.courseId === course.id);
               const localData = formData[course.id] || {
@@ -129,73 +129,73 @@ export default function MyCertificateDataPage() {
               };
 
               return (
-                <Card key={course.id} className="luxury-shadow border-none rounded-[2.5rem] overflow-hidden bg-white/80 backdrop-blur-md">
-                   <div className="bg-muted/20 border-b p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex items-center gap-4">
-                         <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center border border-primary/5 shadow-sm">
-                            <BookOpen className="w-6 h-6 text-secondary" />
+                <Card key={course.id} className="luxury-shadow border-none rounded-[1.5rem] md:rounded-[2rem] overflow-hidden bg-white/80 backdrop-blur-md">
+                   <div className="bg-muted/20 border-b p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center border border-primary/5 shadow-sm">
+                            <BookOpen className="w-5 h-5 text-secondary" />
                          </div>
                          <div className="text-right">
-                            <h3 className="font-black text-primary leading-tight">{course.title}</h3>
-                            <p className="text-[10px] text-muted-foreground font-bold mt-1">تأكد من مطابقة الاسم للهوية الشخصية</p>
+                            <h3 className="font-black text-primary text-sm leading-tight">{course.title}</h3>
+                            <p className="text-[9px] text-muted-foreground font-bold mt-0.5">يرجى التأكد من مطابقة الاسم للهوية</p>
                          </div>
                       </div>
                       {claim && (
-                        <Badge className="bg-green-100 text-green-700 border-none px-4 py-1 rounded-full font-black text-[10px] self-start md:self-center">
-                           <CheckCircle2 className="w-3.5 h-3.5 ml-1.5" /> تمت إضافة البيانات
+                        <Badge className="bg-green-100 text-green-700 border-none px-3 py-0.5 rounded-lg font-black text-[9px] self-start md:self-center">
+                           <CheckCircle2 className="w-3 h-3 ml-1" /> تمت إضافة البيانات
                         </Badge>
                       )}
                    </div>
 
-                   <CardContent className="p-8 space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div className="space-y-2 text-right">
-                            <Label className="font-black text-primary text-xs mr-1 flex items-center gap-1.5">
-                               <Languages className="w-3.5 h-3.5 text-secondary" /> الاسم الرباعي (بالعربية)
+                   <CardContent className="p-6 md:p-8 space-y-5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                         <div className="space-y-1.5 text-right">
+                            <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5 uppercase tracking-wider">
+                               <Languages className="w-3 h-3 text-secondary" /> الاسم الرباعي (بالعربية)
                             </Label>
                             <Input 
-                               placeholder="مثال: محمود محمد سعيد الحساني" 
+                               placeholder="محمود عمر علي حساني" 
                                value={localData.nameAr}
                                onChange={(e) => setFormData({...formData, [course.id]: {...localData, nameAr: e.target.value}})}
-                               className="h-12 rounded-xl border-primary/5 bg-muted/10 text-right font-bold"
+                               className="h-11 rounded-xl border-primary/5 bg-muted/10 text-right font-bold text-sm"
                             />
                          </div>
-                         <div className="space-y-2 text-right">
-                            <Label className="font-black text-primary text-xs mr-1 flex items-center gap-1.5">
-                               <Languages className="w-3.5 h-3.5 text-secondary" /> Full Name (In English)
+                         <div className="space-y-1.5 text-right">
+                            <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5 uppercase tracking-wider">
+                               <Languages className="w-3 h-3 text-secondary" /> Full Name (English)
                             </Label>
                             <Input 
                                dir="ltr"
-                               placeholder="e.g. Mahmoud Mohammed Saeed Al-Hassani" 
+                               placeholder="Mahmoud Omar Ali Hassani" 
                                value={localData.nameEn}
                                onChange={(e) => setFormData({...formData, [course.id]: {...localData, nameEn: e.target.value}})}
-                               className="h-12 rounded-xl border-primary/5 bg-muted/10 text-left font-bold"
+                               className="h-11 rounded-xl border-primary/5 bg-muted/10 text-left font-bold text-sm"
                             />
                          </div>
                       </div>
 
-                      <div className="space-y-2 text-right">
-                         <Label className="font-black text-primary text-xs mr-1 flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-secondary" /> عنوان الاستلام بالتفصيل
+                      <div className="space-y-1.5 text-right">
+                         <Label className="font-black text-primary text-[10px] mr-1 flex items-center gap-1.5 uppercase tracking-wider">
+                            <MapPin className="w-3 h-3 text-secondary" /> عنوان الاستلام بالتفصيل
                          </Label>
                          <Input 
-                            placeholder="المدينة - الحي - أقرب معلم (مثال: المكلا - حي السلام - عمارة البركة)" 
+                            placeholder="المكلا - حي السلام - صيدلية بن قيدون" 
                             value={localData.address}
                             onChange={(e) => setFormData({...formData, [course.id]: {...localData, address: e.target.value}})}
-                            className="h-12 rounded-xl border-primary/5 bg-muted/10 text-right font-bold"
+                            className="h-11 rounded-xl border-primary/5 bg-muted/10 text-right font-bold text-sm"
                          />
                       </div>
 
-                      <div className="pt-4">
+                      <div className="pt-2">
                          <Button 
                            disabled={saving === course.id}
                            onClick={() => handleSave(course.id, course.title)}
                            className={cn(
-                             "w-full h-12 rounded-xl font-black gap-2 shadow-lg transition-all active:scale-95",
+                             "w-full h-11 rounded-xl font-black text-xs gap-2 shadow-lg transition-all active:scale-95",
                              claim ? "bg-primary text-white" : "bg-secondary text-white"
                            )}
                          >
-                            {saving === course.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
+                            {saving === course.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             {claim ? "تحديث البيانات المحفوظة" : "حفظ بيانات التوثيق"}
                          </Button>
                       </div>
@@ -204,12 +204,12 @@ export default function MyCertificateDataPage() {
               );
             })}
             
-            <div className="bg-amber-50 p-6 rounded-[2rem] border border-amber-100 flex items-start gap-4">
-               <Info className="w-6 h-6 text-amber-600 shrink-0 mt-1" />
+            <div className="bg-amber-50 p-5 rounded-[1.5rem] border border-amber-100 flex items-start gap-3">
+               <Info className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                <div className="text-right space-y-1">
-                  <p className="font-black text-amber-800 text-sm">تنبيه هام للطلاب</p>
-                  <p className="text-xs text-amber-700 leading-relaxed font-medium">
-                     هذه البيانات هي التي سيتم استخدامها في طباعة الشهادة الورقية والإلكترونية. الإدارة غير مسؤولة عن أي خطأ إملائي تقوم بإدخاله. يرجى مراجعة الأسماء جيداً قبل الحفظ.
+                  <p className="font-black text-amber-800 text-xs">تنبيه هام</p>
+                  <p className="text-[10px] text-amber-700 leading-relaxed font-bold opacity-90">
+                     هذه البيانات هي التي سيتم استخدامها في طباعة شهادتك. يرجى مراجعة الأسماء جيداً قبل الحفظ لتجنب أي أخطاء إملائية.
                   </p>
                </div>
             </div>
