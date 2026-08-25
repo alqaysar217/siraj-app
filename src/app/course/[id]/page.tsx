@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, use, useEffect, useMemo, useRef, useCallback } from "react";
@@ -36,7 +37,7 @@ import {
   Send,
   Languages,
   UserCheck,
-  Lock
+  Lock as LucideLock
 } from "lucide-react";
 import { useDoc, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, updateDoc, arrayUnion, where, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -158,31 +159,21 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
       return;
     }
 
-    const isCurrentCompleted = currentLesson && allCompletedIds.includes(currentLesson.id);
-    
-    if (!isAdmin && !isCurrentCompleted && !isAutomatic) {
-      toast({
-        variant: "destructive",
-        title: "تنبيه",
-        description: "يرجى اكمال مشاهدة الفيديو او حل التقويم للانتقال للدرس للتالي"
-      });
-      return;
-    }
-
     if (lessons && currentLessonIndex < lessons.length - 1) {
       selectLesson(lessons[currentLessonIndex + 1].id);
-    } else if (isAllLessonsCompleted) {
+    } else {
+      // إذا كان هذا هو الدرس الأخير وتم إكماله، نفتح شاشة النهاية
       setIsFinishing(true);
       setSelectedLessonId(null);
     }
-  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, isAllLessonsCompleted, course?.title, profile?.name, baseWhatsappUrl, currentLesson, allCompletedIds, isAdmin, toast]);
+  }, [lessons, currentLessonIndex, isEnrolled, selectLesson, course?.title, profile?.name, baseWhatsappUrl]);
 
   const handleLessonComplete = useCallback(async (score?: number) => {
     if (!db || !user || !currentLesson || !isEnrolled || !profile) return;
     const lessonId = currentLesson.id;
-    const isNew = !userProgress.completedLessons?.includes(lessonId);
+    const isNew = !allCompletedIds.includes(lessonId);
     
-    if (isNew && !localCompleted.includes(lessonId)) {
+    if (isNew) {
       setLocalCompleted(prev => [...prev, lessonId]);
     }
 
@@ -205,13 +196,18 @@ export default function CoursePage({ params }: { params: Promise<{ id: string }>
     }
     
     if (Object.keys(updates).length > 0) {
-      updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
+      await updateDoc(doc(db, "users", user.uid), updates).catch(() => {});
     }
 
-    if (currentLesson.type === "video") {
+    // إذا كان هذا هو الدرس الأخير، ننتقل فوراً لشاشة النهاية
+    const isLast = lessons && currentLessonIndex === lessons.length - 1;
+    if (isLast) {
+      setIsFinishing(true);
+      setSelectedLessonId(null);
+    } else if (currentLesson.type === "video") {
       setTimeout(() => goToNext(true), 1000);
     }
-  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, localCompleted]);
+  }, [db, user, currentLesson, isEnrolled, userProgress, id, goToNext, profile, allCompletedIds, lessons, currentLessonIndex]);
 
   const handleSubmitReview = async () => {
     if (!db || !user || !profile || !course) return;
@@ -411,13 +407,13 @@ ${certNameEn}`;
                 >
                    <ArrowRight className="w-5 h-5 ml-1" />
                    <span>{(!isEnrolled && currentLessonIndex === 0) ? "الاشتراك/تفعيل" : "الدرس التالي"}</span>
-                   {!isCurrentLessonCompleted && !isAdmin && isEnrolled && <Lock className="w-4 h-4" />}
+                   {!isCurrentLessonCompleted && !isAdmin && isEnrolled && <LucideLock className="w-4 h-4" />}
                 </Button>
                 <Button onClick={() => currentLessonIndex > 0 && selectLesson(lessons![currentLessonIndex-1].id)} disabled={currentLessonIndex === 0} variant="outline" className="h-14 flex-1 font-black text-base md:text-lg">السابق</Button>
               </div>
               <Button onClick={() => setIsCurriculumOpen(true)} variant="secondary" className="h-14 w-full font-black text-base md:text-lg gap-3 bg-secondary text-white"><ListVideo className="w-6 h-6" /> عرض المنهج</Button>
             </>
-          ) : <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center"><Lock className="w-16 h-16 text-primary opacity-40 mb-4" /><h2 className="text-2xl font-black text-primary">المحتوى قريباً</h2><p className="text-muted-foreground font-bold">يعمل فريق سراج حالياً على تجهيز المنهج.</p></div>}
+          ) : <div className="rounded-[2.5rem] aspect-video bg-card border-2 border-dashed border-primary/10 flex flex-col items-center justify-center p-8 text-center"><LucideLock className="w-16 h-16 text-primary opacity-40 mb-4" /><h2 className="text-2xl font-black text-primary">المحتوى قريباً</h2><p className="text-muted-foreground font-bold">يعمل فريق سراج حالياً على تجهيز المنهج.</p></div>}
         </div>
 
         <Tabs dir="rtl" value={activeTab} onValueChange={setActiveTab} className="bg-card rounded-[2rem] border luxury-shadow overflow-hidden">
@@ -462,7 +458,7 @@ ${certNameEn}`;
                         <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{review.userName?.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="text-right overflow-hidden flex-1">
-                        <div className="text-xs md:text-sm font-black text-primary leading-tight">
+                        <div className="text-xs md:sm font-black text-primary leading-tight">
                           {getShortName(review.userName)}
                         </div>
                         <div className="flex items-center gap-0.5 mt-1">
